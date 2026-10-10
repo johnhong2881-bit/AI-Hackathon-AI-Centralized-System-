@@ -1,152 +1,146 @@
-# TaskFlow AI — Development Guide
+# TaskFlow AI
 
+> **Rubric-Aware Autonomous Deadline Defender**
 > AI Project Manager for university group assignments.
 > Track 2 — WorkBuddy Agentic Solution Hackathon.
+
+## The Pitch
+
+**Problem:** Every semester, 4 students get thrown into a group project with a rubric PDF and a deadline. No project manager, no visibility, just chaos — nobody knows who does what until week 4, the deadline sneaks up, and rubric criteria get missed.
+
+**Solution:** TaskFlow AI. Paste your assignment → 6 AI agents run autonomously → get a full execution plan with every task assigned, every risk caught, and the deadline defended.
+
+**One Prompt → One Goal → End-to-End Execution**
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Run dev server
-npm run dev
-
-# 3. Open http://localhost:3000
+npm install      # only once
+npm run dev      # starts at http://localhost:3000
 ```
+
+## 6-Agent Pipeline
+
+| Agent | FR | Type | What It Does |
+|-------|-----|------|-------------|
+| 📋 Rubric Intelligence | FR-001 | LLM | Parses rubric text → structured criteria |
+| 🧩 Task Decomposition | FR-002 | LLM | Breaks assignment into tasks mapped to rubric |
+| 🎯 Skill Matching | FR-003 | LLM | Matches tasks to team members by skill |
+| 📊 Critical Path | FR-004 | Deterministic | CPM algorithm — topological sort + slack |
+| ⚠️ Risk Detection | FR-006 | LLM | Identifies 5 risk types (deadline, skill gap, overload, dependency, scope) |
+| 🛡️ Rescue Planner | FR-012 | Hybrid | Generates + applies rescue actions |
+
+## Track 2 Judging Criteria
+
+| Criterion | How We Address It |
+|-----------|-------------------|
+| Real Problem & User Value | Every student knows group project chaos — personal use case |
+| Agentic Workflow | 6 agents in pipeline, visible step-by-step execution |
+| Meaningful Use of WorkBuddy | LLM agents (mock→real swap ready) + CPM algorithm |
+| End-to-End Execution | 1 prompt → full plan with tasks, assignments, risks, rescue |
+| Usable & Verifiable Results | Before/After comparison with measurable metrics |
 
 ## Project Structure
 
 ```
 taskflow-ai/
 ├── src/
-│   ├── types/
-│   │   └── types.ts            # ⭐ SHARED DATA CONTRACT — single source of truth
+│   ├── types/types.ts              # ⭐ SHARED DATA CONTRACT
 │   ├── lib/
-│   │   ├── mock/               # Mock data for parallel development
-│   │   │   ├── index.ts        # Barrel exports
-│   │   │   ├── mockAssignment.ts
-│   │   │   ├── mockRubric.ts
-│   │   │   ├── mockTasks.ts     # PlanResult (11 tasks)
-│   │   │   ├── mockMembers.ts
-│   │   │   ├── mockPlanResult.ts # SkillMatch + CriticalPath
-│   │   │   └── mockRiskFlags.ts # RiskAssessment + RescuePlan + Progress + Deadline + FullPipeline
-│   │   └── utils/
-│   │       └── helpers.ts      # Formatting, sorting, deadline helpers
-│   ├── store/
-│   │   └── useTaskStore.ts     # Zustand store (preloaded with mock data)
-│   ├── components/             # UI components (skeletons included)
-│   │   ├── KanbanBoard.tsx     # FR-005
-│   │   ├── GanttChart.tsx      # FR-007
-│   │   ├── Dashboard.tsx       # FR-009
-│   │   ├── MemberCard.tsx      # FR-010
-│   │   ├── TaskDetailPanel.tsx # FR-014
-│   │   ├── CountdownTimer.tsx  # FR-008
-│   │   └── RescuePlanModal.tsx # FR-012
+│   │   ├── agents/                 # ⭐ BACKEND (DONE)
+│   │   │   ├── prompts.ts          # 5 LLM prompt templates
+│   │   │   ├── orchestrator.ts     # 6-agent pipeline runner
+│   │   │   ├── mock-llm.ts         # Swappable mock→real LLM layer
+│   │   │   ├── critical-path.ts    # CPM algorithm (deterministic)
+│   │   │   ├── types.ts           # Agent type definitions
+│   │   │   └── index.ts           # Barrel exports
+│   │   ├── mock/                   # Mock data + 2 demo scenarios
+│   │   └── utils/helpers.ts        # Formatting, sorting, deadline
+│   ├── store/useTaskStore.ts       # Zustand store
+│   ├── components/                  # UI components
+│   │   ├── PipelineRunner.tsx     # ⭐ Agentic workflow visualization
+│   │   ├── BeforeAfterComparison.tsx # ⭐ Killer demo (Before/After)
+│   │   ├── AssignmentInputForm.tsx # "One Prompt" entry point
+│   │   ├── KanbanBoard.tsx         # TODO: @dnd-kit integration
+│   │   ├── GanttChart.tsx          # TODO: Polish bars + axis
+│   │   ├── Dashboard.tsx           # Available (used in other views)
+│   │   ├── MemberCard.tsx          # Done
+│   │   ├── CountdownTimer.tsx      # Done
+│   │   ├── TaskDetailPanel.tsx     # Skeleton
+│   │   └── RescuePlanModal.tsx     # Skeleton
 │   └── app/
-│       ├── layout.tsx          # Root layout
-│       ├── page.tsx            # Main page (renders dashboard + components)
-│       └── globals.css         # Tailwind + CSS variables
+│       ├── page.tsx                # ⭐ Narrative-driven landing page
+│       ├── layout.tsx
+│       └── api/pipeline/           # 7 API routes (DONE)
+│           ├── run/route.ts        # Full pipeline
+│           ├── rubric/route.ts     # FR-001
+│           ├── tasks/route.ts      # FR-002
+│           ├── skills/route.ts     # FR-003
+│           ├── critical-path/route.ts # FR-004
+│           ├── risk/route.ts       # FR-006
+│           └── rescue/route.ts     # FR-012
 ├── package.json
-├── tsconfig.json               # Path alias: @/ → src/
+├── tsconfig.json
 ├── tailwind.config.ts
-├── postcss.config.js
-├── next.config.js
-└── .gitignore
+└── next.config.js
 ```
 
-## ⭐ The Data Contract (types.ts)
+## Status
 
-**THIS IS THE MOST IMPORTANT FILE.** Both people must import all types from `@/types/types`.
+### Backend (DONE ✅)
+- [x] Shared data contract (`types.ts`)
+- [x] 5 LLM prompt templates (`prompts.ts`)
+- [x] 6-agent pipeline orchestrator with progress callbacks
+- [x] Mock LLM layer (swappable to real `cloud.llm`)
+- [x] CPM algorithm (Kahn's topological sort + forward/backward pass)
+- [x] 7 API routes (all functional, tested end-to-end)
+- [x] 2 demo scenarios (CS3041 HCI + CS3215 Software Engineering)
+- [x] Narrative-driven page restructure (Problem → Solution → Demo → Proof)
 
-If you need a new type:
-1. Add it to `src/types/types.ts`
-2. Commit and push immediately
-3. The other person pulls and uses it
+### Frontend (Teammate — TODO)
+- [ ] KanbanBoard: integrate `@dnd-kit` for drag-and-drop task cards
+- [ ] GanttChart: polish timeline bars + axis labels
+- [ ] TaskDetailPanel: wire up to show task details on click
+- [ ] RescuePlanModal: wire up to show rescue actions in a modal
+- [ ] Visual polish: ensure consistent spacing, transitions, responsive layout
+- [ ] Pitch polish: make the hero section pop with better typography/animation
 
-**Never duplicate types in component files.**
+## Mock → Real LLM Swap
 
-## Mock Data → Real API Switch
-
-All components read from the Zustand store, which is preloaded with mock data.
-To switch to real backend APIs, replace the mock data in the store with API calls:
+The entire backend uses a swappable mock LLM layer (`mock-llm.ts`).
+When WorkBuddy cloud-service is activated, replace the mock functions
+with real `cloud.llm.chat.completions.create()` calls — the agent
+function signatures stay the same.
 
 ```typescript
-// Before (mock):
-const rubric = useTaskStore((s) => s.rubric); // returns mockRubric
-
-// After (real API):
-const setRubric = useTaskStore((s) => s.setRubric);
-useEffect(() => {
-  fetch('/api/rubric-intelligence', { method: 'POST', body: ... })
-    .then(r => r.json())
-    .then(setRubric);
-}, []);
+// In mock-llm.ts, replace:
+const { data } = mockRubricResult(assignment);
+// With:
+const response = await cloud.llm.chat.completions.create({
+  model: 'gpt-4',
+  messages: [systemMsg, userMsg],
+  response_format: { type: 'json_object' },
+  stream: true,
+});
 ```
 
-No component changes needed — just swap the data source in the store.
-
-## Division of Work
-
-### Person A — Frontend / UI (≈4.5 hours, 8 items)
-
-| FR | Component | Status |
-|----|-----------|--------|
-| FR-005 | KanbanBoard.tsx | Skeleton done, add @dnd-kit |
-| FR-007 | GanttChart.tsx | Skeleton done, polish bars + axis |
-| FR-009 | Dashboard.tsx | Skeleton done, add Recharts |
-| FR-010 | MemberCard.tsx | Skeleton done, polish |
-| FR-014 | TaskDetailPanel.tsx | Skeleton done, polish |
-| FR-008 | CountdownTimer.tsx | Skeleton done, verify real-time |
-| FR-012 | RescuePlanModal.tsx | Skeleton done, polish |
-| FR-009b | InputForm (new) | Not started — assignment input form |
-
-### Person B — AI / Backend (≈5 hours, 8 items)
-
-| FR | Module | Status |
-|----|--------|--------|
-| FR-001 | Rubric Intelligence (LLM) | Mock ready, build API route |
-| FR-002 | Task Decomposition (LLM) | Mock ready, build API route |
-| FR-003 | Skill Matching (LLM) | Mock ready, build API route |
-| FR-004 | Critical Path Algorithm | Mock ready, build real algo |
-| FR-006 | Risk Detection (LLM) | Mock ready, build API route |
-| FR-011 | Priority Sorting | Helper done in helpers.ts |
-| FR-013 | Progress Tracking | Mock ready, build real tracking |
-| FR-012 | Rescue Plan (Hybrid) | Mock ready, build API route |
+No other files need to change.
 
 ## Git Workflow
 
 ```bash
-# Initial setup (after creating repo on GitHub):
-git init
-git remote add origin https://github.com/your-username/taskflow-ai.git
-git add .
-git commit -m "Initial project structure with types, mock data, and component skeletons"
-git branch -M main
-git push -u origin main
+# Always pull before starting:
+git pull origin main
 
-# Daily workflow:
-git pull origin main           # Always pull before starting
-# ... make your changes ...
+# Make changes, then:
 git add .
-git commit -m "feat: implement Kanban DnD (FR-005)"
+git commit -m "feat: description"
 git push origin main
 
-# If conflicts:
-git pull origin main --rebase
-# Resolve conflicts, then:
-git rebase --continue
-git push origin main
+# Never use --force. Use normal pull/merge/push flow.
 ```
 
 ## Tech Stack
-
-- **Next.js 14** (App Router) — React framework
-- **TypeScript** — type safety, shared contract
-- **Tailwind CSS** — utility-first styling
-- **shadcn/ui** — accessible component primitives (install as needed)
-- **Zustand** — lightweight state management
-- **Recharts** — charts (Gantt, progress rings)
-- **@dnd-kit** — drag-and-drop for Kanban board
-- **WorkBuddy cloud-service** — backend (DB, auth, LLM calls)
-- **WorkBuddy Sites** — deployment
+- Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- Zustand (state management)
+- WorkBuddy Cloud SDK (`@tencent-ai/workbuddy-cloud-sdk@dev`) — ready to activate
