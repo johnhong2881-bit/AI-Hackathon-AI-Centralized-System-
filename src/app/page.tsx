@@ -1,40 +1,41 @@
 'use client';
 
-import { useTaskStore } from '@/store/useTaskStore';
 import { mockFullPipeline } from '@/lib/mock';
+import PipelineRunner from '@/components/PipelineRunner';
+import BeforeAfterComparison from '@/components/BeforeAfterComparison';
+import Dashboard from '@/components/Dashboard';
+import MemberCard from '@/components/MemberCard';
+import CountdownTimer from '@/components/CountdownTimer';
 
 /**
- * Main page — renders the TaskFlow AI dashboard.
- * Currently loads mock data and shows a summary.
- *
- * Person A (Frontend) will build out the actual components here:
- * - Dashboard (FR-009)
- * - Kanban Board (FR-005)
- * - Gantt Chart (FR-007)
- * - Member Cards (FR-010)
- * - Task Detail Panel (FR-014)
- * - Countdown Timer (FR-008)
- * - Rescue Plan Modal (FR-012)
+ * TaskFlow AI — Main Page
+ * 
+ * Layout designed for hackathon judging:
+ * 1. Hero + Summary → shows Real Problem & User Value
+ * 2. Pipeline Runner → shows Agentic Workflow (6 agents, step-by-step)
+ * 3. Before/After → shows Usable & Verifiable Results
+ * 4. Dashboard → shows project overview
+ * 5. Team Members → shows team
  */
 export default function Home() {
-  const { assignment, plan, members, progress, deadline } = useTaskStore();
-
-  // Load mock data for development
   const data = mockFullPipeline;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
-      {/* Header */}
+      {/* Hero */}
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <span className="text-3xl">🤖</span>
           <h1 className="text-2xl font-bold tracking-tight">TaskFlow AI</h1>
           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-            Demo Mode
+            Rubric-Aware Autonomous Deadline Defender
           </span>
         </div>
-        <p className="text-slate-500">
+        <p className="text-slate-600">
           {data.assignment.title}
+        </p>
+        <p className="mt-1 text-sm text-slate-400">
+          One Prompt → One Goal → End-to-End Execution
         </p>
       </header>
 
@@ -66,54 +67,43 @@ export default function Home() {
         />
       </div>
 
-      {/* Placeholder for Kanban Board */}
+      {/* Agentic Pipeline — THE KEY SECTION FOR JUDGING */}
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">Kanban Board</h2>
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400">
-          📋 Kanban Board (FR-005) — Person A will build this here.
-          <br />
-          <span className="text-xs">
-            Data ready: {data.plan.tasks.length} tasks in mockTasks.ts
-          </span>
-        </div>
+        <PipelineRunner />
       </section>
 
-      {/* Placeholder for Gantt Chart */}
+      {/* Before/After Rescue — THE KILLER DEMO */}
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">Timeline (Gantt)</h2>
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400">
-          📅 Gantt Chart (FR-007) — Person A will build this here.
-          <br />
-          <span className="text-xs">
-            Data ready: critical path with {data.criticalPath.nodes.length} nodes
-          </span>
+        <BeforeAfterComparison />
+      </section>
+
+      {/* Dashboard */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-lg font-semibold">📊 Dashboard</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Dashboard />
+          <CountdownTimer />
         </div>
       </section>
 
       {/* Team Members */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Team Members</h2>
+      <section className="mb-8">
+        <h2 className="mb-3 text-lg font-semibold">👥 Team Members</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {data.members.map((m) => (
-            <div key={m.id} className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">{m.avatar}</span>
-                <div>
-                  <p className="font-medium text-sm">{m.name}</p>
-                  <p className="text-xs text-slate-500">{m.role}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {m.skills.map((s) => (
-                  <span key={s} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <MemberCard key={m.id} member={m} />
           ))}
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="mt-12 border-t border-slate-200 pt-4 text-center">
+        <p className="text-xs text-slate-400">
+          TaskFlow AI — Track 2: WorkBuddy Agentic Solution
+          <br />
+          Powered by 6 AI Agents: Rubric → Task → Skill → Critical Path → Risk → Rescue
+        </p>
+      </footer>
     </main>
   );
 }
