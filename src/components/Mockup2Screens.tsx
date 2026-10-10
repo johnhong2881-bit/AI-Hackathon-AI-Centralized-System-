@@ -894,8 +894,8 @@ function OverviewScreen() {
   const predictedPct = isAtRisk ? deadlinePct + (3 / totalDays) * 100 : deadlinePct - (2 / totalDays) * 100;
   const clampedDeadlinePct = Math.min(deadlinePct, 95);
   const clampedPredictedPct = Math.min(predictedPct, 98);
-  // When markers are visually too close (clamped), stack Predicted below the line so labels don't collide
-  const stackPredictedBelow = isAtRisk && (clampedPredictedPct - clampedDeadlinePct) < 10;
+  // When markers are visually too close (clamped), shift Predicted label horizontally so the two labels sit on the same row below the line without overlapping
+  const shiftPredicted = isAtRisk && (clampedPredictedPct - clampedDeadlinePct) < 10;
 
   return (
     <section className="scr page wide on" id="s-overview">
@@ -912,8 +912,8 @@ function OverviewScreen() {
             <div className={isAtRisk ? 'lt' : 'ok'} style={{ left: 0, width: `${Math.min(todayPct, 100)}%` }} />
             {isAtRisk && <div className="lt" style={{ left: `${todayPct}%`, width: `${Math.min(deadlinePct - todayPct + (3 / totalDays) * 100, 100 - todayPct)}%` }} />}
             <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Sun 11 Oct</div>
-            <div className="mk" style={{ left: `${Math.min(deadlinePct, 95)}%`, top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />{project.due}</div>
-            <div className={`mk ${stackPredictedBelow ? 'below' : ''}`} style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
+            <div className="mk below" style={{ left: `${clampedDeadlinePct}%`, color: 'var(--blue6)' }}><b>Deadline</b><br />{project.due}</div>
+            <div className={`mk below ${shiftPredicted ? 'shift' : ''}`} style={{ left: `${clampedPredictedPct}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
             <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }} />
           </div>
           {isAtRisk ? (
