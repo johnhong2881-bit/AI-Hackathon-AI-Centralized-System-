@@ -46,6 +46,9 @@ export interface MemberTaskAssignment {
   role: string;                     // e.g. "Primary", "Support", "Reviewer"
   invitationStatus: InvitationStatus;
   rejectReason?: string | null;     // reason if rejected
+  // Scheduler fields — remaining hours and per-assignment status
+  remainingHours?: number;          // hours left to do (defaults to estimatedHours for new tasks)
+  assignmentStatus?: 'todo' | 'in_progress' | 'done'; // per-member work status (defaults to 'todo')
 }
 
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
@@ -163,6 +166,9 @@ export interface Task {
   // MVP: multi-member assignment with personalized time estimation
   memberAssignments?: MemberTaskAssignment[];  // multiple members, each with different hours
   confirmed: boolean;              // Design Decision #3/#5: Leader confirms task; unconfirmed tasks can be auto-modified by Rescue
+  // Scheduler fields — for resource-constrained scheduling
+  locked?: boolean;                // locked tasks require leader approval to change (default false)
+  mandatory?: boolean;             // mandatory tasks cannot be dropped by rescue (derived from rubric)
   // MVP: accept/reject flow
   invitationStatus?: InvitationStatus;        // pending → accepted/rejected
   rejectReason?: string | null;                // reason if rejected
@@ -244,6 +250,35 @@ export interface SkillMatchResult {
 // ===== FR-004: Critical Path Algorithm (Deterministic) =====
 
 /**
+ * Risk status computed by the scheduler. Never set by LLM.
+ */
+export type RiskStatus = 'Complete' | 'On Track' | 'At Risk' | 'Overdue';
+
+/**
+ * Per-task schedule information from the resource-constrained scheduler.
+ * Day 0 = project start (today). Days are calendar offsets, not work hours.
+ */
+export interface ScheduleTaskNode {
+  taskId: string;
+  startDay: number;                  // day offset from project start (0-based)
+  endDay: number;                    // day offset when task finishes
+  isDone: boolean;                   // task is fully completed
+  isBlocked: boolean;                // task has no valid assignments or circular dep
+  isCycle: boolean;                  // task is part of a dependency cycle
+}
+
+/**
+ * Per-member load vs available capacity from the scheduler.
+ */
+export interface MemberLoad {
+  memberId: string;
+  memberName: string;
+  remainingWorkHours: number;       // sum of remaining hours across all assignments
+  availableHours: number;           // total available hours from now to deadline
+  isOverloaded: boolean;            // remaining > available
+}
+
+/**
  * Node in the critical path calculation.
  * Used internally by FR-004, but exposed for Gantt chart rendering.
  */
@@ -265,6 +300,15 @@ export interface CriticalPathResult {
   nodes: CriticalPathNode[];
   criticalPath: string[];         // ordered task IDs
   projectDuration: number;        // total hours
+  // === Resource-constrained scheduler output ===
+  schedule: ScheduleTaskNode[];       // per-task start/end day
+  predictedCompletionDay: number;     // day offset of latest ending task
+  deadlineDay: number;                // day offset from start to deadline
+  delayDays: number;                  // max(0, predictedCompletionDay - deadlineDay)
+  riskStatus: RiskStatus;             // Complete / On Track / At Risk / Overdue
+  memberLoads: MemberLoad[];          // per-member load vs capacity
+  delayedTaskIds: string[];           // tasks ending after deadline
+  hasCircularDependency: boolean;     // true if any cycle detected
 }
 
 // ===== FR-006: Risk Detection (LLM) =====

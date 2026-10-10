@@ -1,0 +1,55 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Meaningful WorkBuddy Integration</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
+    <Box style={{ width: '60%', flexDirection: 'column', gap: 14, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start', padding: '16px 20px', background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #3B82F6' }}>
+        <FAIcon name='code' style={{ fill: '#3B82F6', width: 32, height: 32 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Primary Development Platform</Text>
+          <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.4 }}>12 git commits, 23 source files - all code generated through WorkBuddy AI sessions</Text>
+        </Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start', padding: '16px 20px', background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #06B6D4' }}>
+        <FAIcon name='puzzle-piece' style={{ fill: '#06B6D4', width: 32, height: 32 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>WorkBuddy Skills System</Text>
+          <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.4 }}>cloud-service, tencent-pptx, library skills actively used in development</Text>
+        </Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start', padding: '16px 20px', background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #3B82F6' }}>
+        <FAIcon name='plug' style={{ fill: '#3B82F6', width: 32, height: 32 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>WorkBuddy MCP Tools</Text>
+          <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.4 }}>workbuddy_cloud_service (activation), workbuddy_sites_deploy (publishing)</Text>
+        </Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start', padding: '16px 20px', background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #06B6D4' }}>
+        <FAIcon name='cloud' style={{ fill: '#06B6D4', width: 32, height: 32 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>WorkBuddy Cloud SDK</Text>
+          <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.4 }}>@tencent-ai/workbuddy-cloud-sdk integrated in codebase for LLM + database</Text>
+        </Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start', padding: '16px 20px', background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #3B82F6' }}>
+        <FAIcon name='database' style={{ fill: '#3B82F6', width: 32, height: 32 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>WorkBuddy Memory System</Text>
+          <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.4 }}>Structured work logs in .workbuddy-ai/memory/ + 5 .genie project files</Text>
+        </Box>
+      </Box>
+    </Box>
+    <Box style={{ width: '40%', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 24, padding: 32, background: 'linear-gradient(160deg, #0F172A 0%, #1E3A5F 100%)', borderRadius: 16 }}>
+      <FAIcon name='rocket' style={{ fill: '#06B6D4', width: 64, height: 64 }} />
+      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', lineHeight: 1.4 }}>Not just chat.</Text>
+      <Text style={{ fontSize: 18, color: '#94A3B8', textAlign: 'center', lineHeight: 1.5 }}>WorkBuddy AI is the <span style={{ fontWeight: 'bold', color: '#06B6D4' }}>primary execution platform</span> for this entire project.</Text>
+      <Box style={{ width: 60, height: 2, background: '#06B6D4' }} />
+      <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center' }}>Track 2 Criteria: Meaningful Use of WorkBuddy</Text>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>08 / 10</Text>
+  </Box>
+</Slide>

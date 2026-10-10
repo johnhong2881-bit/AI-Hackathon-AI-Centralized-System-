@@ -11,7 +11,12 @@ import type { Task, CriticalPathResult, CriticalPathNode } from '../../types/typ
 
 export function calculateCriticalPath(tasks: Task[]): CriticalPathResult {
   if (tasks.length === 0) {
-    return { nodes: [], criticalPath: [], projectDuration: 0 };
+    return {
+      nodes: [], criticalPath: [], projectDuration: 0,
+      schedule: [], predictedCompletionDay: 0, deadlineDay: 0,
+      delayDays: 0, riskStatus: 'Complete', memberLoads: [],
+      delayedTaskIds: [], hasCircularDependency: false,
+    };
   }
 
   // Build adjacency: for each task, what tasks depend on it?
@@ -111,5 +116,9 @@ export function calculateCriticalPath(tasks: Task[]): CriticalPathResult {
     nodes,
     criticalPath,
     projectDuration,
+    // Default scheduler fields — use calculateCriticalPathWithSchedule() for real scheduling
+    schedule: [], predictedCompletionDay: 0, deadlineDay: 0,
+    delayDays: 0, riskStatus: 'Complete', memberLoads: [],
+    delayedTaskIds: [], hasCircularDependency: false,
   };
 }

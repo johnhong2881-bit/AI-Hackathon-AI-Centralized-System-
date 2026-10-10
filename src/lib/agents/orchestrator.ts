@@ -19,11 +19,11 @@
 //   - Handles errors gracefully
 // ============================================================
 
-import type { Assignment, Member } from '../../types/types';
+import type { Assignment, Member, RiskLevel } from '../../types/types';
 import type { PipelineState, PipelineStep, StepStatus } from './types';
 import { AGENTS } from './types';
 import { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent } from './mock-llm';
-import { calculateCriticalPath } from '../logic/critical-path';
+import { calculateCriticalPathWithSchedule } from '../logic/scheduler';
 import { validatePlan } from '../logic/plan-validator';
 import { assignMultiMember } from '../logic/multi-member-assigner';
 import { runRescueWorkflow } from '../logic/rescue-engine';
@@ -147,7 +147,7 @@ export async function runPipeline(
 
   // === Post-Step-2: Plan Validation (deterministic) ===
   {
-    const validation = validatePlan(state.plan!, state.rubric!, deadline);
+    const validation = validatePlan(state.plan!, state.rubric!, deadline, members);
     state.plan = { ...state.plan!, validation };
     updateStep(1, {
       logs: [
@@ -204,25 +204,33 @@ export async function runPipeline(
     onProgress({ ...state });
   }
 
-  // === Step 4: Critical Path Agent (Deterministic) ===
+  // === Step 4: Critical Path Agent (Deterministic — Resource-Constrained Scheduler) ===
   state.currentStepIndex = 3;
   updateStep(3, {
     status: 'running',
     startedAt: new Date().toISOString(),
-    logs: ['📊 Running CPM algorithm...', '🔗 Calculating early/late start/finish...'],
+    logs: [
+      '📊 Running resource-constrained scheduler...',
+      '🗓️ Computing per-day capacity from member availability...',
+      '🔗 Respecting dependencies and priority ordering...',
+    ],
   });
 
   try {
-    const data = calculateCriticalPath(state.plan!.tasks);
+    const data = calculateCriticalPathWithSchedule(state.plan!.tasks, members, state.deadline);
     updateStep(3, {
       status: 'completed',
       completedAt: new Date().toISOString(),
-      durationMs: 10,
-      result: `Critical path: ${data.criticalPath.length} tasks, ${data.projectDuration}h total`,
+      durationMs: 15,
+      result: `Predicted: Day ${data.predictedCompletionDay} | Deadline: Day ${data.deadlineDay} | Status: ${data.riskStatus} (${data.delayDays}d delay)`,
       logs: [
         ...state.steps[3].logs,
-        `✅ Critical path: ${data.criticalPath.length} tasks (${data.projectDuration}h)`,
-        `⚡ Instant (deterministic algorithm)`,
+        `✅ Predicted completion: Day ${data.predictedCompletionDay}`,
+        `📅 Deadline: Day ${data.deadlineDay} (${data.delayDays > 0 ? `${data.delayDays} days late` : 'on track'})`,
+        `⚠️ Risk status: ${data.riskStatus}`,
+        `🔗 Critical path: ${data.criticalPath.length} tasks`,
+        ...data.memberLoads.map(m => `   • ${m.memberName}: ${m.remainingWorkHours}h work / ${m.availableHours}h available${m.isOverloaded ? ' ⚠️ OVERLOADED' : ''}`),
+        `⚡ Instant (deterministic scheduler)`,
       ],
     });
     setState({ criticalPath: data });
@@ -233,26 +241,48 @@ export async function runPipeline(
     return state;
   }
 
-  // === Step 5: Risk Agent (LLM) ===
+  // === Step 5: Risk Agent (LLM — only writes explanation, status is computed) ===
   state.currentStepIndex = 4;
+  const schedResult = state.criticalPath!;
   updateStep(4, {
     status: 'running',
     startedAt: new Date().toISOString(),
-    logs: ['⚠️ Scanning for deadline risks...', '🔍 Checking skill gaps and overload...'],
+    logs: [
+      `⚠️ Scheduler computed: ${schedResult.riskStatus} (${schedResult.delayDays}d delay)`,
+      `📝 LLM writing plain-language risk explanation...`,
+    ],
   });
 
   try {
     // Initialize progress if not set
     const progress = state.progress || mockProgress;
-    const { result, data } = await callRiskAgent(state.plan!.tasks, members, state.deadline, progress);
+    // Build scheduler facts from the computed critical path result
+    const schedulerFacts = {
+      riskStatus: schedResult.riskStatus,
+      predictedCompletionDay: schedResult.predictedCompletionDay,
+      deadlineDay: schedResult.deadlineDay,
+      delayDays: schedResult.delayDays,
+      delayedTaskIds: schedResult.delayedTaskIds,
+      criticalPath: schedResult.criticalPath,
+      memberLoads: schedResult.memberLoads,
+    };
+    const { result, data } = await callRiskAgent(
+      state.plan!.tasks, members, state.deadline, progress, schedulerFacts
+    );
+    // Override LLM's overallRiskLevel with the scheduler-computed status — LLM never decides status
+    const riskStatusMap: Record<string, RiskLevel> = {
+      'Complete': 'none', 'On Track': 'low', 'At Risk': 'high', 'Overdue': 'high',
+    };
+    data.overallRiskLevel = riskStatusMap[schedResult.riskStatus] ?? 'low';
     updateStep(4, {
       status: 'completed',
       completedAt: new Date().toISOString(),
       durationMs: result.durationMs,
-      result: `${data.flags.length} risk flags, overall: ${data.overallRiskLevel}`,
+      result: `${schedResult.riskStatus} (computed) | ${data.flags.length} flags (LLM explained)`,
       logs: [
         ...state.steps[4].logs,
-        `✅ Detected ${data.flags.length} risks (overall: ${data.overallRiskLevel})`,
+        `✅ Risk status: ${schedResult.riskStatus} (computed by scheduler, not LLM)`,
+        `📊 overallRiskLevel overridden to: ${data.overallRiskLevel}`,
         `⏱️ Completed in ${(result.durationMs / 1000).toFixed(1)}s`,
       ],
     });
@@ -264,19 +294,17 @@ export async function runPipeline(
     return state;
   }
 
-  // === Step 6: Rescue Agent (Hybrid — deterministic 6-step workflow) ===
+  // === Step 6: Rescue Agent (Hybrid — scheduler-validated 3-round search) ===
   state.currentStepIndex = 5;
   updateStep(5, {
     status: 'running',
     startedAt: new Date().toISOString(),
     logs: [
-      '🛡️ Starting 6-step rescue workflow...',
-      '  1️⃣ Detect: extracting risk flags...',
-      '  2️⃣ Analyze: identifying critical path...',
-      '  3️⃣ Optimize: generating rescue actions...',
-      '  4️⃣ Validate: checking dependencies...',
-      '  5️⃣ Apply: determining permissions...',
-      '  6️⃣ Compare: before/after analysis...',
+      '🛡️ Starting scheduler-validated rescue search...',
+      '  📊 Round 1: Move unstarted work (no approval needed)',
+      '  🔄 Round 2: Rebalance accepted work + relax dependencies',
+      '  ✂️ Round 3: Reduce low-priority scope',
+      '  ✅ Each round re-runs scheduler to validate...',
     ],
   });
 
@@ -286,22 +314,24 @@ export async function runPipeline(
       tasks: state.plan!.tasks,
       members,
       deadline: state.deadline,
+      // leaderReason will be passed from UI when leader selects a reason
     });
     const cmp = data.comparisonResult!;
+    const wf = data.workflow;
     updateStep(5, {
       status: 'completed',
       completedAt: new Date().toISOString(),
       durationMs: 15,
-      result: `${data.actions.length} rescue actions, confidence ${(data.confidence * 100).toFixed(0)}%`,
+      result: `${data.actions.length} rescue actions (Round ${wf?.optimizationRound ?? '?'}), confidence ${(data.confidence * 100).toFixed(0)}%`,
       logs: [
         ...state.steps[5].logs,
-        `✅ Generated ${data.actions.length} rescue actions`,
+        `✅ Best result: Round ${wf?.optimizationRound ?? 1} — ${wf?.stepHistory[2]?.result ?? 'completed'}`,
         `📊 Comparison: ${cmp.beforeHours}h → ${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`,
         `⚠️ Risk: ${cmp.beforeRiskLevel} → ${cmp.afterRiskLevel}, ${cmp.beforeTasksAtRisk} → ${cmp.afterTasksAtRisk} tasks at risk`,
         `📅 Deadline buffer: ${cmp.beforeDeadlineBuffer}h → ${cmp.afterDeadlineBuffer}h`,
         `🔐 Approval: ${data.requiresLeaderApproval ? 'Leader approval required' : 'Auto-applied'}`,
         `📈 ${data.projectedRecovery}`,
-        `⚡ Instant (deterministic rescue engine)`,
+        `⚡ Instant (deterministic scheduler-validated rescue)`,
       ],
     });
     setState({ rescuePlan: data });

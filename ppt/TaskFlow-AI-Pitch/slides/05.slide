@@ -1,0 +1,67 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Six Agents, One Pipeline</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'row', gap: 0 }}>
+    <Box style={{ width: '30%', padding: '24px 20px', background: 'linear-gradient(160deg, #3B82F6 0%, #06B6D4 100%)', borderRadius: 16, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+      <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#FFFFFF' }}>6</Text>
+      <Text style={{ fontSize: 20, fontWeight: '600', color: '#FFFFFF', opacity: 0.9 }}>AGENTS</Text>
+      <Box style={{ width: 40, height: 2, background: '#FFFFFF', opacity: 0.3 }} />
+      <Text style={{ fontSize: 14, color: '#FFFFFF', opacity: 0.8, textAlign: 'center', lineHeight: 1.5 }}>Specialized roles from rubric parsing to deadline rescue</Text>
+    </Box>
+    <Box style={{ flex: 1, flexDirection: 'column', gap: 8, paddingLeft: 24 }}>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#F8FAFC', borderRadius: 10 }}>
+        <FAIcon name='file-text' style={{ fill: '#3B82F6', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Rubric Agent</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>Parse rubric into structured criteria with weights and levels</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>LLM</Text></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#F8FAFC', borderRadius: 10 }}>
+        <FAIcon name='tasks' style={{ fill: '#3B82F6', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Task Agent</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>Decompose criteria into actionable tasks with rubric coverage</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>LLM</Text></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#F8FAFC', borderRadius: 10 }}>
+        <FAIcon name='users-cog' style={{ fill: '#3B82F6', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Skill Agent</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>Match tasks to team member skills and availability</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>LLM</Text></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#F0FDF4', borderRadius: 10 }}>
+        <FAIcon name='project-diagram' style={{ fill: '#10B981', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Critical Path</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>CPM algorithm for deadline timeline and bottleneck detection</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#F0FDF4', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#10B981' }}>Det.</Text></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#F8FAFC', borderRadius: 10 }}>
+        <FAIcon name='exclamation-triangle' style={{ fill: '#3B82F6', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Risk Agent</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>Identify 7 risk types with impact scoring and mitigation</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>LLM</Text></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: '12px 16px', background: '#FEF3C7', borderRadius: 10 }}>
+        <FAIcon name='shield-alt' style={{ fill: '#F59E0B', width: 28, height: 28 }} />
+        <Box style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Rescue Agent</Text>
+          <Text style={{ fontSize: 14, color: '#64748B' }}>Deterministic rescue workflow + before/after comparison</Text>
+        </Box>
+        <Box style={{ padding: '4px 12px', background: '#FEF3C7', borderRadius: 8 }}><Text style={{ fontSize: 12, fontWeight: '600', color: '#F59E0B' }}>Hybrid</Text></Box>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>05 / 10</Text>
+  </Box>
+</Slide>

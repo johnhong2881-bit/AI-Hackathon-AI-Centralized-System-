@@ -1,0 +1,39 @@
+<Slide style={{ width: '1280px', height: '720px', padding: 0, background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
+  <svg width={1280} height={720} viewBox="0 0 1280 720" style={{ position: 'absolute', top: 0, left: 0 }}>
+    <defs>
+      <linearGradient id="endBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0F172A" />
+        <stop offset="50%" stopColor="#1E3A5F" />
+        <stop offset="100%" stopColor="#0F172A" />
+      </linearGradient>
+    </defs>
+    <rect width="1280" height="720" fill="url(#endBgGrad)" />
+    <circle cx="200" cy="200" r="150" fill="#3B82F6" opacity="0.06" />
+    <circle cx="1080" cy="520" r="200" fill="#06B6D4" opacity="0.05" />
+    <circle cx="640" cy="360" r="80" fill="#06B6D4" opacity="0.08" />
+    <line x1="0" y1="360" x2="1280" y2="360" stroke="#3B82F6" strokeWidth="1" opacity="0.1" />
+  </svg>
+  <Box style={{ position: 'relative', zIndex: 1, height: '720px', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 32 }}>
+    <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', lineHeight: 1.2 }}>
+      One Prompt. One Goal.<br />
+      <span style={{ backgroundImage: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)', backgroundClip: 'text', color: 'transparent' }}>Zero Missed Deadlines.</span>
+    </Text>
+    <Box style={{ width: 80, height: 3, background: 'linear-gradient(90deg, #3B82F6, #06B6D4)', borderRadius: 2 }} />
+    <Text style={{ fontSize: 24, color: '#94A3B8', textAlign: 'center' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 18, color: '#64748B', textAlign: 'center' }}>Track 2: WorkBuddy Agentic Solution</Text>
+    <Box style={{ marginTop: 24, flexDirection: 'row', gap: 40 }}>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Box style={{ width: 8, height: 8, borderRadius: 4, background: '#3B82F6' }} />
+        <Text style={{ fontSize: 16, color: '#94A3B8' }}>6 Agents</Text>
+      </Box>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Box style={{ width: 8, height: 8, borderRadius: 4, background: '#06B6D4' }} />
+        <Text style={{ fontSize: 16, color: '#94A3B8' }}>14 Features</Text>
+      </Box>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Box style={{ width: 8, height: 8, borderRadius: 4, background: '#10B981' }} />
+        <Text style={{ fontSize: 16, color: '#94A3B8' }}>0 Missed Deadlines</Text>
+      </Box>
+    </Box>
+  </Box>
+</Slide>

@@ -1,0 +1,35 @@
+=== boot pid=43344 ts=2026-10-10 15:59:47.686 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js create TaskFlow-AI-Pitch.pptx ===
+[2026-10-10 15:59:47.683] [INFO ] [pid=43344] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+=== boot pid=43820 ts=2026-10-10 16:01:17.736 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/01.slide ===
+[2026-10-10 16:01:17.735] [INFO ] [pid=43820] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:01:17.833] [INFO ] [pid=43820] [slide-version] fileId=sid_mv23 version=0 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=19408 ts=2026-10-10 16:02:06.950 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/02.slide ===
+[2026-10-10 16:02:06.949] [INFO ] [pid=19408] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:02:07.034] [INFO ] [pid=19408] [slide-version] fileId=sid_mv23 version=1 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=19536 ts=2026-10-10 16:04:18.459 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/03.slide ===
+[2026-10-10 16:04:18.457] [INFO ] [pid=19536] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:04:18.556] [INFO ] [pid=19536] [slide-version] fileId=sid_mv23 version=2 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=12480 ts=2026-10-10 16:05:32.864 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/04.slide ===
+[2026-10-10 16:05:32.862] [INFO ] [pid=12480] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:05:32.943] [INFO ] [pid=12480] [slide-version] fileId=sid_mv23 version=3 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=36616 ts=2026-10-10 16:08:12.503 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/05.slide ===
+[2026-10-10 16:08:12.501] [INFO ] [pid=36616] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:08:12.600] [INFO ] [pid=36616] [slide-version] fileId=sid_mv23 version=4 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=15044 ts=2026-10-10 16:08:26.213 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/06.slide ===
+[2026-10-10 16:08:26.211] [INFO ] [pid=15044] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:08:26.303] [INFO ] [pid=15044] [slide-version] fileId=sid_mv23 version=5 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=23996 ts=2026-10-10 16:08:39.736 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/07.slide ===
+[2026-10-10 16:08:39.734] [INFO ] [pid=23996] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:08:39.829] [INFO ] [pid=23996] [slide-version] fileId=sid_mv23 version=6 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=41692 ts=2026-10-10 16:08:53.659 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/08.slide ===
+[2026-10-10 16:08:53.657] [INFO ] [pid=41692] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:08:53.753] [INFO ] [pid=41692] [slide-version] fileId=sid_mv23 version=7 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=16780 ts=2026-10-10 16:09:07.292 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/09.slide ===
+[2026-10-10 16:09:07.291] [INFO ] [pid=16780] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:09:07.383] [INFO ] [pid=16780] [slide-version] fileId=sid_mv23 version=8 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=40264 ts=2026-10-10 16:09:20.129 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/10.slide ===
+[2026-10-10 16:09:20.127] [INFO ] [pid=40264] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:09:20.213] [INFO ] [pid=40264] [slide-version] fileId=sid_mv23 version=9 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx
+=== boot pid=13864 ts=2026-10-10 16:10:08.862 cwd=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch argv=C:\Users\ASUS\.workbuddy-ai\binaries\node\versions\22.22.2-6\node_modules\@tencent\slidep\dist\index.js upsert-dsl TaskFlow-AI-Pitch.pptx --dsl-file slides/07.slide --page-index 6 ===
+[2026-10-10 16:10:08.861] [INFO ] [pid=13864] [server-url] baseUrl=http://127.0.0.1:39099 source=env
+[2026-10-10 16:10:08.963] [INFO ] [pid=13864] [slide-version] fileId=sid_mv23 version=10 filePath=C:\Users\ASUS\WorkBuddy AI\2026-10-10-10-50-13\taskflow-ai\ppt\TaskFlow-AI-Pitch\TaskFlow-AI-Pitch.pptx

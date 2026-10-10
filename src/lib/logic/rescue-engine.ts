@@ -1,3 +1,26 @@
+// ============================================================
+// Rescue Engine — Scheduler-Validated 3-Round Rescue Plan
+// ============================================================
+// Uses planRescueSearch() from scheduler.ts which:
+//   1. Runs the resource-constrained scheduler to get baseline
+//   2. Tries 3 rounds of increasing aggressiveness:
+//      Round 1: Move unstarted work (no approval needed)
+//      Round 2: Rebalance accepted work + relax dependencies
+//      Round 3: Reduce low-priority scope
+//   3. Each round validates by re-running the scheduler
+//   4. Stops at first round that meets the deadline
+//
+// Leader reason (optional) adjusts the search strategy:
+//   unavailable → remove all of member's work
+//   overloaded → prioritize transferring that member's work
+//   slow → increase remaining hours +25%
+//   mismatch → focus on skill-mismatched tasks
+//   earlier → recalculate with earlier deadline
+//
+// Spec: docs/WORKBUDDY_AGENT_PROMPTS.md section 6
+//       docs/FEATURES_AND_LOGIC.md section 3.5
+// ============================================================
+
 import type {
   RiskAssessment,
   Task,
@@ -8,311 +31,267 @@ import type {
   RescueWorkflowState,
   RescueStepRecord,
   RescueComparisonResult,
+  Priority,
+  RiskLevel,
 } from '../../types/types';
+import {
+  planRescueSearch,
+  assessRisk,
+  applyRescueOp,
+  calculateDeadlineDay,
+  type RescueOp,
+} from './scheduler';
 
-function findCriticalPath(tasks: Task[]): string[] {
-  const taskMap = new Map(tasks.map(t => [t.id, t]));
-  const memo = new Map<string, string[]>();
+// ===== RescueOp → RescueAction conversion =====
 
-  function longestPath(taskId: string): string[] {
-    if (memo.has(taskId)) return memo.get(taskId)!;
-    const task = taskMap.get(taskId);
-    if (!task || task.dependencies.length === 0) {
-      memo.set(taskId, [taskId]);
-      return [taskId];
+function convertOpToAction(
+  op: RescueOp,
+  index: number,
+  task: Task | undefined,
+  fromMember: Member | null | undefined,
+  toMember: Member | null | undefined,
+  members: Member[],
+): RescueAction {
+  const id = `res-${String(index + 1).padStart(3, '0')}`;
+  const taskTitle = task?.title ?? op.taskId;
+  const priority: Priority = task?.priority ?? 'medium';
+  const before = op.before ?? 0;
+  const after = op.after ?? 0;
+  const saved = Math.max(0, before - after);
+
+  switch (op.type) {
+    case 'move': {
+      const fromName = fromMember?.name ?? op.from ?? 'unknown';
+      const toName = toMember?.name ?? op.to ?? 'unknown';
+      const hours = op.hours ?? 0;
+      return {
+        id,
+        taskId: op.taskId,
+        actionType: 'reassign',
+        description: `Move ${hours}h of "${taskTitle}" from ${fromName} to ${toName}`,
+        priority,
+        estimatedImpact: saved > 0
+          ? `Reduces ${fromName}'s load, predicted end ${before} → ${after} days (saves ${saved}d)`
+          : `Rebalances ${fromName}'s load to ${toName}`,
+        assignedTo: op.to ?? null,
+      };
     }
-    let best: string[] = [];
-    for (const depId of task.dependencies) {
-      const path = longestPath(depId);
-      if (path.length > best.length) best = path;
+    case 'relax': {
+      const originalDeps = task?.dependencies.length ?? 0;
+      const newDeps = op.deps?.length ?? 0;
+      const removed = originalDeps - newDeps;
+      return {
+        id,
+        taskId: op.taskId,
+        actionType: 'reorder',
+        description: `Relax ${removed} dependency(${removed !== 1 ? 's' : ''}) on "${taskTitle}" to enable parallel work`,
+        priority,
+        estimatedImpact: saved > 0
+          ? `Unblocks parallel work, predicted end ${before} → ${after} days (saves ${saved}d)`
+          : `Allows earlier start for downstream tasks`,
+        assignedTo: task?.assignedTo ?? null,
+      };
     }
-    const result = [taskId, ...best];
-    memo.set(taskId, result);
-    return result;
-  }
-
-  let critical: string[] = [];
-  for (const t of tasks) {
-    const path = longestPath(t.id);
-    if (path.length > critical.length) critical = path;
-  }
-  return critical;
-}
-
-function hasCircularDependencies(tasks: Task[]): boolean {
-  const taskMap = new Map(tasks.map(t => [t.id, t]));
-  const visited = new Set<string>();
-  const stack = new Set<string>();
-
-  function dfs(id: string): boolean {
-    if (stack.has(id)) return true;
-    if (visited.has(id)) return false;
-    visited.add(id);
-    stack.add(id);
-    const task = taskMap.get(id);
-    if (task) {
-      for (const dep of task.dependencies) {
-        if (dfs(dep)) return true;
-      }
+    case 'reduce': {
+      const hours = op.hours ?? 0;
+      return {
+        id,
+        taskId: op.taskId,
+        actionType: 'reduce_scope',
+        description: `Reduce scope on "${taskTitle}" by ${hours}h (low priority, non-mandatory)`,
+        priority,
+        estimatedImpact: saved > 0
+          ? `Cuts ${hours}h of work, predicted end ${before} → ${after} days (saves ${saved}d)`
+          : `Reduces ${hours}h of low-priority work`,
+        assignedTo: task?.assignedTo ?? null,
+      };
     }
-    stack.delete(id);
-    return false;
-  }
-
-  return tasks.some(t => dfs(t.id));
-}
-
-function bestMatchMember(task: Task, members: Member[], excludeId?: string): Member | null {
-  let best: Member | null = null;
-  let bestScore = -1;
-  for (const m of members) {
-    if (m.id === excludeId || m.isLeader) continue;
-    const score =
-      task.requiredSkills.length > 0
-        ? task.requiredSkills.reduce((s, sk) => s + (m.skillProficiency[sk] ?? 0), 0) /
-          task.requiredSkills.length
-        : 1;
-    if (score > bestScore) {
-      bestScore = score;
-      best = m;
-    }
-  }
-  return best;
-}
-
-function priorityFromRubric(task: Task): RescueAction['priority'] {
-  const count = task.relatedRubricIds.length;
-  if (count >= 3) return 'critical';
-  if (count === 2) return 'high';
-  if (count === 1) return 'medium';
-  return 'low';
-}
-
-function estimateSavings(action: RescueAction, task: Task): number {
-  switch (action.actionType) {
-    case 'split': return task.estimatedHours * 0.3;
-    case 'reassign': return task.estimatedHours * 0.15;
-    case 'reorder': return task.estimatedHours * 0.2;
-    case 'add_resource':
-    case 'escalate': return task.estimatedHours * 0.1;
-    default: return 0;
+    default:
+      return {
+        id,
+        taskId: op.taskId,
+        actionType: 'escalate',
+        description: `Review "${taskTitle}" for manual intervention`,
+        priority,
+        estimatedImpact: 'Manual review required',
+        assignedTo: task?.assignedTo ?? null,
+      };
   }
 }
+
+// ===== Risk level mapping from scheduler RiskStatus =====
+
+function riskStatusToLevel(status: string): RiskLevel {
+  switch (status) {
+    case 'Complete': return 'none';
+    case 'On Track': return 'low';
+    case 'At Risk': return 'high';
+    case 'Overdue': return 'high';
+    default: return 'low';
+  }
+}
+
+// ===== Deep clone tasks for after-state computation =====
+
+function cloneTasks(tasks: Task[]): Task[] {
+  return JSON.parse(JSON.stringify(tasks));
+}
+
+// ===== Main rescue workflow =====
 
 export function runRescueWorkflow(params: {
   riskAssessment: RiskAssessment;
   tasks: Task[];
   members: Member[];
   deadline: DeadlineInfo | null;
+  leaderReason?: { type: string; memberId?: string; note?: string };
 }): RescuePlan {
-  const { riskAssessment, tasks, members, deadline } = params;
+  const { riskAssessment, tasks, members, deadline, leaderReason } = params;
   const now = new Date().toISOString();
-  const flags = riskAssessment.flags;
 
-  // --- Step 1: Detect ---
-  const riskCountByLevel: Record<string, number> = { high: 0, medium: 0, low: 0 };
-  for (const f of flags) {
-    riskCountByLevel[f.riskLevel] = (riskCountByLevel[f.riskLevel] || 0) + 1;
+  // --- Run scheduler-based rescue search (3 rounds) ---
+  const searchResult = planRescueSearch(tasks, members, deadline, leaderReason);
+
+  // --- Case 1: Rescue not needed (project is on track or complete) ---
+  if (!searchResult.needed) {
+    const totalHours = tasks.reduce((s, t) => s + t.estimatedHours, 0);
+    return {
+      assignmentId: riskAssessment.assignmentId,
+      actions: [],
+      projectedRecovery: 'Project is on track — no rescue needed.',
+      confidence: 1.0,
+      generatedAt: now,
+      requiresLeaderApproval: false,
+      approvalStatus: 'approved',
+      comparisonResult: {
+        beforeHours: totalHours,
+        afterHours: totalHours,
+        hoursSaved: 0,
+        beforeRiskLevel: riskAssessment.overallRiskLevel,
+        afterRiskLevel: 'none',
+        beforeTasksAtRisk: riskAssessment.flags.length,
+        afterTasksAtRisk: 0,
+        beforeDeadlineBuffer: Math.max(0, (searchResult.baseAssessment.deadlineDay - searchResult.baseAssessment.predictedCompletionDay) * 8),
+        afterDeadlineBuffer: Math.max(0, (searchResult.baseAssessment.deadlineDay - searchResult.baseAssessment.predictedCompletionDay) * 8),
+        improvementSummary: 'No rescue needed — project is on track.',
+      },
+    };
   }
 
-  // --- Step 2: Analyze ---
-  const criticalPath = findCriticalPath(tasks);
-  const criticalPathSet = new Set(criticalPath);
-  const unassignedTasks = tasks.filter(t => t.assignedTo === null);
-  const confirmedTasks = tasks.filter(t => t.confirmed === true);
+  // --- Case 2: Rescue needed — find best round ---
+  const bestRound = searchResult.rounds.find(r => r.valid) ?? searchResult.rounds[searchResult.rounds.length - 1];
+  const baseAssessment = searchResult.baseAssessment;
 
-  // --- Step 3: Optimize ---
-  const actions: RescueAction[] = [];
-  let counter = 1;
-
-  for (const flag of flags) {
-    const task = tasks.find(t => t.id === flag.taskId);
-    if (!task) continue;
-
-    const id = `res-${String(counter).padStart(3, '0')}`;
-    counter++;
-    const priority = priorityFromRubric(task);
-    const isCritical = criticalPathSet.has(task.id);
-    const finalPriority = isCritical ? 'critical' : priority;
-
-    let action: RescueAction;
-
-    switch (flag.riskType) {
-      case 'unassigned': {
-        const best = bestMatchMember(task, members);
-        action = {
-          id, taskId: task.id, actionType: 'reassign',
-          description: `Reassign "${task.title}" to ${best?.name ?? 'best available member'}`,
-          priority: finalPriority,
-          estimatedImpact: `Unblocks execution, saves ~${Math.round(task.estimatedHours * 0.15)}h`,
-          assignedTo: best?.id ?? null,
-        };
-        break;
-      }
-      case 'deadline':
-      case 'insufficient_time': {
-        action = {
-          id, taskId: task.id, actionType: 'split',
-          description: `Split "${task.title}" into parallel sub-tasks to reduce blocking`,
-          priority: finalPriority,
-          estimatedImpact: `Saves ~${Math.round(task.estimatedHours * 0.3)}h via parallelization`,
-          assignedTo: task.assignedTo,
-        };
-        break;
-      }
-      case 'overload': {
-        const best = bestMatchMember(task, members, task.assignedTo ?? undefined);
-        action = {
-          id, taskId: task.id, actionType: 'reassign',
-          description: `Reassign "${task.title}" to ${best?.name ?? 'another member'} to reduce overload`,
-          priority: finalPriority,
-          estimatedImpact: `Reduces overload, saves ~${Math.round(task.estimatedHours * 0.15)}h`,
-          assignedTo: best?.id ?? null,
-        };
-        break;
-      }
-      case 'skill_gap': {
-        const best = bestMatchMember(task, members);
-        if (best && task.requiredSkills.some(s => (best.skillProficiency[s] ?? 0) >= 3)) {
-          action = {
-            id, taskId: task.id, actionType: 'add_resource',
-            description: `Add ${best.name} as additional resource for "${task.title}"`,
-            priority: finalPriority,
-            estimatedImpact: `Bridges skill gap, saves ~${Math.round(task.estimatedHours * 0.1)}h`,
-            assignedTo: best.id,
-          };
-        } else {
-          action = {
-            id, taskId: task.id, actionType: 'escalate',
-            description: `Escalate "${task.title}" — no member has adequate skills`,
-            priority: finalPriority,
-            estimatedImpact: `Flags for external help, saves ~${Math.round(task.estimatedHours * 0.1)}h`,
-            assignedTo: null,
-          };
-        }
-        break;
-      }
-      case 'dependency': {
-        action = {
-          id, taskId: task.id, actionType: 'reorder',
-          description: `Reorder "${task.title}" to unblock downstream tasks`,
-          priority: finalPriority,
-          estimatedImpact: `Unblocks critical path, saves ~${Math.round(task.estimatedHours * 0.2)}h`,
-          assignedTo: task.assignedTo,
-        };
-        break;
-      }
-      default: {
-        action = {
-          id, taskId: task.id, actionType: 'escalate',
-          description: `Escalate "${task.title}" for quality review`,
-          priority: finalPriority,
-          estimatedImpact: `Prevents quality risk, saves ~${Math.round(task.estimatedHours * 0.1)}h`,
-          assignedTo: task.assignedTo,
-        };
-      }
-    }
-
-    actions.push(action);
+  // --- Compute after-state by applying ops to a clone ---
+  const afterTasks = cloneTasks(tasks);
+  for (const op of bestRound.ops) {
+    applyRescueOp(afterTasks, op);
   }
+  const deadlineDay = calculateDeadlineDay(deadline);
+  const afterAssessment = assessRisk(afterTasks, members, deadlineDay);
 
-  // --- Step 4: Validate ---
-  const circularDeps = hasCircularDependencies(tasks);
+  // --- Convert RescueOps to RescueActions ---
+  const memberMap = new Map(members.map(m => [m.id, m]));
+  const taskMap = new Map(tasks.map(t => [t.id, t]));
 
-  // --- Step 5: Apply ---
-  const needsLeaderApproval = actions.some(a => {
-    const task = tasks.find(t => t.id === a.taskId);
-    return task?.confirmed === true;
+  const actions: RescueAction[] = bestRound.ops.map((op, i) => {
+    const task = taskMap.get(op.taskId);
+    const fromMember = op.from ? memberMap.get(op.from) : null;
+    const toMember = op.to ? memberMap.get(op.to) : null;
+    return convertOpToAction(op, i, task, fromMember, toMember, members);
   });
-  const approvalStatus = needsLeaderApproval ? 'pending' : 'approved';
 
-  // --- Step 6: Compare ---
-  const beforeHours = tasks.reduce((sum, t) => sum + t.estimatedHours, 0);
+  // --- Build comparison result ---
+  const beforeHours = baseAssessment.memberLoads.reduce((s, m) => s + m.remainingWorkHours, 0);
+  const afterHours = afterAssessment.memberLoads.reduce((s, m) => s + m.remainingWorkHours, 0);
+  const hoursSaved = Math.max(0, Math.round((beforeHours - afterHours) * 10) / 10);
 
-  const savingsByTask = new Map<string, number>();
-  for (const a of actions) {
-    const task = tasks.find(t => t.id === a.taskId);
-    if (!task) continue;
-    const savings = estimateSavings(a, task);
-    savingsByTask.set(task.id, Math.max(savingsByTask.get(task.id) ?? 0, savings));
-  }
-  const totalSavings = Array.from(savingsByTask.values()).reduce((s, v) => s + v, 0);
+  const beforeRiskLevel = riskStatusToLevel(baseAssessment.riskStatus);
+  const afterRiskLevel = riskStatusToLevel(afterAssessment.riskStatus);
 
-  const afterHours = Math.max(0, Math.round((beforeHours - totalSavings) * 10) / 10);
-  const hoursSaved = Math.round((beforeHours - afterHours) * 10) / 10;
+  const beforeTasksAtRisk = baseAssessment.delayedTaskIds.length;
+  const afterTasksAtRisk = afterAssessment.delayedTaskIds.length;
 
-  const deadlineHours = deadline?.hoursRemaining ?? 0;
-  const beforeDeadlineBuffer = deadline
-    ? Math.round((deadlineHours - beforeHours) * 10) / 10 : 0;
-  const afterDeadlineBuffer = deadline
-    ? Math.round((deadlineHours - afterHours) * 10) / 10 : 0;
+  const beforeBuffer = Math.round((baseAssessment.deadlineDay - baseAssessment.predictedCompletionDay) * 8 * 10) / 10;
+  const afterBuffer = Math.round((afterAssessment.deadlineDay - afterAssessment.predictedCompletionDay) * 8 * 10) / 10;
 
   const comparisonResult: RescueComparisonResult = {
-    beforeHours,
-    afterHours,
+    beforeHours: Math.round(beforeHours * 10) / 10,
+    afterHours: Math.round(afterHours * 10) / 10,
     hoursSaved,
-    beforeRiskLevel: riskAssessment.overallRiskLevel,
-    afterRiskLevel: 'none',
-    beforeTasksAtRisk: flags.length,
-    afterTasksAtRisk: 0,
-    beforeDeadlineBuffer,
-    afterDeadlineBuffer,
-    improvementSummary: `Saved ${hoursSaved}h, resolved ${flags.length} risk(s), buffer ${beforeDeadlineBuffer}h → ${afterDeadlineBuffer}h`,
+    beforeRiskLevel,
+    afterRiskLevel,
+    beforeTasksAtRisk,
+    afterTasksAtRisk,
+    beforeDeadlineBuffer: beforeBuffer,
+    afterDeadlineBuffer: afterBuffer,
+    improvementSummary: bestRound.valid
+      ? `Rescue plan resolves deadline risk in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (deadline: Day ${deadlineDay}).`
+      : `Rescue plan partially improves timeline in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline). Consider manual intervention.`,
   };
 
-  // --- Build workflow state ---
+  // --- Determine approval needs ---
+  const needsLeaderApproval = bestRound.ops.some(op => op.approval);
+  const approvalStatus = needsLeaderApproval ? 'pending' : 'approved';
+
+  // --- Build workflow step history ---
   const stepHistory: RescueStepRecord[] = [
     {
       step: 'detect', round: 1, timestamp: now,
-      description: 'Extracted risk flags from risk assessment',
-      result: `${flags.length} flags found (${riskCountByLevel.high} high, ${riskCountByLevel.medium} medium, ${riskCountByLevel.low} low)`,
+      description: 'Ran scheduler to check if rescue is needed',
+      result: `Base risk: ${baseAssessment.riskStatus} (predicted day ${baseAssessment.predictedCompletionDay}, deadline day ${baseAssessment.deadlineDay}, ${baseAssessment.delayDays}d delay)`,
     },
     {
       step: 'analyze', round: 1, timestamp: now,
-      description: 'Identified critical path, unassigned and confirmed tasks',
-      result: `Critical path: ${criticalPath.length} tasks, ${unassignedTasks.length} unassigned, ${confirmedTasks.length} confirmed`,
+      description: 'Analyzed member loads and delayed tasks',
+      result: `${baseAssessment.delayedTaskIds.length} tasks delayed, ${baseAssessment.memberLoads.filter(m => m.isOverloaded).length} members overloaded${leaderReason ? `, leader reason: ${leaderReason.type}` : ''}`,
     },
     {
-      step: 'optimize', round: 1, timestamp: now,
-      description: 'Generated rescue actions per risk flag',
-      result: `${actions.length} actions proposed`,
+      step: 'optimize', round: bestRound.n, timestamp: now,
+      description: `Ran 3-round rescue search — best result: Round ${bestRound.n}`,
+      result: `${bestRound.label}: ${bestRound.ops.length} operations, predicted end Day ${bestRound.predictedEnd} (${bestRound.valid ? 'VALID' : 'PARTIAL'})`,
     },
     {
-      step: 'validate', round: 1, timestamp: now,
-      description: 'Checked circular dependencies and rubric coverage',
-      result: circularDeps
-        ? 'WARNING: circular dependencies detected'
-        : 'No circular dependencies, rubric coverage maintained',
+      step: 'validate', round: bestRound.n, timestamp: now,
+      description: 'Re-ran scheduler to validate rescue plan',
+      result: bestRound.valid
+        ? `✅ Plan meets deadline (Day ${bestRound.predictedEnd} ≤ Day ${deadlineDay})`
+        : `⚠️ Plan does not fully meet deadline (Day ${bestRound.predictedEnd} > Day ${deadlineDay}), but improves timeline`,
     },
     {
-      step: 'apply', round: 1, timestamp: now,
+      step: 'apply', round: bestRound.n, timestamp: now,
       description: 'Determined permission rules',
       result: needsLeaderApproval
-        ? 'Leader approval required for confirmed tasks'
-        : 'All actions auto-applied (unconfirmed tasks only)',
+        ? 'Leader approval required (ops affect accepted/locked tasks)'
+        : 'All actions auto-applied (unstarted work only)',
     },
     {
-      step: 'compare', round: 1, timestamp: now,
+      step: 'compare', round: bestRound.n, timestamp: now,
       description: 'Generated before/after comparison',
-      result: `Saved ${hoursSaved}h, ${flags.length} → 0 risks, buffer ${beforeDeadlineBuffer}h → ${afterDeadlineBuffer}h`,
+      result: `${hoursSaved}h saved, ${beforeTasksAtRisk} → ${afterTasksAtRisk} tasks at risk, buffer ${beforeBuffer}h → ${afterBuffer}h`,
     },
   ];
 
   const workflow: RescueWorkflowState = {
     currentStep: 'compare',
-    optimizationRound: 1,
+    optimizationRound: bestRound.n,
     maxRounds: 3,
     stepHistory,
   };
 
-  const buffer = Math.max(0, Math.round(afterDeadlineBuffer));
-  const projectedRecovery = `On track for deadline with ~${buffer}h buffer`;
+  // --- Projected recovery ---
+  const projectedRecovery = bestRound.valid
+    ? `On track for deadline with ~${Math.max(0, afterBuffer / 8).toFixed(0)} day buffer`
+    : `Improved but still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline — consider manual intervention`;
+
+  // --- Confidence based on validation ---
+  const confidence = bestRound.valid ? 0.9 : 0.5;
 
   return {
     assignmentId: riskAssessment.assignmentId,
     actions,
     projectedRecovery,
-    confidence: 0.8,
+    confidence,
     generatedAt: now,
     workflow,
     requiresLeaderApproval: needsLeaderApproval,

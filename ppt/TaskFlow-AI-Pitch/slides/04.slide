@@ -1,0 +1,92 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Two-Layer Architecture</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
+    <Box style={{ width: '55%', justifyContent: 'center', alignItems: 'center' }}>
+      <svg width={560} height={460} viewBox="0 0 560 460">
+        <rect x="0" y="0" width="560" height="190" rx="12" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" strokeDasharray="6 4" />
+        <text x="280" y="28" textAnchor="middle" fill="#3B82F6" fontSize="14" fontWeight="bold">LLM AGENT LAYER</text>
+        <g>
+          <rect x="30" y="50" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="85" y="90" textAnchor="middle" fill="#3B82F6" fontSize="13" fontWeight="bold">Rubric</text>
+          <text x="85" y="110" textAnchor="middle" fill="#64748B" fontSize="10">Agent</text>
+          <text x="85" y="140" textAnchor="middle" fill="#3B82F6" fontSize="9">FR-001</text>
+        </g>
+        <g>
+          <rect x="160" y="50" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="215" y="90" textAnchor="middle" fill="#3B82F6" fontSize="13" fontWeight="bold">Task</text>
+          <text x="215" y="110" textAnchor="middle" fill="#64748B" fontSize="10">Agent</text>
+          <text x="215" y="140" textAnchor="middle" fill="#3B82F6" fontSize="9">FR-002</text>
+        </g>
+        <g>
+          <rect x="290" y="50" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="345" y="90" textAnchor="middle" fill="#3B82F6" fontSize="13" fontWeight="bold">Skill</text>
+          <text x="345" y="110" textAnchor="middle" fill="#64748B" fontSize="10">Agent</text>
+          <text x="345" y="140" textAnchor="middle" fill="#3B82F6" fontSize="9">FR-003</text>
+        </g>
+        <g>
+          <rect x="420" y="50" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="475" y="90" textAnchor="middle" fill="#3B82F6" fontSize="13" fontWeight="bold">Risk</text>
+          <text x="475" y="110" textAnchor="middle" fill="#64748B" fontSize="10">Agent</text>
+          <text x="475" y="140" textAnchor="middle" fill="#3B82F6" fontSize="9">FR-006</text>
+        </g>
+        <path d="M 85 160 L 85 200 M 215 160 L 215 200 M 345 160 L 345 200 M 475 160 L 475 200" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 85 190 L 85 200 M 80 195 L 85 200 L 90 195" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 215 190 L 215 200 M 210 195 L 215 200 L 220 195" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 345 190 L 345 200 M 340 195 L 345 200 L 350 195" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 475 190 L 475 200 M 470 195 L 475 200 L 480 195" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <rect x="0" y="210" width="560" height="190" rx="12" fill="#F0FDF4" stroke="#10B981" strokeWidth="2" strokeDasharray="6 4" />
+        <text x="280" y="238" textAnchor="middle" fill="#10B981" fontSize="14" fontWeight="bold">DETERMINISTIC LOGIC LAYER</text>
+        <g>
+          <rect x="30" y="260" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#10B981" strokeWidth="2" />
+          <text x="85" y="300" textAnchor="middle" fill="#10B981" fontSize="13" fontWeight="bold">CPM</text>
+          <text x="85" y="320" textAnchor="middle" fill="#64748B" fontSize="10">Critical Path</text>
+          <text x="85" y="350" textAnchor="middle" fill="#10B981" fontSize="9">FR-004</text>
+        </g>
+        <g>
+          <rect x="160" y="260" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#10B981" strokeWidth="2" />
+          <text x="215" y="300" textAnchor="middle" fill="#10B981" fontSize="13" fontWeight="bold">Validator</text>
+          <text x="215" y="320" textAnchor="middle" fill="#64748B" fontSize="10">Plan Check</text>
+          <text x="215" y="350" textAnchor="middle" fill="#10B981" fontSize="9">FR-005</text>
+        </g>
+        <g>
+          <rect x="290" y="260" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#10B981" strokeWidth="2" />
+          <text x="345" y="300" textAnchor="middle" fill="#10B981" fontSize="13" fontWeight="bold">Assigner</text>
+          <text x="345" y="320" textAnchor="middle" fill="#64748B" fontSize="10">Multi-Member</text>
+          <text x="345" y="350" textAnchor="middle" fill="#10B981" fontSize="9">FR-003</text>
+        </g>
+        <g>
+          <rect x="420" y="260" width="110" height="110" rx="10" fill="#FFFFFF" stroke="#10B981" strokeWidth="2" />
+          <text x="475" y="300" textAnchor="middle" fill="#10B981" fontSize="13" fontWeight="bold">Rescue</text>
+          <text x="475" y="320" textAnchor="middle" fill="#64748B" fontSize="10">Engine</text>
+          <text x="475" y="350" textAnchor="middle" fill="#10B981" fontSize="9">FR-012</text>
+        </g>
+        <text x="280" y="430" textAnchor="middle" fill="#94A3B8" fontSize="12">Semantic understanding above | Mathematical precision below</text>
+      </svg>
+    </Box>
+    <Box style={{ width: '45%', flexDirection: 'column', gap: 24, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'column', gap: 12, padding: 24, background: '#EFF6FF', borderRadius: 12, borderLeft: '4px solid #3B82F6' }}>
+        <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <FAIcon name='brain' style={{ fill: '#3B82F6', width: 28, height: 28 }} />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#3B82F6' }}>LLM Agent Layer</Text>
+        </Box>
+        <Text style={{ fontSize: 16, color: '#64748B', lineHeight: 1.5 }}>Handles semantic understanding: rubric parsing, task decomposition, skill matching, risk reasoning. Flexible and context-aware.</Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', gap: 12, padding: 24, background: '#F0FDF4', borderRadius: 12, borderLeft: '4px solid #10B981' }}>
+        <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <FAIcon name='cog' style={{ fill: '#10B981', width: 28, height: 28 }} />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#10B981' }}>Deterministic Logic Layer</Text>
+        </Box>
+        <Text style={{ fontSize: 16, color: '#64748B', lineHeight: 1.5 }}>Handles mathematical precision: critical path calculation, plan validation, multi-member assignment, rescue workflow. Reliable and reproducible.</Text>
+      </Box>
+      <Text style={{ fontSize: 16, color: '#0F172A', lineHeight: 1.5, textAlign: 'center' }}>
+        <span style={{ fontWeight: 'bold' }}>Hybrid approach</span> = flexibility + reliability
+      </Text>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>04 / 10</Text>
+  </Box>
+</Slide>

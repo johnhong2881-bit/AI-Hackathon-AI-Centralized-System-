@@ -48,21 +48,29 @@ function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallRes
 
   return new Promise((resolve) => {
     setTimeout(() => {
-      // Determine which mock data to return based on the system prompt
+      // Determine which mock data to return based on the system prompt text
       let parsed: unknown;
 
-      if (params.systemPrompt.includes('RubricIntelligence')) {
+      if (params.systemPrompt.includes('Rubric Intelligence')) {
         parsed = mockRubric;
-      } else if (params.systemPrompt.includes('TaskDecomposer')) {
+      } else if (params.systemPrompt.includes('Task Decomposition')) {
         parsed = mockPlanResult;
-      } else if (params.systemPrompt.includes('SkillMatcher')) {
+      } else if (params.systemPrompt.includes('Skill Matching')) {
         parsed = mockSkillMatch;
-      } else if (params.systemPrompt.includes('RiskDetector')) {
+      } else if (params.systemPrompt.includes('Risk Explainer')) {
         parsed = mockRiskAssessment;
-      } else if (params.systemPrompt.includes('RescuePlanner')) {
+      } else if (params.systemPrompt.includes('Rescue Assistant')) {
         parsed = mockRescuePlan;
       } else {
-        parsed = { message: 'Unknown agent type' };
+        // Fallback: match by agentId for safety
+        switch (agentId) {
+          case 'rubric-agent': parsed = mockRubric; break;
+          case 'task-agent': parsed = mockPlanResult; break;
+          case 'skill-agent': parsed = mockSkillMatch; break;
+          case 'risk-agent': parsed = mockRiskAssessment; break;
+          case 'rescue-agent': parsed = mockRescuePlan; break;
+          default: parsed = { message: 'Unknown agent type' };
+        }
       }
 
       resolve({
@@ -129,10 +137,19 @@ export async function callRiskAgent(
   tasks: Task[],
   members: Member[],
   deadline: DeadlineInfo | null,
-  progress: ProjectProgress | null
+  progress: ProjectProgress | null,
+  schedulerFacts?: {
+    riskStatus: string;
+    predictedCompletionDay: number;
+    deadlineDay: number;
+    delayDays: number;
+    delayedTaskIds: string[];
+    criticalPath: string[];
+    memberLoads: Array<{ memberId: string; memberName: string; remainingWorkHours: number; availableHours: number; isOverloaded: boolean }>;
+  }
 ): Promise<{ result: LLMCallResult; data: RiskAssessment }> {
   const { buildRiskAgentCall } = await import('./prompts');
-  const params = buildRiskAgentCall(tasks, members, deadline, progress);
+  const params = buildRiskAgentCall(tasks, members, deadline, progress, schedulerFacts);
   const result = await routeLLMCall(params, 'risk-agent');
   return { result, data: result.parsed as RiskAssessment };
 }
@@ -140,10 +157,11 @@ export async function callRiskAgent(
 export async function callRescueAgent(
   riskAssessment: RiskAssessment,
   tasks: Task[],
-  members: Member[]
+  members: Member[],
+  leaderReason?: { type: string; memberId?: string; note?: string }
 ): Promise<{ result: LLMCallResult; data: RescuePlan }> {
   const { buildRescueAgentCall } = await import('./prompts');
-  const params = buildRescueAgentCall(riskAssessment, tasks, members);
+  const params = buildRescueAgentCall(riskAssessment, tasks, members, leaderReason);
   const result = await routeLLMCall(params, 'rescue-agent');
   return { result, data: result.parsed as RescuePlan };
 }

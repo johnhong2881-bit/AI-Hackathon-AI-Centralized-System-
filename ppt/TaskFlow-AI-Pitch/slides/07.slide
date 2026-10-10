@@ -1,0 +1,79 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Autonomous Deadline Defense</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'column', gap: 24 }}>
+    <Box style={{ height: 300, flexDirection: 'row', gap: 24, alignItems: 'center' }}>
+      <Box style={{ flex: 1, flexDirection: 'column', gap: 12, padding: 20, background: '#FEF2F2', borderRadius: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#EF4444' }}>BEFORE RESCUE</Text>
+        <svg width={420} height={140} viewBox="0 0 420 140">
+          <rect x="0" y="10" width="420" height="24" rx="4" fill="#EF4444" opacity="0.9" />
+          <text x="210" y="26" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">High Risk - Task A: API Integration</text>
+          <rect x="0" y="40" width="420" height="24" rx="4" fill="#EF4444" opacity="0.8" />
+          <text x="210" y="56" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">High Risk - Task C: Database Design</text>
+          <rect x="0" y="70" width="320" height="24" rx="4" fill="#F59E0B" opacity="0.8" />
+          <text x="160" y="86" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Medium Risk - Task F: Testing</text>
+          <rect x="0" y="100" width="180" height="24" rx="4" fill="#F59E0B" opacity="0.6" />
+          <text x="90" y="116" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Medium - Task H: Docs</text>
+        </svg>
+        <Box style={{ flexDirection: 'row', gap: 24, justifyContent: 'center' }}>
+          <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#EF4444' }}>4</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>High-risk tasks</Text>
+          </Box>
+          <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#EF4444' }}>0</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Day buffer</Text>
+          </Box>
+        </Box>
+      </Box>
+      <Box style={{ width: 40, justifyContent: 'center', alignItems: 'center' }}>
+        <FAIcon name='arrow-right' style={{ fill: '#3B82F6', width: 32, height: 32 }} />
+      </Box>
+      <Box style={{ flex: 1, flexDirection: 'column', gap: 12, padding: 20, background: '#F0FDF4', borderRadius: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#10B981' }}>AFTER RESCUE</Text>
+        <svg width={420} height={140} viewBox="0 0 420 140">
+          <rect x="0" y="10" width="120" height="24" rx="4" fill="#F59E0B" opacity="0.6" />
+          <text x="60" y="26" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Med - Task A</text>
+          <rect x="0" y="40" width="80" height="24" rx="4" fill="#10B981" opacity="0.5" />
+          <text x="40" y="56" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Low - Task C</text>
+          <rect x="0" y="70" width="60" height="24" rx="4" fill="#10B981" opacity="0.4" />
+          <text x="30" y="86" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Low - F</text>
+          <rect x="0" y="100" width="40" height="24" rx="4" fill="#10B981" opacity="0.3" />
+          <text x="20" y="116" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">Low</text>
+        </svg>
+        <Box style={{ flexDirection: 'row', gap: 24, justifyContent: 'center' }}>
+          <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#10B981' }}>1</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Medium-risk task</Text>
+          </Box>
+          <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#10B981' }}>3</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Day buffer</Text>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+    <Box style={{ flexDirection: 'row', gap: 16 }}>
+      <Box style={{ flex: 1, padding: 16, background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #3B82F6', flexDirection: 'column', gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0F172A' }}>Task Reassignment</Text>
+        <Text style={{ fontSize: 14, color: '#64748B', lineHeight: 1.4 }}>Redistribute based on skill match scores</Text>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#3B82F6' }}>-60% risk</Text>
+      </Box>
+      <Box style={{ flex: 1, padding: 16, background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #06B6D4', flexDirection: 'column', gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0F172A' }}>Priority Reordering</Text>
+        <Text style={{ fontSize: 14, color: '#64748B', lineHeight: 1.4 }}>Critical path optimization</Text>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#06B6D4' }}>+2.5 days</Text>
+      </Box>
+      <Box style={{ flex: 1, padding: 16, background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #10B981', flexDirection: 'column', gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0F172A' }}>Scope Adjustment</Text>
+        <Text style={{ fontSize: 14, color: '#64748B', lineHeight: 1.4 }}>Negotiate deliverable scope</Text>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#10B981' }}>+3 day buffer</Text>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>07 / 10</Text>
+  </Box>
+</Slide>

@@ -1,0 +1,108 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>One Prompt. Full Analysis.</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
+    <Box style={{ width: '55%', justifyContent: 'center', alignItems: 'center' }}>
+      <svg width={580} height={460} viewBox="0 0 600 460">
+        <defs>
+          <linearGradient id="inputGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3B82F6" />
+            <stop offset="100%" stopColor="#06B6D4" />
+          </linearGradient>
+          <linearGradient id="outputGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#10B981" />
+            <stop offset="100%" stopColor="#06B6D4" />
+          </linearGradient>
+        </defs>
+        <rect x="50" y="0" width="500" height="70" rx="12" fill="url(#inputGrad)" />
+        <text x="300" y="30" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold">INPUT</text>
+        <text x="300" y="52" textAnchor="middle" fill="#FFFFFF" fontSize="16">Assignment Brief + Rubric + Team Info</text>
+        <path d="M 300 70 L 300 110" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 292 100 L 300 110 L 308 100" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="20" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="60" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Rubric</text>
+          <text x="60" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
+        </g>
+        <path d="M 100 150 L 120 150" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 113 145 L 120 150 L 113 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="120" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="160" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Task</text>
+          <text x="160" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
+        </g>
+        <path d="M 200 150 L 220 150" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 213 145 L 220 150 L 213 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="220" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="260" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Skill</text>
+          <text x="260" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
+        </g>
+        <path d="M 300 150 L 320 150" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 313 145 L 320 150 L 313 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="320" y="120" width="80" height="60" rx="8" fill="#F0FDF4" stroke="#10B981" strokeWidth="2" />
+          <text x="360" y="145" textAnchor="middle" fill="#10B981" fontSize="11" fontWeight="bold">CPM</text>
+          <text x="360" y="160" textAnchor="middle" fill="#64748B" fontSize="9">Det.</text>
+        </g>
+        <path d="M 400 150 L 420 150" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 413 145 L 420 150 L 413 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="420" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
+          <text x="460" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Risk</text>
+          <text x="460" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
+        </g>
+        <path d="M 500 150 L 520 150" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 513 145 L 520 150 L 513 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <g>
+          <rect x="520" y="120" width="60" height="60" rx="8" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="2" />
+          <text x="550" y="145" textAnchor="middle" fill="#F59E0B" fontSize="11" fontWeight="bold">Rescue</text>
+          <text x="550" y="160" textAnchor="middle" fill="#64748B" fontSize="9">Hybrid</text>
+        </g>
+        <path d="M 300 180 L 300 220" stroke="#94A3B8" strokeWidth="2" />
+        <path d="M 292 210 L 300 220 L 308 210" fill="none" stroke="#94A3B8" strokeWidth="2" />
+        <rect x="50" y="220" width="500" height="70" rx="12" fill="url(#outputGrad)" />
+        <text x="300" y="250" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold">OUTPUT</text>
+        <text x="300" y="272" textAnchor="middle" fill="#FFFFFF" fontSize="16">Complete Plan + Risk Rescue + Deadline Defense</text>
+        <rect x="50" y="320" width="500" height="120" rx="12" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="1" />
+        <text x="300" y="345" textAnchor="middle" fill="#64748B" fontSize="12">AUTONOMOUS DECISION CHAIN</text>
+        <text x="80" y="375" fill="#3B82F6" fontSize="13">1. Parse rubric into structured criteria</text>
+        <text x="80" y="395" fill="#3B82F6" fontSize="13">2. Decompose criteria into actionable tasks</text>
+        <text x="80" y="415" fill="#10B981" fontSize="13">3. Calculate critical path + detect risks + rescue</text>
+      </svg>
+    </Box>
+    <Box style={{ width: '45%', flexDirection: 'column', gap: 28, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 22, color: '#0F172A', lineHeight: 1.5 }}>
+        TaskFlow AI takes a <span style={{ fontWeight: 'bold', color: '#3B82F6' }}>single assignment prompt</span> and produces a complete, rubric-aligned project plan with task assignments, deadline risk flags, and autonomous rescue recommendations.
+      </Text>
+      <Box style={{ flexDirection: 'column', gap: 16, padding: 24, background: '#F8FAFC', borderRadius: 12, borderLeft: '4px solid #06B6D4' }}>
+        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
+          <Box style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Input</Text>
+            <Text style={{ fontSize: 16, color: '#64748B' }}>One prompt: assignment brief + rubric + team members</Text>
+            </Box>
+        </Box>
+        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
+          <Box style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Process</Text>
+            <Text style={{ fontSize: 16, color: '#64748B' }}>6 agents: analyze, decompose, match, calculate, assess, rescue</Text>
+            </Box>
+        </Box>
+        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
+          <Box style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Output</Text>
+            <Text style={{ fontSize: 16, color: '#64748B' }}>Complete plan + risk assessment + rescue strategies</Text>
+            </Box>
+        </Box>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>03 / 10</Text>
+  </Box>
+</Slide>

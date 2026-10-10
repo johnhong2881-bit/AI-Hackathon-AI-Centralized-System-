@@ -1,0 +1,46 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Stack and Team</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'row', gap: 0 }}>
+    <Box style={{ width: '30%', padding: '24px 20px', background: 'linear-gradient(160deg, #3B82F6 0%, #06B6D4 100%)', borderRadius: 16, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+      <FAIcon name='layer-group' style={{ fill: '#FFFFFF', width: 48, height: 48 }} />
+      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>STACK</Text>
+      <Box style={{ width: 40, height: 2, background: '#FFFFFF', opacity: 0.3 }} />
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', opacity: 0.9 }}>TEAM</Text>
+    </Box>
+    <Box style={{ flex: 1, flexDirection: 'column', gap: 24, paddingLeft: 24, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'column', gap: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#3B82F6' }}>TECH STACK</Text>
+        <Box style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>Next.js 14</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>TypeScript</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>Tailwind CSS</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>Zustand</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>Recharts</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#EFF6FF', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#3B82F6' }}>@dnd-kit</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#F0FDF4', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#10B981' }}>WorkBuddy Cloud SDK</Text></Box>
+          <Box style={{ padding: '8px 16px', background: '#FEF3C7', borderRadius: 8 }}><Text style={{ fontSize: 14, fontWeight: '600', color: '#F59E0B' }}>SovernStack LLM (GPT-OSS 120B)</Text></Box>
+        </Box>
+      </Box>
+      <Box style={{ width: '100%', height: 1, background: '#E2E8F0' }} />
+      <Box style={{ flexDirection: 'column', gap: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#10B981' }}>TEAM DIVISION</Text>
+        <Box style={{ flexDirection: 'row', gap: 20 }}>
+          <Box style={{ flex: 1, padding: 16, background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #3B82F6', flexDirection: 'column', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0F172A' }}>Backend / LLM</Text>
+            <Text style={{ fontSize: 14, color: '#64748B', lineHeight: 1.4 }}>6-agent pipeline, prompts, deterministic logic, API routes</Text>
+          </Box>
+          <Box style={{ flex: 1, padding: 16, background: '#F8FAFC', borderRadius: 10, borderLeft: '4px solid #06B6D4', flexDirection: 'column', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0F172A' }}>Frontend</Text>
+            <Text style={{ fontSize: 14, color: '#64748B', lineHeight: 1.4 }}>UI components, Kanban board, Gantt chart, rescue modal</Text>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>09 / 10</Text>
+  </Box>
+</Slide>

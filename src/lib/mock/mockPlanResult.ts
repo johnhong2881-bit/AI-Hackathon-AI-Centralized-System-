@@ -41,4 +41,8 @@ export const mockCriticalPath: CriticalPathResult = {
   ],
   criticalPath: ['task-001', 'task-002', 'task-003', 'task-004', 'task-005', 'task-006', 'task-007', 'task-008', 'task-009', 'task-010'],
   projectDuration: 54,
+  // Scheduler output — populated when calculateCriticalPathWithSchedule() is used
+  schedule: [], predictedCompletionDay: 0, deadlineDay: 0,
+  delayDays: 0, riskStatus: 'On Track', memberLoads: [],
+  delayedTaskIds: [], hasCircularDependency: false,
 };

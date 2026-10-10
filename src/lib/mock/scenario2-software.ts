@@ -613,6 +613,10 @@ const criticalPath: CriticalPathResult = {
     's2-task-12',
   ],
   projectDuration: 70,
+  // Scheduler output — populated when calculateCriticalPathWithSchedule() is used
+  schedule: [], predictedCompletionDay: 0, deadlineDay: 0,
+  delayDays: 0, riskStatus: 'On Track', memberLoads: [],
+  delayedTaskIds: [], hasCircularDependency: false,
 };
 
 // ===== Risk Assessment (FR-006) =====

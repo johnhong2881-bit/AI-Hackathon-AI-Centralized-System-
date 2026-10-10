@@ -1,0 +1,34 @@
+<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
+  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
+    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>One Prompt, One Goal</Text>
+  </Box>
+  <Box style={{ flex: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 40 }}>
+    <Box style={{ flexDirection: 'row', gap: 60, justifyContent: 'center', alignItems: 'flex-start' }}>
+      <Box style={{ flexDirection: 'column', alignItems: 'center', gap: 12, width: 280 }}>
+        <Text style={{ fontSize: 120, fontWeight: 'bold', color: '#3B82F6', lineHeight: 1 }}>6</Text>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Agents in Pipeline</Text>
+        <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', lineHeight: 1.4 }}>Each agent has a specialized role, from rubric parsing to deadline rescue</Text>
+      </Box>
+      <Box style={{ width: 1, height: 200, background: '#E2E8F0' }} />
+      <Box style={{ flexDirection: 'column', alignItems: 'center', gap: 12, width: 280 }}>
+        <Text style={{ fontSize: 120, fontWeight: 'bold', color: '#06B6D4', lineHeight: 1 }}>14</Text>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Features Implemented</Text>
+        <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', lineHeight: 1.4 }}>All P0 functional requirements built and tested across 23 source files</Text>
+      </Box>
+      <Box style={{ width: 1, height: 200, background: '#E2E8F0' }} />
+      <Box style={{ flexDirection: 'column', alignItems: 'center', gap: 12, width: 280 }}>
+        <Text style={{ fontSize: 120, fontWeight: 'bold', color: '#10B981', lineHeight: 1 }}>0</Text>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Missed Deadlines</Text>
+        <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', lineHeight: 1.4 }}>Autonomous rescue ensures no deadline is missed, ever</Text>
+      </Box>
+    </Box>
+    <Box style={{ padding: '20px 40px', background: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)', borderRadius: 12, flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' }}>Input: Assignment Prompt  |  Output: Complete Plan + Risk Rescue</Text>
+      <Text style={{ fontSize: 14, color: '#FFFFFF', opacity: 0.8 }}>End-to-End Execution: One Prompt to One Goal</Text>
+    </Box>
+  </Box>
+  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>06 / 10</Text>
+  </Box>
+</Slide>
