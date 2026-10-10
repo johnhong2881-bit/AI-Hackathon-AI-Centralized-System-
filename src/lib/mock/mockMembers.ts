@@ -1,0 +1,84 @@
+import type { Member } from '../../types/types';
+
+/**
+ * Mock Team Members data.
+ * Used by FR-003 (Skill Matching) and FR-010 (Team Member Cards).
+ */
+export const mockMembers: Member[] = [
+  {
+    id: 'mem-001',
+    name: 'Alice Chen',
+    avatar: '👩‍💻',
+    skills: ['coding', 'design', 'analysis'],
+    skillProficiency: {
+      coding: 5,
+      design: 4,
+      analysis: 4,
+      writing: 3,
+      research: 3,
+      presentation: 2,
+      editing: 3,
+      management: 3,
+    },
+    availability: 15,
+    role: 'Developer',
+    currentTaskIds: ['task-005', 'task-006'],
+  },
+  {
+    id: 'mem-002',
+    name: 'Bob Wang',
+    avatar: '👨‍🎨',
+    skills: ['design', 'writing', 'editing'],
+    skillProficiency: {
+      coding: 2,
+      design: 5,
+      analysis: 3,
+      writing: 5,
+      research: 3,
+      presentation: 4,
+      editing: 4,
+      management: 2,
+    },
+    availability: 12,
+    role: 'Designer',
+    currentTaskIds: ['task-003', 'task-004'],
+  },
+  {
+    id: 'mem-003',
+    name: 'Carol Liu',
+    avatar: '👩‍🔬',
+    skills: ['research', 'analysis', 'writing'],
+    skillProficiency: {
+      coding: 1,
+      design: 2,
+      analysis: 5,
+      writing: 4,
+      research: 5,
+      presentation: 3,
+      editing: 3,
+      management: 3,
+    },
+    availability: 14,
+    role: 'Researcher',
+    currentTaskIds: ['task-001', 'task-002'],
+  },
+  {
+    id: 'mem-004',
+    name: 'David Zhang',
+    avatar: '🎤',
+    skills: ['presentation', 'management', 'editing'],
+    skillProficiency: {
+      coding: 2,
+      design: 3,
+      analysis: 3,
+      writing: 3,
+      research: 2,
+      presentation: 5,
+      editing: 4,
+      management: 5,
+    },
+    availability: 10,
+    role: 'Team Lead',
+    currentTaskIds: ['task-007', 'task-008'],
+  },
+];
