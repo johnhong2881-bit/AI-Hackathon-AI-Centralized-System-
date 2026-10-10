@@ -128,7 +128,7 @@ ASSIGNMENT ID: ${assignment.id}
 ASSIGNMENT:
 - Title: ${assignment.title}
 - Type: ${assignment.assignmentType}
-- Deliverables: ${assignment.deliverables.join(', ')}
+- Deliverables: ${(assignment.deliverables || []).join(', ') || 'Not specified'}
 - Deadline: ${assignment.deadline || 'Not specified'} (DO NOT estimate dates — the scheduler handles this)
 - Team Size: ${assignment.teamSize}
 - Description: ${assignment.description}
@@ -218,7 +218,7 @@ export const SKILL_AGENT_USER = (tasks: Task[], members: Member[]) => {
 ASSIGNMENT ID: ${assignmentId}
 
 TASKS TO ASSIGN:
-${tasks.map((t) => `- [${t.id}] ${t.title} (priority: ${t.priority}, est: ${t.estimatedHours}h, skills: ${t.requiredSkills.join(', ')})`).join('\n')}
+${tasks.map((t) => `- [${t.id}] ${t.title} (priority: ${t.priority}, est: ${t.estimatedHours}h, skills: ${(t.requiredSkills || []).join(', ')})`).join('\n')}
 
 TEAM MEMBERS (strengths with levels, weaknesses, weekly availability):
 ${members.map((m) => {
@@ -301,8 +301,8 @@ export const RISK_AGENT_USER = (
 - Predicted completion: Day ${schedulerFacts.predictedCompletionDay}
 - Deadline: Day ${schedulerFacts.deadlineDay}
 - Delay: ${schedulerFacts.delayDays} days
-- Tasks ending after deadline: ${schedulerFacts.delayedTaskIds.join(', ') || 'none'}
-- Critical path: ${schedulerFacts.criticalPath.join(' -> ') || 'none'}
+- Tasks ending after deadline: ${(schedulerFacts.delayedTaskIds || []).join(', ') || 'none'}
+- Critical path: ${(schedulerFacts.criticalPath || []).join(' -> ') || 'none'}
 - Member loads:
 ${schedulerFacts.memberLoads.map(m => `  ${m.memberName}: ${m.remainingWorkHours}h work / ${m.availableHours}h available${m.isOverloaded ? ' (OVERLOADED)' : ''}`).join('\n')}`
     : `DEADLINE: ${deadline?.deadline || 'No deadline'} (${deadline?.daysRemaining ?? '?'} days remaining)`;

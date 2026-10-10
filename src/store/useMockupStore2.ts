@@ -6,7 +6,7 @@ export type ScreenId =
 
 export type OverlayId =
   | null | 'drMember' | 'drTask'
-  | 'mdReject' | 'mdOverride' | 'mdEdit' | 'mdSave';
+  | 'mdReject' | 'mdOverride' | 'mdEdit' | 'mdSave' | 'mdContrib';
 
 export type RoleMode = 'lead' | 'mem';
 export type FileState = 'ok' | 'empty' | 'type' | 'parse';
@@ -35,6 +35,23 @@ interface MockupState {
   progressSort: ProgressSort;
   activeProjectId: string;
   toasts: ToastMsg[];
+  // Pipeline state — tracks whether real API pipeline has run
+  pipelineRan: boolean;
+  pipelineRunning: boolean;
+  pipelineError: string | null;
+  selectedTaskId: string | null;
+  pendingTaskEdit: {
+    taskId: string;
+    title: string;
+    description: string;
+    priority: string;
+    targetDate: string;
+    locked: boolean;
+  } | null;
+  defenderReasonText: string;
+  editingMemberId: string | null;
+  // Task progress overrides — tracks status/hours changes when no real plan exists
+  taskOverrides: Record<string, { status: string; hours: number }>;
   // actions
   go: (s: ScreenId) => void;
   setRole: (r: RoleMode) => void;
@@ -54,6 +71,14 @@ interface MockupState {
   setActiveProject: (id: string) => void;
   addToast: (text: string, icon?: string) => void;
   removeToast: (id: number) => void;
+  setPipelineRan: (v: boolean) => void;
+  setPipelineRunning: (v: boolean) => void;
+  setPipelineError: (e: string | null) => void;
+  setSelectedTaskId: (id: string | null) => void;
+  setPendingTaskEdit: (data: MockupState['pendingTaskEdit']) => void;
+  setDefenderReasonText: (s: string) => void;
+  setEditingMemberId: (id: string | null) => void;
+  setTaskOverride: (taskId: string, data: { status: string; hours: number }) => void;
 }
 
 let toastId = 0;
@@ -75,6 +100,14 @@ export const useMockupStore2 = create<MockupState>((set, get) => ({
   progressSort: 'def',
   activeProjectId: 'srs',
   toasts: [],
+  pipelineRan: false,
+  pipelineRunning: false,
+  pipelineError: null,
+  selectedTaskId: null,
+  pendingTaskEdit: null,
+  defenderReasonText: '',
+  editingMemberId: null,
+  taskOverrides: {},
   go: (s) => {
     set({ screen: s, overlay: null, taskEditMode: false });
     window.scrollTo(0, 0);
@@ -82,7 +115,7 @@ export const useMockupStore2 = create<MockupState>((set, get) => ({
   },
   setRole: (r) => set({ role: r }),
   openOverlay: (o) => set({ overlay: o }),
-  closeOverlay: () => set({ overlay: null, taskEditMode: false }),
+  closeOverlay: () => set({ overlay: null, taskEditMode: false, pendingTaskEdit: null }),
   setFileState: (f) => set({ fileState: f }),
   setTaskView: (v) => set({ taskView: v }),
   setDefenderPhase: (p) => set({ defenderPhase: p }),
@@ -105,4 +138,12 @@ export const useMockupStore2 = create<MockupState>((set, get) => ({
     setTimeout(() => { set({ toasts: get().toasts.filter(t => t.id !== id) }); }, 3200);
   },
   removeToast: (id) => set({ toasts: get().toasts.filter(t => t.id !== id) }),
+  setPipelineRan: (v) => set({ pipelineRan: v }),
+  setPipelineRunning: (v) => set({ pipelineRunning: v }),
+  setPipelineError: (e) => set({ pipelineError: e }),
+  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+  setPendingTaskEdit: (data) => set({ pendingTaskEdit: data }),
+  setDefenderReasonText: (s) => set({ defenderReasonText: s }),
+  setEditingMemberId: (id) => set({ editingMemberId: id }),
+  setTaskOverride: (taskId, data) => set({ taskOverrides: { ...get().taskOverrides, [taskId]: data } }),
 }));

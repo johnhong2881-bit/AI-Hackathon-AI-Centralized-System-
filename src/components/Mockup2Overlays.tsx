@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
-import { SUGG, LVN, DN, RJ_OPTS } from '@/lib/mock/mockTaskflow2';
+import { useTaskStore } from '@/store/useTaskStore';
+import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS } from '@/lib/mock/mockTaskflow2';
+import type { Task, Member, Skill, TaskStatus, Priority } from '@/types/types';
 
 // ===== Overlay Wrapper =====
 export function Mockup2Overlays() {
@@ -19,12 +21,13 @@ export function Mockup2Overlays() {
           <div className="ov" onClick={closeOverlay} />
           {overlay === 'drMember' && <MemberDrawer />}
           {overlay === 'drTask' && <TaskDrawer />}
-          {(overlay === 'mdReject' || overlay === 'mdOverride' || overlay === 'mdEdit' || overlay === 'mdSave') && (
+          {(overlay === 'mdReject' || overlay === 'mdOverride' || overlay === 'mdEdit' || overlay === 'mdSave' || overlay === 'mdContrib') && (
             <div className="mdl" onClick={e => e.stopPropagation()}>
               {overlay === 'mdReject' && <RejectModal />}
               {overlay === 'mdSave' && <SaveModal />}
               {overlay === 'mdOverride' && <OverrideModal />}
               {overlay === 'mdEdit' && <EditModal />}
+              {overlay === 'mdContrib' && <ContributionModal />}
             </div>
           )}
         </>
@@ -46,10 +49,57 @@ export function Mockup2Overlays() {
 function MemberDrawer() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const addToast = useMockupStore2(s => s.addToast);
-  const [name, setName] = useState('Alice Tan');
-  const [skills, setSkills] = useState<[string, number][]>([['Research', 3], ['Academic Writing', 2]]);
-  const [weaknesses, setWeaknesses] = useState<string[]>(['Programming', 'Testing']);
-  const [hours, setHours] = useState<number[]>([2, 3, 0, 2, 4, 5, 3]);
+  const editingMemberId = useMockupStore2(s => s.editingMemberId);
+  const setEditingMemberId = useMockupStore2(s => s.setEditingMemberId);
+
+  // Load existing member data if editing
+  const existingMember = useTaskStore(s => s.members.find(m => m.id === editingMemberId) || null);
+
+  const [name, setName] = useState(existingMember?.name || '');
+  const [skills, setSkills] = useState<[string, number][]>(() => {
+    if (existingMember) {
+      const SKILL_REVERSE: Record<string, string> = {
+        'research': 'Research', 'writing': 'Academic Writing', 'editing': 'Documentation',
+        'management': 'Testing', 'design': 'UI/UX Design', 'coding': 'Programming',
+        'analysis': 'Data Analysis', 'presentation': 'Presentation',
+      };
+      return existingMember.skills.map(s => {
+        const label = SKILL_REVERSE[s] || s;
+        const prof = existingMember.skillProficiency?.[s] || 2;
+        return [label, Math.min(3, Math.max(1, prof - 1))] as [string, number];
+      });
+    }
+    return [['Research', 3], ['Academic Writing', 2]];
+  });
+  const [weaknesses, setWeaknesses] = useState<string[]>(() => {
+    if (existingMember) {
+      const allSkills: Skill[] = ['writing', 'research', 'design', 'coding', 'presentation', 'analysis', 'editing', 'management'];
+      const SKILL_REVERSE: Record<string, string> = {
+        'research': 'Research', 'writing': 'Academic Writing', 'editing': 'Documentation',
+        'management': 'Testing', 'design': 'UI/UX Design', 'coding': 'Programming',
+        'analysis': 'Data Analysis', 'presentation': 'Presentation',
+      };
+      return allSkills
+        .filter(s => !existingMember.skills.includes(s))
+        .map(s => SKILL_REVERSE[s] || s)
+        .slice(0, 2);
+    }
+    return ['Programming', 'Testing'];
+  });
+  const [hours, setHours] = useState<number[]>(() => {
+    if (existingMember?.weeklyAvailability) {
+      return [
+        existingMember.weeklyAvailability.monday,
+        existingMember.weeklyAvailability.tuesday,
+        existingMember.weeklyAvailability.wednesday,
+        existingMember.weeklyAvailability.thursday,
+        existingMember.weeklyAvailability.friday,
+        existingMember.weeklyAvailability.saturday,
+        existingMember.weeklyAvailability.sunday,
+      ];
+    }
+    return [2, 3, 0, 2, 4, 5, 3];
+  });
 
   const total = hours.reduce((a, b) => a + b, 0);
   const used = [...skills.map(s => s[0]), ...weaknesses];
@@ -77,7 +127,58 @@ function MemberDrawer() {
     if (!name.trim()) { addToast('Enter the member\'s name first', 'ti-alert-circle'); return; }
     if (skills.length === 0) { addToast('Add at least one strength', 'ti-alert-circle'); return; }
     if (weaknesses.length === 0) { addToast('Add at least one weakness', 'ti-alert-circle'); return; }
+
+    // Map UI skill names to Skill type
+    const SKILL_MAP: Record<string, Skill> = {
+      'Research': 'research', 'Academic Writing': 'writing', 'Documentation': 'editing',
+      'Testing': 'management', 'UI/UX Design': 'design', 'Programming': 'coding',
+      'Data Analysis': 'analysis', 'Presentation': 'presentation',
+    };
+    const ALL_SKILLS: Skill[] = ['writing', 'research', 'design', 'coding', 'presentation', 'analysis', 'editing', 'management'];
+
+    const memberSkills: Skill[] = skills.map(s => SKILL_MAP[s[0]] || 'management');
+    const skillProficiency = {} as Record<Skill, number>;
+    for (const sk of ALL_SKILLS) {
+      const match = skills.find(s => SKILL_MAP[s[0]] === sk);
+      skillProficiency[sk] = match ? Math.min(5, match[1] + 1) : 1;
+    }
+
+    const weeklyAvailability = {
+      monday: hours[0], tuesday: hours[1], wednesday: hours[2], thursday: hours[3],
+      friday: hours[4], saturday: hours[5], sunday: hours[6],
+    };
+
+    const store = useTaskStore.getState();
+    const existing = editingMemberId
+      ? store.members.find(m => m.id === editingMemberId)
+      : store.members.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
+
+    const memberData: Member = {
+      id: existing?.id || `mem-${Date.now()}`,
+      name: name.trim(),
+      avatar: name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+      skills: memberSkills,
+      skillProficiency,
+      availability: hours.reduce((a, b) => a + b, 0),
+      weeklyAvailability,
+      role: existing?.role || 'Member',
+      isLeader: existing?.isLeader || false,
+      currentTaskIds: existing?.currentTaskIds || [],
+    };
+
+    if (existing) {
+      store.setMembers(store.members.map(m => m.id === existing.id ? memberData : m));
+    } else {
+      store.setMembers([...store.members, memberData]);
+    }
+
+    setEditingMemberId(null);
     addToast(`${name} saved`, 'ti-user-check');
+    closeOverlay();
+  };
+
+  const handleClose = () => {
+    setEditingMemberId(null);
     closeOverlay();
   };
 
@@ -85,10 +186,10 @@ function MemberDrawer() {
     <aside className="drw" onClick={e => e.stopPropagation()}>
       <div className="hd">
         <div style={{ flex: 1 }}>
-          <div className="h2">Edit team member</div>
+          <div className="h2">{editingMemberId ? 'Edit team member' : 'Add team member'}</div>
           <div className="sm mut">Strengths, weaknesses and availability decide which tasks they get.</div>
         </div>
-        <button className="icb" onClick={closeOverlay} title="Close"><i className="ti ti-x" /></button>
+        <button className="icb" onClick={handleClose} title="Close"><i className="ti ti-x" /></button>
       </div>
       <div className="bd">
         <div className="mb16">
@@ -179,8 +280,8 @@ function MemberDrawer() {
         </div>
       </div>
       <div className="ft">
-        <button className="btn" onClick={closeOverlay}>Cancel</button>
-        <button className="btn btn-p" onClick={handleSave}>Save member</button>
+        <button className="btn" onClick={handleClose}>Cancel</button>
+        <button className="btn btn-p" onClick={handleSave}>{editingMemberId ? 'Save member' : 'Add member'}</button>
       </div>
     </aside>
   );
@@ -198,18 +299,173 @@ function TaskDrawer() {
   const setTaskAccepted = useMockupStore2(s => s.setTaskAccepted);
   const taskLocked = useMockupStore2(s => s.taskLocked);
   const setTaskLocked = useMockupStore2(s => s.setTaskLocked);
+  const selectedTaskId = useMockupStore2(s => s.selectedTaskId);
+  const setPendingTaskEdit = useMockupStore2(s => s.setPendingTaskEdit);
+  const setTaskOverride = useMockupStore2(s => s.setTaskOverride);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides);
+
+  // Look up real task from store
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const realTask = plan?.tasks.find(t => t.id === selectedTaskId) || null;
+
+  // Fallback: find mock task from TK when no real plan exists
+  // OverviewScreen passes task title as selectedTaskId, TasksScreen passes TK ID
+  const mockTaskEntry = !realTask 
+    ? TK.find(t => String(t[0]) === selectedTaskId) || TK.find(t => t[1] === selectedTaskId)
+    : null;
+  // Normalize override key to TK ID when using mock data
+  const overrideTaskId = mockTaskEntry ? String(mockTaskEntry[0]) : selectedTaskId;
+  const override = overrideTaskId ? taskOverrides[overrideTaskId] : undefined;
+
+  // Build effective task — real task, or mock task with overrides
+  const task: Task | null = realTask || (mockTaskEntry ? {
+    id: String(mockTaskEntry[0]),
+    title: mockTaskEntry[1],
+    description: mockTaskEntry[2],
+    estimatedHours: override?.hours ?? mockTaskEntry[4],
+    status: (override?.status || (mockTaskEntry[8] === 'prog' ? 'in-progress' : mockTaskEntry[8] === 'done' ? 'done' : 'todo')) as TaskStatus,
+    priority: (mockTaskEntry[3] === 'H' ? 'high' : mockTaskEntry[3] === 'M' ? 'medium' : 'low') as Priority,
+    assignedTo: mockTaskEntry[5][0] || null,
+    dependencies: [],
+    requiredSkills: [],
+    complexity: 'medium' as const,
+    relatedRubricIds: [],
+    confirmed: false,
+    memberAssignments: [],
+    invitationStatus: 'pending' as const,
+    order: mockTaskEntry[6],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as Task : null);
+  const assignedMembers = task && members.length > 0
+    ? members.filter(m => task.assignedTo === m.id || (task.memberAssignments?.some(ma => ma.memberId === m.id)))
+    : [];
+
+  // Sync taskAccepted with real task's invitation status
+  useEffect(() => {
+    if (task?.invitationStatus === 'accepted') setTaskAccepted(true);
+    if (task?.invitationStatus === 'rejected') setTaskAccepted(false);
+  }, [task?.invitationStatus, setTaskAccepted]);
+
+  // Edit mode controlled state
+  const [editTitle, setEditTitle] = useState(task?.title || '');
+  const [editDesc, setEditDesc] = useState(task?.description || '');
+  const [editPriority, setEditPriority] = useState<Priority>((task?.priority as Priority) || 'medium');
+  const [editDate, setEditDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + (task?.order || 2));
+    return d.toISOString().slice(0, 10);
+  });
+
+  // Update edit state when task changes
+  useEffect(() => {
+    setEditTitle(task?.title || '');
+    setEditDesc(task?.description || '');
+    setEditPriority(task?.priority || 'medium');
+  }, [task?.id]);
+
+  // Look up dependency tasks from plan
+  const depTasks = task?.dependencies.map(depId => {
+    const depTask = plan?.tasks.find(t => t.id === depId);
+    return depTask ? { id: depTask.id, title: depTask.title, status: depTask.status } : null;
+  }).filter(Boolean) ?? [];
+
+  // Format target date from task order
+  const targetDateStr = (() => {
+    if (!task) return 'Day 2';
+    const baseDate = new Date('2026-10-12');
+    baseDate.setDate(baseDate.getDate() + (task.order || 2));
+    return baseDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+  })();
+
+  // Update task status (todo / in-progress / done) in store
+  const updateTaskStatus = (status: 'todo' | 'in-progress' | 'done') => {
+    if (!task) return;
+    // Update real plan if it exists
+    if (plan) {
+      const currentPlan = useTaskStore.getState().plan;
+      if (currentPlan) {
+        const updatedTasks = currentPlan.tasks.map(t =>
+          t.id === task.id ? { ...t, status, updatedAt: new Date().toISOString() } : t
+        );
+        useTaskStore.getState().setPlan({ ...currentPlan, tasks: updatedTasks });
+      }
+    }
+    // Also update overrides (works for both real and mock tasks)
+    if (overrideTaskId) {
+      setTaskOverride(overrideTaskId, { status, hours: task.estimatedHours || 0 });
+    }
+    addToast(`Status updated to "${status === 'done' ? 'Done' : status === 'in-progress' ? 'In progress' : 'To do'}"`, 'ti-circle-check');
+  };
+
+  // Update remaining hours in store
+  const updateRemainingHours = (hours: number) => {
+    if (!task || hours < 0) return;
+    // Update real plan if it exists
+    if (plan) {
+      const currentPlan = useTaskStore.getState().plan;
+      if (currentPlan) {
+        const updatedTasks = currentPlan.tasks.map(t =>
+          t.id === task.id ? { ...t, estimatedHours: hours, updatedAt: new Date().toISOString() } : t
+        );
+        useTaskStore.getState().setPlan({ ...currentPlan, tasks: updatedTasks });
+      }
+    }
+    // Also update overrides
+    if (overrideTaskId) {
+      setTaskOverride(overrideTaskId, { status: task.status || 'todo', hours });
+    }
+  };
+
+  // API call helper for task invitation
+  const callInvitation = async (action: 'accept' | 'reject', rejectReason?: string): Promise<boolean> => {
+    if (!selectedTaskId) { addToast('No task selected', 'ti-alert-circle'); return false; }
+    try {
+      const res = await fetch(`/api/tasks/${selectedTaskId}/invitation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, rejectReason }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      const updatedTask = await res.json();
+      // Update the task in the store
+      const currentPlan = useTaskStore.getState().plan;
+      if (currentPlan) {
+        const updatedTasks = currentPlan.tasks.map(t =>
+          t.id === selectedTaskId
+            ? { ...t, ...updatedTask, invitationStatus: action === 'accept' ? 'accepted' as const : 'rejected' as const, confirmed: action === 'accept' }
+            : t
+        );
+        useTaskStore.getState().setPlan({ ...currentPlan, tasks: updatedTasks });
+      }
+      return true;
+    } catch (err) {
+      addToast(`Failed: ${err instanceof Error ? err.message : String(err)}`, 'ti-alert-circle');
+      return false;
+    }
+  };
 
   return (
     <aside className="drw" onClick={e => e.stopPropagation()}>
       <div className="hd">
         <div style={{ flex: 1 }}>
           <div className="row wrap g6 mb8">
-            <span className="pri pri-H"><i className="ti ti-chevrons-up" />High</span>
-            <span className="badge"><i className="ti ti-progress" /> In progress</span>
+            {(() => {
+              const p = task?.priority || 'medium';
+              const pChar = p === 'critical' || p === 'high' ? 'H' : p === 'medium' ? 'M' : 'L';
+              const pIcon = pChar === 'H' ? 'ti-chevrons-up' : pChar === 'M' ? 'ti-chevron-up' : 'ti-chevron-down';
+              const pLabel = pChar === 'H' ? 'High' : pChar === 'M' ? 'Medium' : 'Low';
+              return <span className={`pri pri-${pChar}`}><i className={`ti ${pIcon}`} />{pLabel}</span>;
+            })()}
+            <span className="badge"><i className={`ti ${task?.status === 'done' ? 'ti-circle-check' : task?.status === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} /> {task?.status === 'done' ? 'Done' : task?.status === 'in-progress' ? 'In progress' : 'To do'}</span>
             {taskLocked && <span className="badge b-wn"><i className="ti ti-lock" /> Locked</span>}
           </div>
-          <div className="h2">Requirements Analysis</div>
-          <div className="sm mut mt4">Write functional and non-functional requirements with clear descriptions.</div>
+          <div className="h2">{task?.title || 'Requirements Analysis'}</div>
+          <div className="sm mut mt4">{task?.description || 'Write functional and non-functional requirements with clear descriptions.'}</div>
         </div>
         <button className="icb" onClick={closeOverlay} title="Close"><i className="ti ti-x" /></button>
       </div>
@@ -219,60 +475,116 @@ function TaskDrawer() {
             <div className="g2r mb16" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="card flat">
                 <div className="xs mut">Estimated hours</div>
-                <div className="h2">10 h</div>
-                <div className="xs mut">7 h remaining</div>
+                <div className="h2">{task?.estimatedHours || 10} h</div>
+                <div className="xs mut">{task?.estimatedHours || 10} h remaining</div>
               </div>
               <div className="card flat">
                 <div className="xs mut">Target date</div>
-                <div className="h2">Wed 14 Oct</div>
-                <div className="xs mut">after &ldquo;Gather requirements&rdquo;</div>
+                <div className="h2">{targetDateStr}</div>
+                <div className="xs mut">{depTasks.length > 0 ? `after "${depTasks[depTasks.length - 1]?.title?.slice(0, 20)}..."` : 'start of project'}</div>
               </div>
             </div>
             <div className="sec">
               <div className="eyebrow mb8">Why this priority</div>
               <div className="alert al-blue sm" style={{ padding: '10px 14px' }}>
                 <i className="ti ti-sparkles" />
-                <div><b>High:</b> carries 4 of 30 marks, 3 tasks depend on it, and it is due in 2 days.</div>
+                <div><b>{task?.priority === 'critical' || task?.priority === 'high' ? 'High' : task?.priority === 'medium' ? 'Medium' : 'Low'}:</b> {task?.estimatedHours || 10}h of work, {depTasks.length} task{depTasks.length !== 1 ? 's' : ''} depend on it{task?.priority === 'critical' ? ', and it is on the critical path' : ''}.</div>
               </div>
             </div>
             <div className="sec">
               <div className="eyebrow mb8">Dependencies</div>
-              <div className="row g8 sm"><i className="ti ti-circle-check" style={{ color: '#18a67a' }} /> Analyze assignment brief <span className="mut3">done</span></div>
-              <div className="row g8 sm mt4"><i className="ti ti-progress" style={{ color: 'var(--blue)' }} /> Gather requirements <span className="mut3">in progress</span></div>
+              {depTasks.length > 0 ? depTasks.map((dep, i) => (
+                <div key={i} className="row g8 sm" style={{ marginTop: i > 0 ? 4 : 0 }}>
+                  <i className={`ti ${dep!.status === 'done' ? 'ti-circle-check' : dep!.status === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} style={{ color: dep!.status === 'done' ? '#18a67a' : 'var(--blue)' }} />
+                  {dep!.title}
+                  <span className="mut3">{dep!.status === 'done' ? 'done' : dep!.status === 'in-progress' ? 'in progress' : 'to do'}</span>
+                </div>
+              )) : (
+                <div className="row g8 sm"><i className="ti ti-info-circle" style={{ color: 'var(--blue)' }} /> No dependencies — this task can start immediately.</div>
+              )}
             </div>
             <div className="sec">
               <div className="eyebrow mb8">Assigned members</div>
-              <div className="card flat mb8" style={{ padding: 14 }}>
-                <div className="row">
-                  <span className={`av av0`}>AT</span>
-                  <div style={{ flex: 1 }}><div className="b">Alice Tan</div><div className="xs mut">Allocated 6 h &middot; Remaining <b>3 h</b></div></div>
-                  <span className="badge b-blue"><i className="ti ti-progress" /> In progress</span>
-                  <span className="badge b-ok"><i className="ti ti-check" /> Accepted</span>
-                </div>
-              </div>
-              <div className="card flat" style={{ padding: 14 }}>
-                <div className="row">
-                  <span className={`av av1`}>BL</span>
-                  <div style={{ flex: 1 }}><div className="b">Bob Lee</div><div className="xs mut">Allocated 4 h &middot; Remaining <b>4 h</b></div></div>
-                  <span className="badge"><i className="ti ti-circle" /> To do</span>
-                  <span className={`badge ${taskAccepted ? 'b-ok' : 'b-wn'}`}>
-                    <i className={`ti ${taskAccepted ? 'ti-check' : 'ti-clock'}`} /> {taskAccepted ? 'Accepted' : 'Awaiting'}
-                  </span>
-                </div>
-                {!taskAccepted && role === 'mem' && (
-                  <div className="row g8 mt12 mem-only">
-                    <button className="btn btn-p btn-sm" onClick={() => { setTaskAccepted(true); addToast('You accepted "Requirements Analysis"'); }}>
-                      <i className="ti ti-check" /> Accept
-                    </button>
-                    <button className="btn btn-sm btn-d" onClick={() => openOverlay('mdReject')}>
-                      <i className="ti ti-x" /> Reject
-                    </button>
+              {assignedMembers.length > 0 ? assignedMembers.map((m, i) => (
+                <div key={m.id} className="card flat mb8" style={{ padding: 14 }}>
+                  <div className="row">
+                    <span className={`av av${i % 4}`}>{m.avatar}</span>
+                    <div style={{ flex: 1 }}><div className="b">{m.name}</div><div className="xs mut">Allocated {task?.estimatedHours || 10}h &middot; Remaining <b>{task?.estimatedHours || 10}h</b></div></div>
+                    <span className={`badge ${m.currentTaskIds?.includes(task?.id || '') ? 'b-blue' : ''}`}>
+                      <i className={`ti ${task?.status === 'done' ? 'ti-circle-check' : task?.status === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} />
+                      {task?.status === 'done' ? 'Done' : task?.status === 'in-progress' ? 'In progress' : 'To do'}
+                    </span>
+                    {i === 0 && (
+                      <span className={`badge ${taskAccepted || task?.invitationStatus === 'accepted' ? 'b-ok' : 'b-wn'}`}>
+                        <i className={`ti ${taskAccepted || task?.invitationStatus === 'accepted' ? 'ti-check' : 'ti-clock'}`} />
+                        {taskAccepted || task?.invitationStatus === 'accepted' ? 'Accepted' : 'Awaiting'}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
+                  {!taskAccepted && task?.invitationStatus !== 'accepted' && role === 'mem' && i === 0 && (
+                    <div className="row g8 mt12 mem-only">
+                      <button className="btn btn-p btn-sm" onClick={async () => {
+                        const ok = await callInvitation('accept');
+                        if (ok) { setTaskAccepted(true); addToast(`You accepted "${task?.title || 'this task'}"`); }
+                      }}>
+                        <i className="ti ti-check" /> Accept
+                      </button>
+                      <button className="btn btn-sm btn-d" onClick={() => openOverlay('mdReject')}>
+                        <i className="ti ti-x" /> Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )) : (
+                <div className="card flat" style={{ padding: 14 }}>
+                  <div className="row">
+                    <span className="av av0">??</span>
+                    <div style={{ flex: 1 }}><div className="b">Unassigned</div><div className="xs mut">No member assigned to this task yet.</div></div>
+                    <span className="badge b-wn"><i className="ti ti-user-plus" /> Needs assignment</span>
+                  </div>
+                </div>
+              )}
               <div className="alert al-blue sm mt12">
                 <i className="ti ti-info-circle" />
-                <div>This task becomes <b>Done</b> only when both members finish. The leader can override.</div>
+                <div>{assignedMembers.length > 1 ? `This task becomes <b>Done</b> only when all ${assignedMembers.length} members finish. The leader can override.` : 'The leader can override task status at any time.'}</div>
+              </div>
+            </div>
+            <div className="sec">
+              <div className="eyebrow mb8">Progress</div>
+              <div className="card flat" style={{ padding: 14 }}>
+                <div className="row mb12">
+                  <div style={{ flex: 1 }}>
+                    <div className="xs mut mb4">Current status</div>
+                    <div className="seg">
+                      <button
+                        className={(!task?.status || task?.status === 'todo') ? 'on' : ''}
+                        onClick={() => updateTaskStatus('todo')}
+                      >To do</button>
+                      <button
+                        className={task?.status === 'in-progress' ? 'on' : ''}
+                        onClick={() => updateTaskStatus('in-progress')}
+                      >In progress</button>
+                      <button
+                        className={task?.status === 'done' ? 'on' : ''}
+                        onClick={() => updateTaskStatus('done')}
+                      >Done</button>
+                    </div>
+                  </div>
+                </div>
+                <div className="row g8 wrap">
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label className="xs mut">Remaining hours</label>
+                    <div className="row g8 mt4">
+                      <button className="btn btn-sm" onClick={() => updateRemainingHours(Math.max(0, (task?.estimatedHours || 0) - 1))}><i className="ti ti-minus" /></button>
+                      <input className="inp" type="number" style={{ width: 70 }} value={task?.estimatedHours || 0} onChange={e => updateRemainingHours(parseInt(e.target.value) || 0)} />
+                      <button className="btn btn-sm" onClick={() => updateRemainingHours((task?.estimatedHours || 0) + 1)}><i className="ti ti-plus" /></button>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label className="xs mut">Completion</label>
+                    <div className="bar mt4"><i style={{ width: `${task?.status === 'done' ? 100 : task?.status === 'in-progress' ? 50 : 0}%` }} /></div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="sec lead-only">
@@ -282,7 +594,6 @@ function TaskDrawer() {
                 <button className="btn" onClick={() => { setTaskLocked(!taskLocked); addToast(taskLocked ? 'Task unlocked' : 'Task locked. AI changes now need your approval.', 'ti-lock'); }}>
                   <i className={`ti ${taskLocked ? 'ti-lock-open' : 'ti-lock'}`} /> {taskLocked ? 'Unlock task' : 'Lock task'}
                 </button>
-                <button className="btn" onClick={() => openOverlay('mdOverride')}><i className="ti ti-checks" /> Override as done</button>
               </div>
             </div>
           </div>
@@ -294,46 +605,74 @@ function TaskDrawer() {
             </div>
             <div className="mb16">
               <label className="fl">Task title</label>
-              <input className="inp" defaultValue="Requirements Analysis" />
+              <input className="inp" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
             </div>
             <div className="mb16">
               <label className="fl">Description</label>
-              <textarea className="inp" defaultValue="Write functional and non-functional requirements with clear descriptions." />
+              <textarea className="inp" value={editDesc} onChange={e => setEditDesc(e.target.value)} />
             </div>
             <div className="row g12 mb16">
               <div style={{ flex: 1 }}>
                 <label className="fl">Priority</label>
-                <select className="inp" style={{ width: '100%' }} defaultValue="High">
-                  <option>High</option><option>Medium</option><option>Low</option>
+                <select className="inp" style={{ width: '100%' }} value={editPriority} onChange={e => setEditPriority(e.target.value as Priority)}>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
                 <label className="fl">Target date</label>
-                <input className="inp" type="date" defaultValue="2026-10-14" />
+                <input className="inp" type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
               </div>
             </div>
             <div className="mb16">
               <label className="fl">Assigned members and hours</label>
-              <div className="card flat mb8" style={{ padding: 12 }}>
-                <div className="row g12 wrap">
-                  <span className="av av0">AT</span>
-                  <div style={{ flex: 1, minWidth: 90 }} className="b">Alice Tan</div>
-                  <label className="xs mut">Allocated <input className="inp" type="number" defaultValue={6} style={{ width: 68, padding: '6px 8px' }} /></label>
-                  <label className="xs mut">Remaining <input className="inp" type="number" defaultValue={3} style={{ width: 68, padding: '6px 8px' }} /></label>
-                  <button className="icb" title="Remove from task"><i className="ti ti-x" /></button>
+              {assignedMembers.length > 0 ? assignedMembers.map((m, i) => (
+                <div key={m.id} className="card flat mb8" style={{ padding: 12 }}>
+                  <div className="row g12 wrap">
+                    <span className={`av av${i % 4}`}>{m.avatar}</span>
+                    <div style={{ flex: 1, minWidth: 90 }} className="b">{m.name}</div>
+                    <label className="xs mut">Allocated <input className="inp" type="number" defaultValue={task?.estimatedHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
+                    <label className="xs mut">Remaining <input className="inp" type="number" defaultValue={task?.estimatedHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
+                    <button className="icb" title="Remove from task" onClick={() => {
+                      const currentPlan = useTaskStore.getState().plan;
+                      if (currentPlan && task) {
+                        const updatedTasks = currentPlan.tasks.map(t =>
+                          t.id === task.id ? { ...t, assignedTo: null } : t
+                        );
+                        useTaskStore.getState().setPlan({ ...currentPlan, tasks: updatedTasks });
+                        addToast(`${m.name} removed from this task`, 'ti-user-minus');
+                      }
+                    }}><i className="ti ti-x" /></button>
+                  </div>
                 </div>
-              </div>
-              <div className="card flat mb8" style={{ padding: 12 }}>
-                <div className="row g12 wrap">
-                  <span className="av av1">BL</span>
-                  <div style={{ flex: 1, minWidth: 90 }} className="b">Bob Lee</div>
-                  <label className="xs mut">Allocated <input className="inp" type="number" defaultValue={4} style={{ width: 68, padding: '6px 8px' }} /></label>
-                  <label className="xs mut">Remaining <input className="inp" type="number" defaultValue={4} style={{ width: 68, padding: '6px 8px' }} /></label>
-                  <button className="icb" title="Remove from task"><i className="ti ti-x" /></button>
+              )) : (
+                <div className="card flat mb8" style={{ padding: 12 }}>
+                  <div className="xs mut">No members assigned to this task.</div>
                 </div>
-              </div>
-              <select className="inp"><option>+ Add member</option><option>Chloe Ng &middot; 23 h spare</option><option>David Chen &middot; 27 h spare</option></select>
-              <div className="hint">Total: 10 h across 2 members.</div>
+              )}
+              {members.filter(m => !assignedMembers.find(am => am.id === m.id)).length > 0 && (
+                <select className="inp" defaultValue="" onChange={e => {
+                  if (!e.target.value) return;
+                  const currentPlan = useTaskStore.getState().plan;
+                  if (currentPlan && task) {
+                    const updatedTasks = currentPlan.tasks.map(t =>
+                      t.id === task.id ? { ...t, assignedTo: e.target.value } : t
+                    );
+                    useTaskStore.getState().setPlan({ ...currentPlan, tasks: updatedTasks });
+                    const member = members.find(m => m.id === e.target.value);
+                    addToast(`${member?.name || 'Member'} added to this task`, 'ti-user-plus');
+                  }
+                  e.target.value = '';
+                }}>
+                  <option value="">+ Add member</option>
+                  {members.filter(m => !assignedMembers.find(am => am.id === m.id)).map(m => (
+                    <option key={m.id} value={m.id}>{m.name} &middot; {m.availability}h spare</option>
+                  ))}
+                </select>
+              )}
+              <div className="hint">Total: {task?.estimatedHours || 10}h across {assignedMembers.length || 0} member{assignedMembers.length !== 1 ? 's' : ''}.</div>
             </div>
             <label className="row g8" style={{ cursor: 'pointer' }}>
               <span className="sw"><input type="checkbox" checked={taskLocked} onChange={e => setTaskLocked(e.target.checked)} /><span /></span>
@@ -348,7 +687,18 @@ function TaskDrawer() {
         ) : (
           <>
             <button className="btn" onClick={() => setTaskEditMode(false)}>Cancel</button>
-            <button className="btn btn-p" onClick={() => openOverlay('mdSave')}>Save changes</button>
+            <button className="btn btn-p" onClick={() => {
+              if (!selectedTaskId) { addToast('No task selected', 'ti-alert-circle'); return; }
+              setPendingTaskEdit({
+                taskId: selectedTaskId,
+                title: editTitle,
+                description: editDesc,
+                priority: editPriority,
+                targetDate: editDate,
+                locked: taskLocked,
+              });
+              openOverlay('mdSave');
+            }}>Save changes</button>
           </>
         )}
       </div>
@@ -361,6 +711,42 @@ function RejectModal() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const addToast = useMockupStore2(s => s.addToast);
   const [selected, setSelected] = useState(0);
+  const [explanation, setExplanation] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleReject = async () => {
+    const taskId = useMockupStore2.getState().selectedTaskId;
+    const reason = RJ_OPTS[selected];
+    if (!taskId) { closeOverlay(); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/invitation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', rejectReason: explanation.trim() ? `${reason}: ${explanation.trim()}` : reason }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      const updatedTask = await res.json();
+      // Update the task in the store
+      const plan = useTaskStore.getState().plan;
+      if (plan) {
+        const updatedTasks = plan.tasks.map(t =>
+          t.id === taskId ? { ...t, ...updatedTask, invitationStatus: 'rejected' as const, rejectReason: reason } : t
+        );
+        useTaskStore.getState().setPlan({ ...plan, tasks: updatedTasks });
+      }
+      useMockupStore2.getState().setTaskAccepted(false);
+      closeOverlay();
+      addToast('Rejected. Your leader will see a reassignment suggestion.', 'ti-user-x');
+    } catch (err) {
+      addToast(`Failed: ${err instanceof Error ? err.message : String(err)}`, 'ti-alert-circle');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -375,12 +761,12 @@ function RejectModal() {
             </label>
           ))}
         </div>
-        <textarea className="inp mt12" placeholder="Optional: add a short explanation" />
+        <textarea className="inp mt12" placeholder="Optional: add a short explanation" value={explanation} onChange={e => setExplanation(e.target.value)} />
       </div>
       <div className="ft">
-        <button className="btn" onClick={closeOverlay}>Cancel</button>
-        <button className="btn btn-d" onClick={() => { closeOverlay(); addToast('Rejected. Your leader will see a reassignment suggestion.', 'ti-user-x'); }}>
-          Reject task
+        <button className="btn" onClick={closeOverlay} disabled={submitting}>Cancel</button>
+        <button className="btn btn-d" onClick={handleReject} disabled={submitting}>
+          {submitting ? 'Rejecting...' : 'Reject task'}
         </button>
       </div>
     </>
@@ -392,16 +778,48 @@ function SaveModal() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const setTaskEditMode = useMockupStore2(s => s.setTaskEditMode);
   const addToast = useMockupStore2(s => s.addToast);
+  const pendingTaskEdit = useMockupStore2(s => s.pendingTaskEdit);
+  const setPendingTaskEdit = useMockupStore2(s => s.setPendingTaskEdit);
+
+  const handleSave = () => {
+    if (pendingTaskEdit) {
+      const store = useTaskStore.getState();
+      if (store.plan) {
+        const updatedTasks = store.plan.tasks.map((t: Task) =>
+          t.id === pendingTaskEdit.taskId
+            ? {
+                ...t,
+                title: pendingTaskEdit.title,
+                description: pendingTaskEdit.description,
+                priority: pendingTaskEdit.priority as Task['priority'],
+                updatedAt: new Date().toISOString(),
+              }
+            : t
+        );
+        store.setPlan({ ...store.plan, tasks: updatedTasks });
+      }
+      setPendingTaskEdit(null);
+    }
+    closeOverlay();
+    setTaskEditMode(false);
+    addToast('Task updated. Schedule recalculated.', 'ti-circle-check');
+  };
+
+  const hasChanges = pendingTaskEdit !== null;
 
   return (
     <>
       <div className="bd">
         <div className="h2 mb8">Save changes to this task?</div>
-        <p className="sm mut">Allocated hours change from 10 h to 12 h. The predicted completion moves <b>Fri 6 Nov &rarr; Sat 7 Nov</b> (+1 day). Bob will be asked to accept the new estimate.</p>
+        <p className="sm mut">
+          {hasChanges
+            ? `Updating "${pendingTaskEdit!.title}" with new priority (${pendingTaskEdit!.priority}). The predicted completion will be recalculated based on the new estimates.`
+            : 'No changes detected.'}
+        </p>
       </div>
       <div className="ft">
-        <button className="btn" onClick={closeOverlay}>Cancel</button>
-        <button className="btn btn-p" onClick={() => { closeOverlay(); setTaskEditMode(false); addToast('Task updated. Forecast recalculated.'); }}>
+        <button className="btn" onClick={() => { setPendingTaskEdit(null); closeOverlay(); }}>Cancel</button>
+        <button className="btn btn-p" onClick={handleSave}>
           Save and recalculate
         </button>
       </div>
@@ -413,16 +831,39 @@ function SaveModal() {
 function OverrideModal() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const addToast = useMockupStore2(s => s.addToast);
+  const selectedTaskId = useMockupStore2(s => s.selectedTaskId);
+
+  const handleOverride = () => {
+    if (selectedTaskId) {
+      const store = useTaskStore.getState();
+      if (store.plan) {
+        const updatedTasks = store.plan.tasks.map((t: Task) =>
+          t.id === selectedTaskId
+            ? { ...t, status: 'done' as TaskStatus, updatedAt: new Date().toISOString() }
+            : t
+        );
+        store.setPlan({ ...store.plan, tasks: updatedTasks });
+      }
+    }
+    closeOverlay();
+    addToast('Task overridden as done. Forecast recalculated.', 'ti-circle-check');
+  };
+
+  const task = useTaskStore.getState().plan?.tasks.find(t => t.id === selectedTaskId);
+  const remainingHours = task?.estimatedHours || 0;
 
   return (
     <>
       <div className="bd">
         <div className="h2 mb8">Mark this task as done?</div>
-        <p className="sm mut">Bob still has 4 h remaining. Overriding marks the whole task Done and recalculates the schedule. Predicted completion moves <b>Fri 6 Nov &rarr; Thu 5 Nov</b>.</p>
+        <p className="sm mut">
+          {task ? `"${task.title}" still has ${remainingHours}h estimated. ` : ''}
+          Overriding marks the whole task Done and recalculates the schedule. Predicted completion may move earlier.
+        </p>
       </div>
       <div className="ft">
         <button className="btn" onClick={closeOverlay}>Cancel</button>
-        <button className="btn btn-p" onClick={() => { closeOverlay(); addToast('Task overridden as done. Forecast recalculated.'); }}>
+        <button className="btn btn-p" onClick={handleOverride}>
           Override and recalculate
         </button>
       </div>
@@ -434,6 +875,37 @@ function OverrideModal() {
 function EditModal() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const addToast = useMockupStore2(s => s.addToast);
+  const assignment = useTaskStore(s => s.assignment);
+
+  const [projName, setProjName] = useState(assignment?.title || 'Software Requirements Specification');
+  const [deadline, setDeadline] = useState(() => {
+    if (assignment?.deadline) {
+      return assignment.deadline.slice(0, 10);
+    }
+    return '2026-10-30';
+  });
+  const [time, setTime] = useState(() => {
+    if (assignment?.deadline) {
+      return assignment.deadline.slice(11, 16);
+    }
+    return '17:00';
+  });
+
+  const handleSave = () => {
+    const store = useTaskStore.getState();
+    const current = store.assignment;
+    if (current) {
+      const deadlineISO = new Date(`${deadline}T${time}:00+08:00`).toISOString();
+      store.setAssignment({
+        ...current,
+        title: projName,
+        course: projName,
+        deadline: deadlineISO,
+      });
+    }
+    closeOverlay();
+    addToast('Project updated. Schedule recalculated.', 'ti-circle-check');
+  };
 
   return (
     <>
@@ -441,16 +913,16 @@ function EditModal() {
         <div className="h2 mb12">Edit project</div>
         <div className="mb12">
           <label className="fl">Project name</label>
-          <input className="inp" defaultValue="Software Requirements Specification" />
+          <input className="inp" value={projName} onChange={e => setProjName(e.target.value)} />
         </div>
         <div className="row g12">
           <div style={{ flex: 1 }}>
             <label className="fl">Deadline</label>
-            <input className="inp" type="date" defaultValue="2026-10-30" />
+            <input className="inp" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label className="fl">Time</label>
-            <input className="inp" type="time" defaultValue="17:00" />
+            <input className="inp" type="time" value={time} onChange={e => setTime(e.target.value)} />
           </div>
         </div>
         <div className="alert al-wn sm mt12">
@@ -460,8 +932,211 @@ function EditModal() {
       </div>
       <div className="ft">
         <button className="btn" onClick={closeOverlay}>Cancel</button>
-        <button className="btn btn-p" onClick={() => { closeOverlay(); addToast('Project updated. Schedule recalculated.'); }}>
+        <button className="btn btn-p" onClick={handleSave}>
           Save and recalculate
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ===== Contribution Modal =====
+function ContributionModal() {
+  const closeOverlay = useMockupStore2(s => s.closeOverlay);
+  const addToast = useMockupStore2(s => s.addToast);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides);
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const [generating, setGenerating] = useState(false);
+  const [report, setReport] = useState<string | null>(null);
+
+  // Determine task completion — use real plan or fall back to mock TK + overrides
+  const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const useMockFallback = !plan || plan.tasks.length === 0;
+  const mockTasks = useMockFallback ? TK.filter(t => t[5].some((k: string) => memberKeys.includes(k))) : [];
+
+  const totalTasks = useMockFallback ? mockTasks.length : (plan?.tasks.length || 0);
+  const doneTasks = useMockFallback
+    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).length
+    : (plan?.tasks.filter(t => t.status === 'done').length || 0);
+  const inProgressTasks = useMockFallback
+    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return (ov?.status === 'in-progress') || (!ov && t[8] === 'prog'); }).length
+    : (plan?.tasks.filter(t => t.status === 'in-progress').length || 0);
+  const todoTasks = useMockFallback
+    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'todo' || (!ov && t[8] === 'todo'); }).length
+    : (plan?.tasks.filter(t => t.status === 'todo' || !t.status).length || 0);
+  const allDone = totalTasks > 0 && doneTasks === totalTasks;
+
+  // Per-member contribution
+  const memberContrib = members.length > 0 ? members.map(m => {
+    const memberTasks: any[] = useMockFallback
+      ? mockTasks.filter(t => t[5].some((k: string) => m.avatar === k || m.name.split(' ').map(w => w[0]).join('') === k))
+      : (plan?.tasks.filter(t => t.assignedTo === m.id || t.memberAssignments?.some(ma => ma.memberId === m.id)) || []);
+    const isMock = useMockFallback;
+    const done = isMock
+      ? memberTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).length
+      : memberTasks.filter((t: any) => t.status === 'done').length;
+    const total = memberTasks.length;
+    const hoursDone = isMock
+      ? memberTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).reduce((s: number, t: any) => s + (t[4] || 0), 0)
+      : memberTasks.filter((t: any) => t.status === 'done').reduce((s: number, t: any) => s + (t.estimatedHours || 0), 0);
+    const hoursTotal = isMock
+      ? memberTasks.reduce((s: number, t: any) => s + (t[4] || 0), 0)
+      : memberTasks.reduce((s: number, t: any) => s + (t.estimatedHours || 0), 0);
+    return { member: m, done, total, hoursDone, hoursTotal, tasks: memberTasks };
+  }) : [];
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    // Simulate generation — in production this would call an API
+    setTimeout(() => {
+      const lines: string[] = [];
+      lines.push('CONTRIBUTION REPORT');
+      lines.push('==================');
+      lines.push(`Generated: ${new Date().toLocaleString()}`);
+      lines.push(`Project: ${plan?.assignmentId || 'TaskFlow Project'}`);
+      lines.push(`Tasks: ${doneTasks}/${totalTasks} done, ${inProgressTasks} in-progress, ${todoTasks} todo`);
+      lines.push('');
+      lines.push('MEMBER CONTRIBUTIONS:');
+      lines.push('--------------------');
+      memberContrib.forEach(mc => {
+        const pct = mc.total > 0 ? Math.round(mc.done / mc.total * 100) : 0;
+        lines.push(`\n${mc.member.name}:`);
+        lines.push(`  Tasks: ${mc.done}/${mc.total} done (${pct}%)`);
+        lines.push(`  Hours: ${mc.hoursDone}/${mc.hoursTotal}h completed`);
+        mc.tasks.forEach((t: any) => {
+          const title = useMockFallback ? t[1] : t.title;
+          const hours = useMockFallback ? t[4] : (t.estimatedHours || 0);
+          const taskId = useMockFallback ? String(t[0]) : t.id;
+          const ov = taskOverrides[taskId];
+          const status = useMockFallback
+            ? (ov?.status || (t[8] === 'prog' ? 'in-progress' : t[8] === 'done' ? 'done' : 'todo'))
+            : t.status;
+          const icon = status === 'done' ? '[x]' : status === 'in-progress' ? '[~]' : '[ ]';
+          lines.push(`  ${icon} ${title} (${hours}h)`);
+        });
+      });
+      lines.push('');
+      lines.push('SUMMARY:');
+      const totalHoursDone = memberContrib.reduce((s, mc) => s + mc.hoursDone, 0);
+      const totalHoursAll = memberContrib.reduce((s, mc) => s + mc.hoursTotal, 0);
+      lines.push(`Total hours completed: ${totalHoursDone}/${totalHoursAll}h`);
+      lines.push(`Overall completion: ${totalTasks > 0 ? Math.round(doneTasks / totalTasks * 100) : 0}%`);
+      if (!allDone) {
+        lines.push(`\nNOTE: This report is INCOMPLETE. ${totalTasks - doneTasks} task(s) not yet done.`);
+      }
+      setReport(lines.join('\n'));
+      setGenerating(false);
+    }, 1500);
+  };
+
+  if (report) {
+    return (
+      <>
+        <div className="bd">
+          <div className="row mb12">
+            <i className="ti ti-file-export" style={{ fontSize: 24, color: 'var(--blue)' }} />
+            <div className="h2">Contribution report generated</div>
+          </div>
+          {!allDone && (
+            <div className="alert al-wn sm mb12">
+              <i className="ti ti-alert-triangle" />
+              <div><b>Incomplete report.</b> {totalTasks - doneTasks} of {totalTasks} tasks are not done. This report reflects current progress only.</div>
+            </div>
+          )}
+          <div className="card flat" style={{ padding: 14, maxHeight: 320, overflowY: 'auto' }}>
+            <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: 0, color: 'var(--ink2)' }}>{report}</pre>
+          </div>
+        </div>
+        <div className="ft">
+          <button className="btn" onClick={closeOverlay}>Close</button>
+          <button className="btn btn-p" onClick={() => {
+            // Download as text file
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'contribution-report.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            addToast('Contribution report downloaded', 'ti-download');
+          }}><i className="ti ti-download" /> Download</button>
+        </div>
+      </>
+    );
+  }
+
+  if (generating) {
+    return (
+      <div className="bd" style={{ textAlign: 'center', padding: 40 }}>
+        <div className="spin" style={{ margin: '0 auto 12px' }} />
+        <div className="sm mut">Generating contribution report...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="bd">
+        <div className="row mb12">
+          <i className="ti ti-file-export" style={{ fontSize: 24, color: 'var(--blue)' }} />
+          <div className="h2">Generate contribution report</div>
+        </div>
+        <p className="sm mut mb12">
+          Generates a per-member contribution breakdown based on task completion, hours logged, and current progress.
+        </p>
+        {/* Progress summary */}
+        <div className="card flat mb12" style={{ padding: 14 }}>
+          <div className="row mb8">
+            <span className="xs mut">Task completion</span>
+            <span className="sp" />
+            <span className="xs"><b>{doneTasks}</b> / {totalTasks} done</span>
+          </div>
+          <div className="bar mb12"><i style={{ width: `${totalTasks > 0 ? Math.round(doneTasks / totalTasks * 100) : 0}%` }} /></div>
+          <div className="row g12 xs mut">
+            <span><i className="ti ti-circle-check" style={{ color: '#18a67a' }} /> {doneTasks} done</span>
+            <span><i className="ti ti-progress" style={{ color: 'var(--blue)' }} /> {inProgressTasks} in progress</span>
+            <span><i className="ti ti-circle" style={{ color: 'var(--ink3)' }} /> {todoTasks} to do</span>
+          </div>
+        </div>
+        {/* Warning if incomplete */}
+        {!allDone && (
+          <div className="alert al-wn sm mb12">
+            <i className="ti ti-alert-triangle" />
+            <div>
+              <b>Contribution is not complete.</b>
+              <div className="sm mut mt4">
+                {totalTasks - doneTasks} task(s) are not yet done. The generated report will reflect current progress only — not all members&apos; contributions may be finalised.
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Member preview */}
+        {memberContrib.length > 0 && (
+          <div className="sec">
+            <div className="eyebrow mb8">Members</div>
+            {memberContrib.map((mc, i) => (
+              <div key={mc.member.id} className="card flat mb8" style={{ padding: 10 }}>
+                <div className="row g8">
+                  <span className={`av av${i % 4}`}>{mc.member.avatar}</span>
+                  <div style={{ flex: 1 }}>
+                    <div className="b sm">{mc.member.name}</div>
+                    <div className="xs mut">{mc.done}/{mc.total} tasks &middot; {mc.hoursDone}/{mc.hoursTotal}h</div>
+                  </div>
+                  <span className={`badge ${mc.done === mc.total && mc.total > 0 ? 'b-ok' : mc.done > 0 ? 'b-wn' : ''}`}>
+                    {mc.total > 0 ? Math.round(mc.done / mc.total * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="ft">
+        <button className="btn" onClick={closeOverlay}>Cancel</button>
+        <button className="btn btn-p" onClick={handleGenerate}>
+          <i className="ti ti-file-export" /> {allDone ? 'Generate report' : 'Generate anyway'}
         </button>
       </div>
     </>

@@ -1,12 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState, type Key as ReactKey } from 'react';
-import { useMockupStore2, type ScreenId } from '@/store/useMockupStore2';
+import { useEffect, useRef, useState, type Key as ReactKey } from 'react';import { useMockupStore2, type ScreenId } from '@/store/useMockupStore2';
+import { useTaskStore } from '@/store/useTaskStore';
 import {
   AVC, MEM, LVN, DN, TABS,
-  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW,
+  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers,
   type TaskStatus, type PgpMember,
 } from '@/lib/mock/mockTaskflow2';
+import { mockAssignment, mockMembers, mockProgress } from '@/lib/mock';
+import { calculateDeadline, generateId } from '@/lib/utils/helpers';
+import type {
+  Assignment,
+  Member,
+  RubricResult,
+  PlanResult,
+  SkillMatchResult,
+  CriticalPathResult,
+  RiskAssessment,
+} from '@/types/types';
 
 // ===== Helpers =====
 const av = (k: string, c = '', key?: ReactKey) => <span key={key} className={`av ${AVC[k] || 'av4'} ${c}`}>{k}</span>;
@@ -57,8 +68,11 @@ function WorkspaceHeader({ tab }: { tab: string }) {
 
   return (
     <div data-ws={tab}>
-      <div className="crumb sm mut mb8">
-        <span style={{ cursor: 'pointer' }} onClick={() => go('project')}>Projects</span> / {project.name}
+      <div className="row mb8">
+        <button className="btn btn-g btn-sm" onClick={() => go('project')}><i className="ti ti-arrow-left" /> Home</button>
+        <span className="crumb sm mut" style={{ marginLeft: 8 }}>
+          <span style={{ cursor: 'pointer' }} onClick={() => go('project')}><i className="ti ti-home" /> Projects</span> / {project.name}
+        </span>
       </div>
       <div className="row wrap g12">
         <div>
@@ -74,7 +88,10 @@ function WorkspaceHeader({ tab }: { tab: string }) {
           </div>
         </div>
         <span className="sp" />
-        <button className="btn" onClick={() => openOverlay('mdEdit')}><i className="ti ti-pencil" /> Edit project</button>
+        <div className="row g8">
+          <button className="btn btn-ai" onClick={() => openOverlay('mdContrib')}><i className="ti ti-file-export" /> Generate Contribution</button>
+          <button className="btn" onClick={() => openOverlay('mdEdit')}><i className="ti ti-pencil" /> Edit project</button>
+        </div>
       </div>
       <div className="tabs">
         {TABS.map(t => (
@@ -95,12 +112,153 @@ function CreateScreen() {
   const fileState = useMockupStore2(s => s.fileState);
   const setFileState = useMockupStore2(s => s.setFileState);
   const addToast = useMockupStore2(s => s.addToast);
-  const [name, setName] = useState('Software Requirements Specification');
+  const store = useTaskStore();
+  const [name, setName] = useState(store.assignment?.title || 'Software Requirements Specification');
+  const [description, setDescription] = useState(store.assignment?.description || 'Group SRS for a student library management system, plus a 10-minute presentation.');
+  const [teamSize, setTeamSize] = useState(store.assignment?.teamSize || 4);
   const [uploadMode, setUploadMode] = useState<'aUp' | 'aTx'>('aUp');
   const [rubricInclude, setRubricInclude] = useState(true);
+  const [assignmentText, setAssignmentText] = useState('');
+  const [deadlineDate, setDeadlineDate] = useState('2026-10-30');
+  const [deadlineTime, setDeadlineTime] = useState('17:00');
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number; pages: number; type: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [rubricMode, setRubricMode] = useState<'rUp' | 'rTx'>('rUp');
+  const [rubricFile, setRubricFile] = useState<{ name: string; size: number; pages: number; type: string } | null>(null);
+  const [rubricUploading, setRubricUploading] = useState(false);
+  const [rubricText, setRubricText] = useState('');
+  const rubricInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = async (file: File, target: 'assignment' | 'rubric'): Promise<{ text: string; fileName: string; fileSize: number; pageCount: number; fileType: string } | null> => {
+    const lowerName = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || lowerName.endsWith('.docx');
+
+    if (!isPdf && !isDocx) {
+      if (target === 'assignment') {
+        setFileState('type');
+      }
+      addToast('Only PDF or DOCX files are supported', 'ti-alert-circle');
+      return null;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      addToast('File too large. Maximum 20 MB.', 'ti-alert-circle');
+      return null;
+    }
+
+    if (target === 'assignment') {
+      setUploading(true);
+      setFileState('empty');
+    } else {
+      setRubricUploading(true);
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 422) {
+          if (target === 'assignment') setFileState('parse');
+        } else {
+          if (target === 'assignment') setFileState('parse');
+          addToast(data.error || 'Failed to read file', 'ti-alert-circle');
+        }
+        return null;
+      }
+
+      return {
+        text: data.text,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        pageCount: data.pageCount,
+        fileType: data.fileType,
+      };
+    } catch (err) {
+      if (target === 'assignment') setFileState('parse');
+      addToast(`Upload failed: ${err instanceof Error ? err.message : String(err)}`, 'ti-alert-circle');
+      return null;
+    } finally {
+      if (target === 'assignment') setUploading(false);
+      else setRubricUploading(false);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    const result = await uploadFile(file, 'assignment');
+    if (result) {
+      setUploadedFile({ name: result.fileName, size: result.fileSize, pages: result.pageCount, type: result.fileType });
+      setFileState('ok');
+      setDescription(result.text.slice(0, 2000));
+      addToast(`File uploaded: ${result.fileName} (${result.pageCount} pages)`, result.fileType === 'pdf' ? 'ti-file-type-pdf' : 'ti-file-type-doc');
+    }
+  };
+
+  const handleRubricUpload = async (file: File) => {
+    const result = await uploadFile(file, 'rubric');
+    if (result) {
+      setRubricFile({ name: result.fileName, size: result.fileSize, pages: result.pageCount, type: result.fileType });
+      setRubricText(result.text.slice(0, 3000));
+      setRubricInclude(true);
+      addToast(`Rubric uploaded: ${result.fileName} (${result.pageCount} pages)`, result.fileType === 'pdf' ? 'ti-file-type-pdf' : 'ti-file-type-doc');
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+    e.target.value = '';
+  };
+
+  const handleRubricInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleRubricUpload(file);
+    e.target.value = '';
+  };
+
+  const handleContinue = () => {
+    if (!name.trim()) { addToast('Enter a project name first', 'ti-alert-circle'); return; }
+    const deadlineISO = new Date(`${deadlineDate}T${deadlineTime}:00+08:00`).toISOString();
+    const assignment: Assignment = {
+      id: store.assignment?.id || generateId('asg'),
+      title: name,
+      course: name,
+      deliverables: ['Project report', 'Presentation'],
+      deadline: deadlineISO,
+      assignmentType: 'mixed',
+      teamSize,
+      description,
+      rubricText: rubricText.trim()
+        ? rubricText
+        : (uploadMode === 'aTx' && assignmentText.trim()
+          ? assignmentText
+          : mockAssignment.rubricText),
+    };
+    store.setAssignment(assignment);
+
+    // Initialize members from MEM mock if store is empty or size changed
+    if (!store.members.length || store.members.length !== teamSize) {
+      const converted = memToMembers();
+      store.setMembers(converted.slice(0, teamSize));
+    }
+
+    go('team');
+  };
+
+  const adjustTeamSize = (delta: number) => {
+    const next = Math.max(2, Math.min(10, teamSize + delta));
+    setTeamSize(next);
+  };
 
   return (
     <section className="scr page on" id="s-create" style={{ maxWidth: 900 }}>
+      <div className="row mb8">
+        <button className="btn btn-g btn-sm" onClick={() => go('project')}><i className="ti ti-arrow-left" /> Home</button>
+      </div>
       <Stepper step={1} />
       <div>
         <div className="card">
@@ -118,12 +276,13 @@ function CreateScreen() {
           </div>
           <div className="mb16">
             <label className="fl">Project description <span className="mut3">(optional)</span></label>
-            <textarea className="inp" placeholder="Briefly describe your project..." defaultValue="Group SRS for a student library management system, plus a 10-minute presentation." />
+            <textarea className="inp" placeholder="Briefly describe your project..." value={description}
+              onChange={e => setDescription(e.target.value)} />
           </div>
           <div className="mb16">
             <label className="fl">Number of team members <span className="mut3">(required)</span></label>
             <div className="row g12 wrap">
-              <div className="num"><button onClick={() => addToast('Mockup: team size adjusted', 'ti-info-circle')} aria-label="Fewer members">&#x2212;</button><input type="number" min={2} max={10} defaultValue={4} readOnly /><button onClick={() => addToast('Mockup: team size adjusted', 'ti-info-circle')} aria-label="More members">+</button></div>
+              <div className="num"><button onClick={() => adjustTeamSize(-1)} aria-label="Fewer members">&#x2212;</button><input type="number" min={2} max={10} value={teamSize} readOnly /><button onClick={() => adjustTeamSize(1)} aria-label="More members">+</button></div>
               <span className="sm mut">members including you</span>
             </div>
             <div className="hint">You&rsquo;ll add each member&rsquo;s skills and availability in the next step. Teams of 2 to 10 are supported.</div>
@@ -133,13 +292,26 @@ function CreateScreen() {
               <label className="fl" style={{ margin: 0 }}>Assignment document</label>
               <span className="sp" />
               <div className="seg">
-                <button className={uploadMode === 'aUp' ? 'on' : ''} onClick={() => setUploadMode('aUp')}>Upload PDF</button>
+                <button className={uploadMode === 'aUp' ? 'on' : ''} onClick={() => setUploadMode('aUp')}>Upload File</button>
                 <button className={uploadMode === 'aTx' ? 'on' : ''} onClick={() => setUploadMode('aTx')}>Paste text</button>
               </div>
             </div>
             {uploadMode === 'aUp' && (
               <>
-                {fileState === 'ok' && (
+                <input ref={fileInputRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: 'none' }} onChange={handleFileInputChange} />
+                {fileState === 'ok' && uploadedFile && (
+                  <div className="file">
+                    <div className="fi"><i className={`ti ${uploadedFile.type === 'pdf' ? 'ti-file-type-pdf' : 'ti-file-type-doc'}`} /></div>
+                    <div>
+                      <div className="b">{uploadedFile.name}</div>
+                      <div className="xs mut">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB · {uploadedFile.pages} pages · text extracted <i className="ti ti-circle-check" style={{ color: 'var(--ok)' }} /></div>
+                    </div>
+                    <span className="sp" />
+                    <button className="btn btn-sm" onClick={() => fileInputRef.current?.click()}><i className="ti ti-refresh" /> Replace</button>
+                    <button className="icb" onClick={() => { setFileState('empty'); setUploadedFile(null); }} title="Remove"><i className="ti ti-x" /></button>
+                  </div>
+                )}
+                {fileState === 'ok' && !uploadedFile && (
                   <div className="file">
                     <div className="fi"><i className="ti ti-file-type-pdf" /></div>
                     <div>
@@ -147,37 +319,36 @@ function CreateScreen() {
                       <div className="xs mut">1.2 MB · 6 pages · text extracted <i className="ti ti-circle-check" style={{ color: 'var(--ok)' }} /></div>
                     </div>
                     <span className="sp" />
-                    <button className="btn btn-sm" onClick={() => addToast('Choose a file in the real app. This is a mockup.', 'ti-info-circle')}><i className="ti ti-refresh" /> Replace</button>
+                    <button className="btn btn-sm" onClick={() => fileInputRef.current?.click()}><i className="ti ti-refresh" /> Replace</button>
                     <button className="icb" onClick={() => setFileState('empty')} title="Remove"><i className="ti ti-x" /></button>
                   </div>
                 )}
                 {fileState === 'empty' && (
-                  <div className="dz">
-                    <i className="ti ti-cloud-upload" style={{ fontSize: 30, color: 'var(--blue)' }} />
-                    <div className="b mt4">Drag and drop your assignment PDF</div>
-                    <div className="sm mut">or <span style={{ color: 'var(--blue)' }}>browse files</span> · PDF up to 20 MB</div>
+                  <div className="dz"
+                    style={{ cursor: uploading ? 'wait' : 'pointer' }}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files?.[0]; if (f) handleFileUpload(f); }}
+                  >
+                    <i className={`ti ${uploading ? 'ti-loader-2 spin' : 'ti-cloud-upload'}`} style={{ fontSize: 30, color: 'var(--blue)' }} />
+                    <div className="b mt4">{uploading ? 'Extracting text...' : 'Drag and drop your assignment PDF or DOCX'}</div>
+                    <div className="sm mut">{uploading ? 'Please wait' : <>or <span style={{ color: 'var(--blue)' }}>browse files</span> · PDF or DOCX up to 20 MB</>}</div>
                   </div>
                 )}
                 {(fileState === 'type' || fileState === 'parse') && (
                   <div className="dz bad">
                     <i className="ti ti-file-alert" style={{ fontSize: 28, color: 'var(--dg)' }} />
-                    <div className="b mt4">{fileState === 'type' ? 'Only PDF files are supported' : 'We couldn\u2019t read this PDF'}</div>
-                    <div className="sm mut">{fileState === 'type' ? '\u201Cnotes.docx\u201D can\u2019t be read. Export it as a PDF or paste the text instead.' : '\u201Cscan_01.pdf\u201D looks like a scanned image with no text. Paste the text instead.'}</div>
+                    <div className="b mt4">{fileState === 'type' ? 'Only PDF or DOCX files are supported' : 'We couldn\u2019t read this file'}</div>
+                    <div className="sm mut">{fileState === 'type' ? 'Please export your file as a PDF or DOCX, or paste the text instead.' : 'This file may be a scanned image with no text. Paste the text instead.'}</div>
                     <div className="row g8 mt12" style={{ justifyContent: 'center' }}>
-                      <button className="btn btn-sm" onClick={() => addToast('Choose a file in the real app.', 'ti-info-circle')}>Choose another file</button>
+                      <button className="btn btn-sm" onClick={() => fileInputRef.current?.click()}>Choose another file</button>
                       <button className="btn btn-sm" onClick={() => setUploadMode('aTx')}>Paste text instead</button>
                     </div>
                   </div>
                 )}
-                <div className="xs mut3 mt8">Mockup states:
-                  <button className="lnk" onClick={() => setFileState('ok')}>uploaded</button> ·
-                  <button className="lnk" onClick={() => setFileState('empty')}>no file</button> ·
-                  <button className="lnk" onClick={() => setFileState('type')}>invalid type</button> ·
-                  <button className="lnk" onClick={() => setFileState('parse')}>parsing error</button>
-                </div>
               </>
             )}
-            {uploadMode === 'aTx' && <textarea className="inp" style={{ minHeight: 130 }} placeholder="Paste the assignment brief here" />}
+            {uploadMode === 'aTx' && <textarea className="inp" style={{ minHeight: 130 }} placeholder="Paste the assignment brief here" value={assignmentText} onChange={e => setAssignmentText(e.target.value)} />}
           </div>
           <div className="mb16">
             <label className="fl">Grading rubric</label>
@@ -186,20 +357,55 @@ function CreateScreen() {
               <span>My assignment document already includes the grading rubric.</span>
             </label>
             {rubricInclude ? (
-              <div className="hint">Good. TaskFlow will find the rubric inside the PDF and ask you to review it.</div>
+              <div className="hint">Good. TaskFlow will find the rubric inside the document and ask you to review it.</div>
             ) : (
               <div className="mt12">
-                <div className="dz" style={{ padding: 18 }}>
-                  <i className="ti ti-upload" style={{ fontSize: 22, color: 'var(--blue)' }} />
-                  <div className="b sm">Upload rubric PDF or paste text</div>
+                <input ref={rubricInputRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: 'none' }} onChange={handleRubricInputChange} />
+                <div className="seg mb12">
+                  <button className={rubricMode === 'rUp' ? 'on' : ''} onClick={() => setRubricMode('rUp')}>Upload File</button>
+                  <button className={rubricMode === 'rTx' ? 'on' : ''} onClick={() => setRubricMode('rTx')}>Paste Text</button>
                 </div>
+                {rubricMode === 'rUp' ? (
+                  <>
+                    {rubricFile ? (
+                      <div className="file">
+                        <div className="fi"><i className={`ti ${rubricFile.type === 'pdf' ? 'ti-file-type-pdf' : 'ti-file-type-doc'}`} /></div>
+                        <div>
+                          <div className="b">{rubricFile.name}</div>
+                          <div className="xs mut">{(rubricFile.size / 1024 / 1024).toFixed(1)} MB · {rubricFile.pages} pages · text extracted <i className="ti ti-circle-check" style={{ color: 'var(--ok)' }} /></div>
+                        </div>
+                        <span className="sp" />
+                        <button className="btn btn-sm" onClick={() => rubricInputRef.current?.click()}><i className="ti ti-refresh" /> Replace</button>
+                        <button className="icb" onClick={() => { setRubricFile(null); setRubricText(''); }} title="Remove"><i className="ti ti-x" /></button>
+                      </div>
+                    ) : (
+                      <div className="dz"
+                        style={{ padding: 18, cursor: rubricUploading ? 'wait' : 'pointer' }}
+                        onClick={() => !rubricUploading && rubricInputRef.current?.click()}
+                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files?.[0]; if (f) handleRubricUpload(f); }}
+                      >
+                        <i className={`ti ${rubricUploading ? 'ti-loader-2 spin' : 'ti-upload'}`} style={{ fontSize: 22, color: 'var(--blue)' }} />
+                        <div className="b sm">{rubricUploading ? 'Extracting text...' : 'Upload rubric PDF or DOCX'}</div>
+                        <div className="xs mut mt4">{rubricUploading ? 'Please wait' : 'Click to browse or drag a file · PDF or DOCX up to 20 MB'}</div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <textarea className="inp" style={{ minHeight: 130 }} placeholder="Paste the grading rubric here" value={rubricText} onChange={e => setRubricText(e.target.value)} />
+                    {rubricText.trim() && (
+                      <div className="xs mut mt4"><i className="ti ti-circle-check" style={{ color: 'var(--ok)' }} /> {rubricText.trim().split(/\s+/).length} words captured</div>
+                    )}
+                  </>
+                )}
                 <div className="alert al-wn mt12 sm"><i className="ti ti-alert-triangle" /><div>No separate rubric provided. The AI will try to identify one in the assignment and flag it for your review.</div></div>
               </div>
             )}
           </div>
           <div className="rowt g16 wrap">
-            <div style={{ flex: 1, minWidth: 160 }}><label className="fl">Deadline date</label><input className="inp" type="date" defaultValue="2026-10-30" min="2026-10-12" /></div>
-            <div style={{ flex: 1, minWidth: 130 }}><label className="fl">Time</label><input className="inp" type="time" defaultValue="17:00" /></div>
+            <div style={{ flex: 1, minWidth: 160 }}><label className="fl">Deadline date</label><input className="inp" type="date" value={deadlineDate} min="2026-10-12" onChange={e => setDeadlineDate(e.target.value)} /></div>
+            <div style={{ flex: 1, minWidth: 130 }}><label className="fl">Time</label><input className="inp" type="time" value={deadlineTime} onChange={e => setDeadlineTime(e.target.value)} /></div>
             <div style={{ flex: 1, minWidth: 160 }}><label className="fl">Timezone</label><div className="inp mut sm" style={{ background: 'var(--soft)' }}><i className="ti ti-world" /> Asia/Kuala_Lumpur (GMT+8)</div></div>
           </div>
           <div className="alert al-blue mt12 sm"><i className="ti ti-calendar-event" /><div><b>Friday 30 October 2026 at 17:00</b> · 18 days from today. Past dates can&apos;t be selected.</div></div>
@@ -207,9 +413,9 @@ function CreateScreen() {
       </div>
       <div className="row mt24">
         <button className="btn btn-lg" onClick={() => go('project')}><i className="ti ti-arrow-left" /> Back</button>
-        <button className="btn btn-sm btn-g" onClick={() => { setName(''); addToast('Form cleared', 'ti-eraser'); }}><i className="ti ti-eraser" /> Clear form</button>
+        <button className="btn btn-sm btn-g" onClick={() => { setName(''); setDescription(''); addToast('Form cleared', 'ti-eraser'); }}><i className="ti ti-eraser" /> Clear form</button>
         <span className="sp" />
-        <button className="btn btn-p btn-lg" onClick={() => go('team')}>Continue to Team Setup <i className="ti ti-arrow-right" /></button>
+        <button className="btn btn-p btn-lg" onClick={handleContinue}>Continue to Team Setup <i className="ti ti-arrow-right" /></button>
       </div>
     </section>
   );
@@ -219,26 +425,60 @@ function CreateScreen() {
 function TeamScreen() {
   const go = useMockupStore2(s => s.go);
   const openOverlay = useMockupStore2(s => s.openOverlay);
+  const setEditingMemberId = useMockupStore2(s => s.setEditingMemberId);
   const addToast = useMockupStore2(s => s.addToast);
-  const combinedHours = sum(MEM.map(m => sum(m.h)));
+  const members = useTaskStore(s => s.members);
+  const setMembers = useTaskStore(s => s.setMembers);
+  const assignment = useTaskStore(s => s.assignment);
+
+  // Initialize members from MEM mock if store is empty (e.g. user navigated directly)
+  useEffect(() => {
+    if (!members.length) {
+      setMembers(memToMembers());
+    }
+  }, [members.length, setMembers]);
+
+  // Use store members count, fall back to MEM for display
+  const memberCount = members.length || MEM.length;
+  const displayMembers = MEM.slice(0, memberCount);
+  const combinedHours = sum(displayMembers.map(m => sum(m.h)));
+
+  const handleContinue = () => {
+    // Ensure assignment is set (in case user navigated directly)
+    if (!assignment) {
+      const fallback: Assignment = {
+        id: generateId('asg'),
+        title: 'Software Requirements Specification',
+        course: 'Software Requirements Specification',
+        deliverables: ['Project report', 'Presentation'],
+        deadline: '2026-10-30T17:00:00+08:00',
+        assignmentType: 'mixed',
+        teamSize: memberCount,
+        description: 'Group SRS for a student library management system.',
+        rubricText: mockAssignment.rubricText,
+      };
+      useTaskStore.getState().setAssignment(fallback);
+    }
+    go('review');
+  };
 
   return (
     <section className="scr page on" id="s-team" style={{ maxWidth: 960 }}>
       <Stepper step={2} />
       <div className="card flat mb16" style={{ padding: '16px 22px' }}>
         <div className="row wrap" style={{ gap: 28 }}>
-          <div><div className="xs mut">Members</div><div className="h2">{MEM.length}</div></div>
+          <div><div className="xs mut">Members</div><div className="h2">{memberCount}</div></div>
           <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 28 }}><div className="xs mut">Combined weekly hours</div><div className="h2">{combinedHours} h</div></div>
         </div>
       </div>
       <div className="card">
         <div className="row mb8">
-          <div><h2 className="h2">Team members <span className="badge b-ok">{MEM.length} / {MEM.length}</span></h2><p className="mut sm mt4">Strengths, weaknesses and weekly availability let the AI assign work fairly.</p></div>
+          <div><h2 className="h2">Team members <span className="badge b-ok">{memberCount} / {memberCount}</span></h2><p className="mut sm mt4">Strengths, weaknesses and weekly availability let the AI assign work fairly.</p></div>
           <span className="sp" />
-          <button className="btn btn-p" onClick={() => openOverlay('drMember')}><i className="ti ti-plus" /> Add team member</button>
+          <button className="btn btn-p" onClick={() => { setEditingMemberId(null); openOverlay('drMember'); }}><i className="ti ti-plus" /> Add team member</button>
         </div>
-        <div className="alert al-ok sm mb12"><i className="ti ti-circle-check" /><div>All {MEM.length} members are added. Team size matches your project setup.</div></div>
-        {MEM.map((m, i) => (
+        <div className="alert al-ok sm mb12"><i className="ti ti-circle-check" /><div>All {memberCount} members are added. Team size matches your project setup.</div></div>
+        {displayMembers.map((m, i) => (
           <div key={m.k} className="mrow" style={i === 0 ? { borderTop: 0 } : {}}>
             {av(m.k, 'l')}
             <div>
@@ -251,8 +491,22 @@ function TeamScreen() {
             </div>
             <div className="wk">{m.h.map((h, j) => <i key={j} style={{ height: Math.max(2, h * 5) + 'px' }} title={`${h} h`} />)}</div>
             <div className="row g4">
-              <button className="icb" onClick={() => openOverlay('drMember')} title="Edit"><i className="ti ti-pencil" /></button>
-              <button className="icb" onClick={() => addToast(`${m.n} removed from the team`, 'ti-user-minus')} title="Remove"><i className="ti ti-trash" /></button>
+              <button className="icb" onClick={() => {
+                const storeMember = useTaskStore.getState().members.find(sm => sm.name === m.n);
+                setEditingMemberId(storeMember?.id || null);
+                openOverlay('drMember');
+              }} title="Edit"><i className="ti ti-pencil" /></button>
+              <button className="icb" onClick={() => {
+                const storeMembers = useTaskStore.getState().members;
+                // Find store member matching this display member by name
+                const storeMember = storeMembers.find(sm => sm.name === m.n);
+                if (storeMember) {
+                  useTaskStore.getState().setMembers(storeMembers.filter(sm => sm.id !== storeMember.id));
+                  addToast(`${m.n} removed from the team`, 'ti-user-minus');
+                } else {
+                  addToast(`${m.n} removed from the team`, 'ti-user-minus');
+                }
+              }} title="Remove"><i className="ti ti-trash" /></button>
             </div>
           </div>
         ))}
@@ -260,7 +514,7 @@ function TeamScreen() {
       <div className="row mt24">
         <button className="btn btn-lg" onClick={() => go('create')}><i className="ti ti-arrow-left" /> Back</button>
         <span className="sp" />
-        <button className="btn btn-p btn-lg" onClick={() => go('review')}>Continue to Review <i className="ti ti-arrow-right" /></button>
+        <button className="btn btn-p btn-lg" onClick={handleContinue}>Continue to Review <i className="ti ti-arrow-right" /></button>
       </div>
     </section>
   );
@@ -269,22 +523,36 @@ function TeamScreen() {
 // ===== Review Screen =====
 function ReviewScreen() {
   const go = useMockupStore2(s => s.go);
+  const assignment = useTaskStore(s => s.assignment);
+  const members = useTaskStore(s => s.members);
+  const fileState = useMockupStore2(s => s.fileState);
+
+  // Fallback values if store is empty (user navigated directly)
+  const projName = assignment?.title || 'Software Requirements Specification';
+  const projDesc = assignment?.description || 'Group SRS for a student library management system, plus a 10-minute presentation.';
+  const deadlineStr = assignment?.deadline
+    ? new Date(assignment.deadline).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + new Date(assignment.deadline).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    : 'Fri 30 Oct 2026, 17:00';
+  const teamSize = members.length || assignment?.teamSize || 4;
+  const hasFile = fileState === 'ok' || !assignment?.rubricText || assignment.rubricText === mockAssignment.rubricText;
+  const displayMembers = MEM.slice(0, teamSize);
+
   return (
     <section className="scr page on" id="s-review" style={{ maxWidth: 960 }}>
       <Stepper step={3} />
       <div className="col g16">
         <div className="card">
           <div className="row mb12"><h2 className="h3">Project summary</h2><span className="sp" /><button className="lnk sm" onClick={() => go('create')}>Edit</button></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Name</span><b>Software Requirements Specification</b></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Description</span><span>Group SRS for a student library management system, plus a 10-minute presentation.</span></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Deadline</span><span><b>Fri 30 Oct 2026, 17:00</b> (Asia/Kuala_Lumpur)</span></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Assignment</span><span><i className="ti ti-file-type-pdf" style={{ color: 'var(--dg)' }} /> SRS_Assignment_Brief.pdf · 1.2 MB</span></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Team size</span><span><b>4</b> members</span></div>
-          <div className="rd"><span className="mut" style={{ width: 120 }}>Rubric source</span><span className="badge b-blue">Included in assignment PDF</span></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Name</span><b>{projName}</b></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Description</span><span>{projDesc}</span></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Deadline</span><span><b>{deadlineStr}</b> (Asia/Kuala_Lumpur)</span></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Assignment</span><span>{hasFile ? <><i className="ti ti-file-type-pdf" style={{ color: 'var(--dg)' }} /> SRS_Assignment_Brief.pdf · 1.2 MB</> : <><i className="ti ti-file-text" style={{ color: 'var(--blue)' }} /> Pasted text</>}</span></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Team size</span><span><b>{teamSize}</b> members</span></div>
+          <div className="rd"><span className="mut" style={{ width: 120 }}>Rubric source</span><span className="badge b-blue">Included in assignment</span></div>
         </div>
         <div className="card">
           <div className="row mb12"><h2 className="h3">Team summary</h2><span className="sp" /><button className="lnk sm" onClick={() => go('team')}>Edit</button></div>
-          {MEM.map(m => (
+          {displayMembers.map(m => (
             <div key={m.k} className="mrow" style={{ gridTemplateColumns: '44px 1fr 1.8fr 120px' }}>
               {av(m.k, 'l')}
               <div><div className="b">{m.n}</div><div className="xs mut">{sum(m.h)} h / week</div></div>
@@ -310,27 +578,166 @@ function ReviewScreen() {
 // ===== Analysis Screen =====
 function AnalysisScreen() {
   const go = useMockupStore2(s => s.go);
+  const addToast = useMockupStore2(s => s.addToast);
+  const pipelineRan = useMockupStore2(s => s.pipelineRan);
+  const setPipelineRan = useMockupStore2(s => s.setPipelineRan);
+  const setPipelineRunning = useMockupStore2(s => s.setPipelineRunning);
+  const setPipelineError = useMockupStore2(s => s.setPipelineError);
   const [active, setActive] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Real detail strings from API results (replaces hardcoded STG details)
+  const [details, setDetails] = useState<Record<number, string>>({});
+  const [stageStatus, setStageStatus] = useState<Record<number, string>>({});
+  const apiStartedRef = useRef(false);
+
+  // API helper
+  const apiCall = async (url: string, body: unknown) => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(errData.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  };
 
   useEffect(() => {
-    setActive(0);
-    intervalRef.current = setInterval(() => {
-      setActive(prev => {
-        if (prev >= STG.length) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          setTimeout(() => { if (useMockupStore2.getState().screen === 'analysis') { useMockupStore2.getState().addToast('Plan ready: 15 tasks, 96 hours'); go('overview'); } }, 800);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 700);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    if (apiStartedRef.current) return;
+    apiStartedRef.current = true;
+
+    // If pipeline already ran, skip to overview
+    if (pipelineRan) {
+      go('overview');
+      return;
+    }
+
+    const store = useTaskStore.getState();
+
+    const runPipeline = async () => {
+      setPipelineRunning(true);
+      setPipelineError(null);
+
+      // Use real assignment + members from the store (set by CreateScreen/TeamScreen)
+      // Falls back to mock data if user navigated directly to analysis
+      const assignment: Assignment = store.assignment || mockAssignment;
+      const members: Member[] = store.members.length > 0 ? store.members : mockMembers;
+      const deadline = calculateDeadline(assignment.deadline, assignment.id);
+
+      store.setAssignment(assignment);
+      store.setMembers(members);
+      store.setDeadline(deadline);
+
+      // Helper to advance stages with a small delay for visual effect
+      const advance = (toStage: number, detailMap?: Record<number, string>, statusMap?: Record<number, string>) => {
+        return new Promise<void>(resolve => {
+          setActive(prev => {
+            const next = toStage;
+            if (detailMap) setDetails(prev => ({ ...prev, ...detailMap }));
+            if (statusMap) setStageStatus(prev => ({ ...prev, ...statusMap }));
+            return next;
+          });
+          setTimeout(resolve, 500);
+        });
+      };
+
+      try {
+        // === Step 1: Rubric Agent (stages 0-2) ===
+        await advance(1);
+        const rubric: RubricResult = await apiCall('/api/pipeline/rubric', { assignment });
+        store.setRubric(rubric);
+        const mandatoryCount = rubric.items.filter(i => i.mandatory).length;
+        const optionalCount = rubric.items.length - mandatoryCount;
+        await advance(3, {
+          0: `${rubric.items.length} criteria \u00b7 ${rubric.totalMarks} marks`,
+          1: `${rubric.items.length} criteria found \u00b7 ${rubric.totalMarks} total marks`,
+          2: `${mandatoryCount} mandatory \u00b7 ${optionalCount} optional`,
+        });
+
+        // === Step 2: Task Agent (stages 3-4) ===
+        await advance(4);
+        const plan: PlanResult = await apiCall('/api/pipeline/tasks', { assignment, rubric });
+        store.setPlan(plan);
+        await advance(5, {
+          3: `${plan.tasks.length} tasks created`,
+          4: `${plan.totalEstimatedHours} estimated hours`,
+        });
+
+        // === Step 3: Skill Agent (stage 5) ===
+        await advance(5);
+        const skillMatch: SkillMatchResult = await apiCall('/api/pipeline/skills', { tasks: plan.tasks, members });
+        store.setSkillMatch(skillMatch);
+        const matchedCount = skillMatch.assignments.length;
+        const unmatchedCount = skillMatch.unmatchedTaskIds.length;
+        await advance(6, {
+          5: `${matchedCount} of ${plan.tasks.length} tasks match a member skill${unmatchedCount > 0 ? ` \u00b7 ${unmatchedCount} unmatched` : ''}`,
+        });
+
+        // === Step 4: Critical Path (stage 6) ===
+        await advance(7);
+        const criticalPath: CriticalPathResult = await apiCall('/api/pipeline/critical-path', { tasks: plan.tasks, members, deadline });
+        store.setCriticalPath(criticalPath);
+        const delayText = criticalPath.delayDays > 0 ? ` \u00b7 ${criticalPath.delayDays} days late` : ' \u00b7 on track';
+        await advance(8, {
+          6: `Critical path found \u00b7 predicted Day ${criticalPath.predictedCompletionDay}${delayText}`,
+        });
+
+        // === Step 5: Risk Agent (stages 7-8) ===
+        await advance(8);
+        const schedulerFacts = {
+          riskStatus: criticalPath.riskStatus,
+          predictedCompletionDay: criticalPath.predictedCompletionDay,
+          deadlineDay: criticalPath.deadlineDay,
+          delayDays: criticalPath.delayDays,
+          delayedTaskIds: criticalPath.delayedTaskIds,
+          criticalPath: criticalPath.criticalPath,
+          memberLoads: criticalPath.memberLoads,
+        };
+        const riskAssessment: RiskAssessment = await apiCall('/api/pipeline/risk', {
+          tasks: plan.tasks,
+          members,
+          deadline,
+          progress: mockProgress,
+          schedulerFacts,
+        });
+        store.setRiskAssessment(riskAssessment);
+        store.setProgress(mockProgress);
+
+        const riskStatusStr = criticalPath.delayDays > 0 ? 'w' : undefined;
+        const allDone = STG.length;
+        await advance(allDone, {
+          7: `Predicted finish Day ${criticalPath.predictedCompletionDay}${delayText}`,
+          8: 'No cycles found',
+        }, riskStatusStr ? { 7: 'w' } : {});
+
+        setPipelineRan(true);
+        setPipelineRunning(false);
+
+        const summary = `${plan.tasks.length} tasks, ${plan.totalEstimatedHours} hours`;
+        addToast(`Plan ready: ${summary}`, 'ti-circle-check');
+        setTimeout(() => {
+          if (useMockupStore2.getState().screen === 'analysis') {
+            go('overview');
+          }
+        }, 1000);
+      } catch (err) {
+        setPipelineRunning(false);
+        setPipelineError(err instanceof Error ? err.message : String(err));
+        addToast(`Analysis error: ${err instanceof Error ? err.message : String(err)}`, 'ti-alert-circle');
+      }
+    };
+
+    runPipeline();
+    // No cleanup — apiStartedRef prevents double-execution in React Strict Mode
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ic: Record<string, string> = { dn: 'ti-check', wn: 'ti-alert-triangle', run: 'ti-loader-2 spin', pend: 'ti-dots' };
   const cl: Record<string, string> = { dn: 'dn', wn: 'wn', run: 'run', pend: 'pend' };
-  const stageStatus: Record<string, string> = { dn: 'Done', wn: 'Needs attention', run: 'Running', pend: 'Pending' };
+  const stageStatusLabels: Record<string, string> = { dn: 'Done', wn: 'Needs attention', run: 'Running', pend: 'Pending' };
+
+  const pipelineError = useMockupStore2(s => s.pipelineError);
 
   return (
     <section className="scr page on" id="s-analysis" style={{ maxWidth: 720 }}>
@@ -340,26 +747,43 @@ function AnalysisScreen() {
         <p className="mut mt4">We&apos;ll open your project as soon as it&apos;s ready.</p>
       </div>
       <div className="card">
-        <div className="row mb8"><div className="h3">AI activity</div><span className="sp" /><span className="badge b-blue">{active >= STG.length ? 'Complete' : `Step ${active + 1} of ${STG.length}`}</span></div>
+        <div className="row mb8">
+          <div className="h3">AI activity</div>
+          <span className="sp" />
+          <span className="badge b-blue">{active >= STG.length ? 'Complete' : `Step ${active + 1} of ${STG.length}`}</span>
+        </div>
         {STG.map((s, i) => {
-          const status = i < active ? (s[3] === 'w' ? 'wn' : 'dn') : i === active ? 'run' : 'pend';
+          const rawStatus = i < active ? (stageStatus[i] === 'w' || s[3] === 'w' ? 'wn' : 'dn') : i === active ? 'run' : 'pend';
           return (
-            <div key={i} className={`stg ${cl[status]}`}>
-              <div className="dot"><i className={`ti ${ic[status]}`} /></div>
+            <div key={i} className={`stg ${cl[rawStatus]}`}>
+              <div className="dot"><i className={`ti ${ic[rawStatus]}`} /></div>
               <div>
                 <div className="b">{s[0]}</div>
                 <div className="xs mut">{s[1]}</div>
-                {i < active && s[2] && <div className="xs mt4" style={{ color: s[3] === 'w' ? 'var(--wn)' : 'var(--ink2)' }}>{s[2]}</div>}
+                {i < active && (details[i] || s[2]) && (
+                  <div className="xs mt4" style={{ color: stageStatus[i] === 'w' || s[3] === 'w' ? 'var(--wn)' : 'var(--ink2)' }}>
+                    {details[i] || s[2]}
+                  </div>
+                )}
               </div>
-              <div className="xs mut3">{stageStatus[status]}</div>
+              <div className="xs mut3">{stageStatusLabels[rawStatus]}</div>
             </div>
           );
         })}
       </div>
+      {pipelineError && (
+        <div className="alert al-dg mt12">
+          <i className="ti ti-alert-triangle" />
+          <div>
+            <b>Analysis error</b>
+            <div className="sm mut">{pipelineError}</div>
+          </div>
+        </div>
+      )}
       <div className="row mt16 wrap">
-        <span className="demo"><i className="ti ti-flask" /> Demo sequence · simulated, not a real AI run</span>
+        <span className="demo"><i className="ti ti-flask" /> {pipelineRan ? 'AI analysis complete' : 'Running AI analysis...'}</span>
         <span className="sp" />
-        <button className="btn btn-g btn-sm" onClick={() => { if (intervalRef.current) clearInterval(intervalRef.current); go('overview'); }}>Skip to my project</button>
+        <button className="btn btn-g btn-sm" onClick={() => go('overview')}>Skip to my project</button>
       </div>
     </section>
   );
@@ -374,11 +798,17 @@ function OverviewScreen() {
   const setProgressSort = useMockupStore2(s => s.setProgressSort);
   const openOverlay = useMockupStore2(s => s.openOverlay);
   const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const pipelineRan = useMockupStore2(s => s.pipelineRan);
 
   const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
   const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
   const isCompleted = project.statusLabel === 'Completed';
-  const isAtRisk = project.status === 'dg';
+
+  // Read real data from task store
+  const criticalPath = useTaskStore(s => s.criticalPath);
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides); // re-renders when progress changes
 
   const pgStats = (m: PgpMember) => {
     const al = sum(m[5].map(t => t[1]));
@@ -386,12 +816,52 @@ function OverviewScreen() {
     return { al, dn, left: al - dn, pc: al ? Math.round(dn / al * 100) : 0, nd: m[5].filter(t => t[3] === 'done').length };
   };
 
-  // Filter PGP to only show members in the active project
-  const projectPGP = PGP.filter(m => memberKeys.includes(m[0]));
-  let rows = projectPGP.map((m, i) => ({ m, i, s: pgStats(m) }));
+  // Build progress rows: use real scheduler data if pipeline ran, otherwise fall back to project-filtered PGP
+  const useRealData = pipelineRan && criticalPath && members.length > 0;
+
+  // Convert real member loads to PGP-compatible format for the existing UI
+  const realPGP: PgpMember[] = useRealData && criticalPath ? criticalPath.memberLoads.map((ml, idx) => {
+    const member = members.find(m => m.id === ml.memberId);
+    const name = member?.name || ml.memberName;
+    const skillsStr = member ? member.skills.join(', ') : '';
+    // Find tasks assigned to this member from plan
+    const memberTasks = plan?.tasks.filter(t => t.assignedTo === ml.memberId) ?? [];
+    const pgTasks: [string, number, number, TaskStatus, string?][] = memberTasks.map(t => [
+      t.title,
+      t.estimatedHours,
+      t.estimatedHours, // remaining = full (new plan, no progress yet)
+      t.status === 'done' ? 'done' : t.status === 'in-progress' ? 'prog' : 'todo' as TaskStatus,
+      t.priority === 'critical' || t.priority === 'high' ? 'p' : undefined,
+    ]);
+    const totalHours = ml.remainingWorkHours;
+    return [
+      member?.avatar || `M${idx}`,
+      name,
+      skillsStr,
+      totalHours,
+      ml.isOverloaded ? 1 : 0,
+      pgTasks.length > 0 ? pgTasks : [['No tasks assigned', 0, 0, 'todo' as TaskStatus]],
+    ] as PgpMember;
+  }) : PGP.filter(m => memberKeys.includes(m[0]));
+
+  // Apply task overrides to mock PGP data (when pipeline hasn't run)
+  const mockPGP = PGP.filter(m => memberKeys.includes(m[0])).map(m => {
+    const modifiedTasks = m[5].map(t => {
+      const tkEntry = TK.find(tk => tk[1] === t[0]);
+      const taskId = tkEntry ? String(tkEntry[0]) : t[0];
+      const override = taskOverrides[taskId];
+      if (!override) return t;
+      const newStatus = override.status === 'done' ? 'done' : override.status === 'in-progress' ? 'prog' : 'todo';
+      const newRemaining = override.status === 'done' ? 0 : override.status === 'in-progress' ? Math.floor(t[1] / 2) : t[1];
+      return [t[0], t[1], newRemaining, newStatus as TaskStatus, t[4]] as typeof t;
+    });
+    return [...m.slice(0, 5), modifiedTasks] as PgpMember;
+  });
+
+  let rows = (useRealData ? realPGP : mockPGP).map((m, i) => ({ m, i, s: pgStats(m) }));
   if (progressSort === 'low') rows.sort((a, b) => a.s.pc - b.s.pc || a.i - b.i);
 
-  const memberCount = projectPGP.length;
+  const memberCount = rows.length;
 
   const tt: Record<string, string[]> = {};
   rows.forEach(r => r.m[5].forEach(t => { (tt[t[0]] = tt[t[0]] || []).push(t[3]); }));
@@ -399,6 +869,20 @@ function OverviewScreen() {
   const doneT = titles.filter(k => tt[k].every(x => x === 'done')).length;
   const AL = sum(rows.map(r => r.s.al));
   const DN2 = sum(rows.map(r => r.s.dn));
+
+  // Real predicted completion data from scheduler
+  const predictedDay = criticalPath?.predictedCompletionDay;
+  const deadlineDay = criticalPath?.deadlineDay;
+  const delayDays = criticalPath?.delayDays ?? 0;
+  const riskStatus = criticalPath?.riskStatus ?? '';
+  const isAtRisk = delayDays > 0;
+  const statusLabel = isAtRisk ? 'At Risk' : riskStatus === 'Complete' ? 'Completed' : 'On Track';
+  const statusClass = isAtRisk ? 's-dg' : 's-ok';
+
+  // Calculate timeline positions for the deadline line
+  const todayPct = 0; // Start of project
+  const deadlinePct = deadlineDay ? Math.min(100, (deadlineDay / Math.max(predictedDay ?? deadlineDay, deadlineDay)) * 100) : 70.3;
+  const predictedPct = predictedDay ? Math.min(100, (predictedDay / Math.max(predictedDay, deadlineDay ?? predictedDay)) * 100) : 96.2;
 
   return (
     <section className="scr page wide on" id="s-overview">
@@ -408,28 +892,26 @@ function OverviewScreen() {
           <div className="row mb12 wrap">
             <div><div className="h3">Predicted completion</div><div className="sm mut">Calculated from task dependencies and each member&apos;s weekly availability.</div></div>
             <span className="sp" />
-            <span className={`stat ${isAtRisk ? 's-dg' : 's-ok'}`}>
-              {isAtRisk ? 'At Risk \u00b7 7 days late' : 'On Track \u00b7 on schedule'}
-            </span>
+            <span className={`stat ${statusClass}`}>{statusLabel}{isAtRisk ? ` \u00b7 ${delayDays} days late` : ''}</span>
+          </div>
+          <div className="dline">
+            <div className="ax" />
+            <div className={isAtRisk ? 'lt' : 'ok'} style={{ left: 0, width: `${deadlinePct}%` }} />
+            {isAtRisk && <div className="lt" style={{ left: `${deadlinePct}%`, width: `${predictedPct - deadlinePct}%` }} />}
+            <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Mon 12 Oct</div>
+            <div className="mk" style={{ left: `${deadlinePct}%`, top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />Fri 30 Oct</div>
+            <div className="mk" style={{ left: `${Math.min(predictedPct, 98)}%`, top: 0, color: 'var(--dg)' }}><b>Predicted</b><br />Day {predictedDay ?? '6'}</div>
+            <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: 'var(--dg)' }} />
           </div>
           {isAtRisk ? (
-            <>
-              <div className="dline">
-                <div className="ax" /><div className="ok" style={{ left: 0, width: '70.3%' }} /><div className="lt" style={{ left: '70.3%', width: '25.9%' }} />
-                <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Mon 12 Oct</div>
-                <div className="mk" style={{ left: '70.3%', top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />Fri 30 Oct</div>
-                <div className="mk" style={{ left: '96.2%', top: 0, color: 'var(--dg)' }}><b>Predicted</b><br />Fri 6 Nov</div>
-                <div className="pt" style={{ left: '96.2%', color: 'var(--dg)' }} />
+            <div className="alert al-dg mt16">
+              <i className="ti ti-alert-triangle" />
+              <div className="row wrap" style={{ flex: 1 }}>
+                <div><b>{criticalPath?.delayedTaskIds.length ?? 0} tasks finish after the deadline.</b><div className="sm mut">Open AI Deadline Defender to generate a rescue plan.</div></div>
+                <span className="sp" />
+                <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-shield-bolt" /> Open AI Deadline Defender</button>
               </div>
-              <div className="alert al-dg mt16">
-                <i className="ti ti-alert-triangle" />
-                <div className="row wrap" style={{ flex: 1 }}>
-                  <div><b>4 tasks finish after the deadline.</b><div className="sm mut">Compile SRS document is waiting on diagrams and architecture.</div></div>
-                  <span className="sp" />
-                  <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-shield-bolt" /> Open AI Deadline Defender</button>
-                </div>
-              </div>
-            </>
+            </div>
           ) : (
             <div className="alert al-ok mt16">
               <i className="ti ti-circle-check" />
@@ -452,7 +934,7 @@ function OverviewScreen() {
       )}
       <div className="card">
         <div className="row wrap g16 mb12">
-          <div><div className="h3">Team progress <span className="badge">{memberCount} members</span></div><div className="sm mut">Select a member to see their tasks.</div></div>
+          <div><div className="h3">Team progress <span className="badge">{rows.length} members</span></div><div className="sm mut">Select a member to see their tasks.</div></div>
           <span className="sp" />
           <div className="row g12 wrap">
             <div className="seg">
@@ -460,8 +942,8 @@ function OverviewScreen() {
               <button className={progressSort === 'low' ? 'on' : ''} onClick={() => setProgressSort('low')}>Lowest progress first</button>
             </div>
             <button className="btn btn-sm" onClick={() => {
-              const all = expandedProgress.size < memberCount;
-              useMockupStore2.setState({ expandedProgress: all ? new Set(rows.map(r => r.i)) : new Set() });
+              const all = expandedProgress.size < rows.length;
+              useMockupStore2.setState({ expandedProgress: all ? new Set(rows.map((_, i) => i)) : new Set() });
             }}>Expand all</button>
           </div>
         </div>
@@ -471,7 +953,7 @@ function OverviewScreen() {
             <span className="sp" />
             <span><b style={{ color: 'var(--ink)' }}>{DN2}</b> of {AL} h</span>
           </div>
-          {AL > 0 && <div className="bar"><i style={{ width: Math.round(DN2 / AL * 100) + '%' }} /></div>}
+          <div className="bar"><i style={{ width: Math.round(AL ? DN2 / AL * 100 : 0) + '%' }} /></div>
         </div>
         <div className="prh prhd"><span>Member</span><span>Progress</span><span className="hide-m">Tasks</span><span className="hide-m">Hours left</span><span className="hide-m">Status</span><span /></div>
         {rows.map(({ m, i, s }) => {
@@ -494,7 +976,11 @@ function OverviewScreen() {
                   {m[5].map((t, j) => {
                     const p = Math.round((t[1] - t[2]) / t[1] * 100);
                     return (
-                      <div key={j} className="row g12" onClick={() => openOverlay('drTask')} style={{ padding: '8px 0', cursor: 'pointer' }}>
+                      <div key={j} className="row g12" onClick={() => {
+                        const realTask = useRealData && plan ? plan.tasks.find(pt => pt.title === t[0]) : null;
+                        useMockupStore2.getState().setSelectedTaskId(realTask?.id || String(t[0]));
+                        openOverlay('drTask');
+                      }} style={{ padding: '8px 0', cursor: 'pointer' }}>
                         {SI[t[3]]}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...(t[3] === 'done' ? { color: 'var(--ink3)', textDecoration: 'line-through' } : {}) }}>{t[0]}</div>
@@ -522,33 +1008,93 @@ function TasksScreen() {
   const openOverlay = useMockupStore2(s => s.openOverlay);
   const activeProjectId = useMockupStore2(s => s.activeProjectId);
   const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
-  const projectTK = TK.filter(t => t[5].some((k: string) => memberKeys.includes(k)));
+  const pipelineRan = useMockupStore2(s => s.pipelineRan);
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides); // re-renders when progress changes
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [memberFilter, setMemberFilter] = useState('all');
+
+  // Build task rows: use real plan tasks if pipeline ran, otherwise fall back to project-filtered TK
+  const useRealData = pipelineRan && plan && plan.tasks.length > 0;
+
+  // Convert real Task[] to TK-compatible tuple format for the existing UI
+  const allRealTK: typeof TK = useRealData && plan ? plan.tasks.map((t) => {
+    const priorityChar = t.priority === 'critical' || t.priority === 'high' ? 'H' : t.priority === 'medium' ? 'M' : 'L';
+    const statusChar = t.status === 'done' ? 'done' : t.status === 'in-progress' ? 'prog' : 'todo';
+    const assignees = t.assignedTo ? [t.assignedTo.split('-').pop()?.slice(0, 2).toUpperCase() || '??'] : [];
+    return [
+      parseInt(t.id.replace(/\D/g, '')) || 0,
+      t.title,
+      t.description,
+      priorityChar,
+      t.estimatedHours,
+      assignees,
+      t.dependencies.length,
+      `Day ${t.order}`,
+      statusChar as TaskStatus,
+      t.priority === 'critical' ? 'late' : undefined,
+    ] as typeof TK[number];
+  }) : TK.filter(t => t[5].some((k: string) => memberKeys.includes(k))).map(t => {
+    // Apply overrides to mock tasks
+    const taskId = String(t[0]);
+    const override = taskOverrides[taskId];
+    if (!override) return t;
+    const newStatus = override.status === 'done' ? 'done' : override.status === 'in-progress' ? 'prog' : 'todo';
+    const newHours = override.hours ?? t[4];
+    return [t[0], t[1], t[2], t[3], newHours, t[5], t[6], t[7], newStatus as TaskStatus, t[9]] as typeof t;
+  });
+
+  // Apply filters
+  const realTK = allRealTK.filter(t => {
+    if (searchQuery && !t[1].toLowerCase().includes(searchQuery.toLowerCase()) && !t[2].toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (statusFilter !== 'all') {
+      const statusMap: Record<string, string> = { todo: 'todo', prog: 'prog', done: 'done' };
+      if (statusMap[statusFilter] !== t[8]) return false;
+    }
+    if (priorityFilter !== 'all') {
+      const pMap: Record<string, string> = { high: 'H', medium: 'M', low: 'L' };
+      if (pMap[priorityFilter] !== t[3]) return false;
+    }
+    if (memberFilter !== 'all') {
+      const memberAbbr = memberFilter.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+      if (!t[5].includes(memberAbbr)) return false;
+    }
+    return true;
+  });
 
   return (
     <section className="scr page wide on" id="s-tasks">
       <WorkspaceHeader tab="tasks" />
       <div className="row wrap g8 mb12">
-        <div className="inp row g8" style={{ width: 230, padding: '6px 12px' }}><i className="ti ti-search mut3" /><input style={{ border: 0, outline: 0, width: '100%', background: 'none' }} placeholder="Search tasks" /></div>
-        <select className="inp"><option>All statuses</option><option>To do</option><option>In progress</option><option>Done</option></select>
-        <select className="inp"><option>All priorities</option><option>High</option><option>Medium</option><option>Low</option></select>
-        <select className="inp"><option>All members</option><option>Alice</option><option>Bob</option><option>Chloe</option><option>David</option></select>
+        <div className="inp row g8" style={{ width: 230, padding: '6px 12px' }}><i className="ti ti-search mut3" /><input style={{ border: 0, outline: 0, width: '100%', background: 'none' }} placeholder="Search tasks" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+        <select className="inp" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="all">All statuses</option><option value="todo">To do</option><option value="prog">In progress</option><option value="done">Done</option></select>
+        <select className="inp" value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}><option value="all">All priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+        <select className="inp" value={memberFilter} onChange={e => setMemberFilter(e.target.value)}><option value="all">All members</option>{members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}</select>
         <span className="sp" />
         <div className="seg">
           <button className={taskView === 'list' ? 'on' : ''} onClick={() => setTaskView('list')}>List</button>
           <button className={taskView === 'board' ? 'on' : ''} onClick={() => setTaskView('board')}>Board</button>
         </div>
       </div>
-      {projectTK.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-          <i className="ti ti-list-check" style={{ fontSize: 32, color: 'var(--ink3)' }} />
-          <div className="mut mt8">No tasks for this project yet.</div>
+      {realTK.length === 0 && searchQuery && (
+        <div className="card" style={{ padding: 16, textAlign: 'center' }}>
+          <div className="mut"><i className="ti ti-search" /> No tasks match "{searchQuery}". Try clearing filters.</div>
         </div>
       )}
-      {taskView === 'list' && projectTK.length > 0 && (
+      {taskView === 'list' && (
         <div className="card pad0" style={{ overflow: 'hidden' }}>
           <div className="tk hd"><span /><span>Task</span><span>Priority</span><span>Hours</span><span>Assigned</span><span>Deps</span><span>Target</span></div>
-          {projectTK.map(t => (
-            <div key={t[0]} className="tk" onClick={() => openOverlay('drTask')}>
+          {realTK.map(t => (
+            <div key={t[0]} className="tk" onClick={() => {
+              const realTask = useRealData && plan ? plan.tasks.find(pt => parseInt(pt.id.replace(/\D/g, '')) === t[0]) : null;
+              useMockupStore2.getState().setSelectedTaskId(realTask?.id || String(t[0]));
+              openOverlay('drTask');
+            }}>
               <span>{SI[t[8]]}</span>
               <div style={{ minWidth: 0 }}><div className="b" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[1]}</div><div className="xs mut" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[2]}</div></div>
               {pri(t[3])}
@@ -558,13 +1104,15 @@ function TasksScreen() {
               <span className={`xs ${t[9] ? '' : 'mut'}`} style={t[9] ? { color: 'var(--dg)', fontWeight: 600 } : {}}>{t[7]}{t[9] && <i className="ti ti-alert-triangle" />}</span>
             </div>
           ))}
-          <div className="tk" style={{ color: 'var(--wn)', cursor: 'default' }}>
-            <span><i className="ti ti-user-question" /></span>
-            <div className="sm"><b>Reject example:</b> if a member rejects a task, it appears here with &ldquo;Reassign needed&rdquo; and an AI match suggestion.</div>
-          </div>
+          {realTK.length === 0 && (
+            <div className="tk" style={{ color: 'var(--wn)', cursor: 'default' }}>
+              <span><i className="ti ti-user-question" /></span>
+              <div className="sm">No tasks yet. Run AI analysis to generate tasks.</div>
+            </div>
+          )}
         </div>
       )}
-      {taskView === 'board' && projectTK.length > 0 && (
+      {taskView === 'board' && (
         <div className="kb">
           {([
             ['To do', 'todo'],
@@ -572,14 +1120,18 @@ function TasksScreen() {
             ['Done', 'done'],
           ] as [string, TaskStatus][]).map(c => (
             <div key={c[1]} className="kc">
-              <div className="row b"><span>{c[0]}</span><span className="badge">{projectTK.filter(t => t[8] === c[1]).length}</span></div>
-              {projectTK.filter(t => t[8] === c[1]).slice(0, 4).map(t => (
-                <div key={t[0]} className="kcard" onClick={() => openOverlay('drTask')}>
+              <div className="row b"><span>{c[0]}</span><span className="badge">{realTK.filter(t => t[8] === c[1]).length}</span></div>
+              {realTK.filter(t => t[8] === c[1]).slice(0, 4).map(t => (
+                <div key={t[0]} className="kcard" onClick={() => {
+                  const realTask = useRealData && plan ? plan.tasks.find(pt => parseInt(pt.id.replace(/\D/g, '')) === t[0]) : null;
+                  useMockupStore2.getState().setSelectedTaskId(realTask?.id || String(t[0]));
+                  openOverlay('drTask');
+                }}>
                   <div className="b sm">{t[1]}</div>
                   <div className="row mt8">{pri(t[3])}<span className="sp" /><span className="stk">{t[5].map((k: string, ki: number) => av(k, 's', ki))}</span></div>
                 </div>
               ))}
-              {projectTK.filter(t => t[8] === c[1]).length === 0 && <div className="xs mut3 mt12">Nothing here yet.</div>}
+              {realTK.filter(t => t[8] === c[1]).length === 0 && <div className="xs mut3 mt12">Nothing here yet.</div>}
             </div>
           ))}
         </div>
@@ -592,13 +1144,64 @@ function TasksScreen() {
 function TimelineScreen() {
   const activeProjectId = useMockupStore2(s => s.activeProjectId);
   const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
-  const projectGT = GT.filter(g => memberKeys.includes(g[1]));
-  const N = 27, W = 100 / N;
+  const pipelineRan = useMockupStore2(s => s.pipelineRan);
+  const criticalPath = useTaskStore(s => s.criticalPath);
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides); // re-renders when progress changes
+
+  // Build Gantt data: use real schedule if pipeline ran, otherwise fall back to project-filtered GT
+  const useRealData = pipelineRan && criticalPath && plan && members.length > 0;
+
+  // Convert real schedule to GT-compatible format: [task, member, startDay, endDay, class?]
+  const realGT: typeof GT = useRealData && criticalPath && plan
+    ? criticalPath.schedule.map((s) => {
+        const task = plan.tasks.find(t => t.id === s.taskId);
+        const member = members.find(m => m.id === task?.assignedTo);
+        const memberLabel = member?.name.split(' ').map(w => w[0]).join('') || '?';
+        const isLate = s.endDay > criticalPath.deadlineDay;
+        // Reflect task status in bar color: late > done > default(blue=in-progress)
+        const override = taskOverrides[task?.id || ''];
+        const effectiveStatus = task?.status || override?.status;
+        const barClass = isLate ? 'late' : effectiveStatus === 'done' ? 'dn' : '';
+        return [
+          task?.title ?? s.taskId,
+          memberLabel,
+          s.startDay,
+          s.endDay,
+          barClass,
+        ] as typeof GT[number];
+      })
+    : GT.filter(g => memberKeys.includes(g[1])).map(g => {
+        // Check overrides for mock data tasks
+        const tkEntry = TK.find(t => t[1] === g[0]);
+        const taskId = tkEntry ? String(tkEntry[0]) : g[0];
+        const override = taskOverrides[taskId];
+        if (override?.status === 'done') return [g[0], g[1], g[2], g[3], 'dn'] as typeof GT[number];
+        if (override?.status === 'in-progress') return [g[0], g[1], g[2], g[3], ''] as typeof GT[number];
+        return g;
+      });
+
+  // Calculate timeline dimensions from real data
+  const maxDay = useRealData && criticalPath
+    ? Math.max(criticalPath.predictedCompletionDay, criticalPath.deadlineDay) + 2
+    : 27;
+  const N = maxDay;
+  const W = 100 / N;
+
+  // Deadline and predicted positions
+  const deadlineDay = useRealData && criticalPath ? criticalPath.deadlineDay : 19;
+  const predictedDay = useRealData && criticalPath ? criticalPath.predictedCompletionDay : 26;
+  const delayDays = useRealData && criticalPath ? criticalPath.delayDays : 0;
+
+  // Date labels for the timeline
+  const dateLabels = [0, Math.floor(N / 4), Math.floor(N / 2), Math.floor(N * 3 / 4)];
+  const baseDate = 12; // Oct 12 as day 0
 
   return (
     <section className="scr page wide on" id="s-timeline">
       <WorkspaceHeader tab="timeline" />
-      {projectGT.length === 0 ? (
+      {realGT.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <i className="ti ti-gantt" style={{ fontSize: 32, color: 'var(--ink3)' }} />
           <div className="mut mt8">No schedule data for this project yet.</div>
@@ -615,30 +1218,46 @@ function TimelineScreen() {
             </span>
           </div>
           <div className="gnt">
+            <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
             <div style={{ minWidth: 860 }}>
               <div className="gr" style={{ gridTemplateColumns: '230px 1fr', borderTop: 0, background: 'var(--soft)', minHeight: 34 }}>
                 <div className="xs mut3 b" style={{ padding: '0 14px' }}>TASK</div>
                 <div style={{ position: 'relative', height: 34 }}>
-                  {[0, 7, 14, 21].map(d => <span key={d} className="xs mut" style={{ position: 'absolute', left: `${d * W}%`, top: 8, paddingLeft: 4 }}>{['12 Oct', '19 Oct', '26 Oct', '2 Nov'][d / 7]}</span>)}
+                  {dateLabels.map(d => (
+                    <span key={d} className="xs mut" style={{ position: 'absolute', left: `${d * W}%`, top: 8, paddingLeft: 4 }}>
+                      {d + baseDate} Oct{d === 0 ? ' (Today)' : ''}
+                    </span>
+                  ))}
                 </div>
               </div>
-              {projectGT.map((g, i) => (
+              {realGT.map((g, i) => (
                 <div key={i} className="gr" style={{ gridTemplateColumns: '230px 1fr' }}>
                   <div className="sm" style={{ padding: '0 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g[0]}</div>
                   <div style={{ position: 'relative', height: 40 }}>
-                    {[7, 14, 21].map(d => <i key={d} style={{ position: 'absolute', left: `${d * W}%`, top: 0, bottom: 0, borderLeft: '1px solid var(--line)' }} />)}
-                    <div style={{ position: 'absolute', left: `${19 * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
-                    <div style={{ position: 'absolute', left: `${26 * W}%`, top: 0, bottom: 0, borderLeft: '2px dashed #e0483c' }} />
+                    {[Math.floor(N / 4), Math.floor(N / 2), Math.floor(N * 3 / 4)].map(d => <i key={d} style={{ position: 'absolute', left: `${d * W}%`, top: 0, bottom: 0, borderLeft: '1px solid var(--line)' }} />)}
+                    <div style={{ position: 'absolute', left: `${deadlineDay * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
+                    {delayDays > 0 && (
+                      <div style={{ position: 'absolute', left: `${predictedDay * W}%`, top: 0, bottom: 0, borderLeft: '2px dashed #e0483c' }} />
+                    )}
                     <div className={`gbar ${g[4] || ''}`} style={{ left: `${g[2] * W}%`, width: `${(g[3] - g[2] + 1) * W}%` }}>{g[1]}</div>
                   </div>
                 </div>
               ))}
+              {realGT.length === 0 && (
+                <div className="gr" style={{ gridTemplateColumns: '230px 1fr' }}>
+                  <div className="sm mut" style={{ padding: '0 14px' }}>No schedule data</div>
+                  <div />
+                </div>
+              )}
+            </div>
             </div>
           </div>
           <div className="row wrap g16 xs mut mt12">
-            <span><i className="ti ti-minus" style={{ color: 'var(--blue)' }} /> Deadline Fri 30 Oct</span>
-            <span><i className="ti ti-minus" style={{ color: '#e0483c' }} /> Predicted completion Fri 6 Nov</span>
-            <span className="badge b-wn"><i className="ti ti-link" /> Blocked/delayed: 4 tasks wait on the diagram &rarr; compile chain</span>
+            <span><i className="ti ti-minus" style={{ color: 'var(--blue)' }} /> Deadline Day {deadlineDay}</span>
+            <span><i className="ti ti-minus" style={{ color: '#e0483c' }} /> Predicted completion Day {predictedDay}{delayDays > 0 ? ` (${delayDays}d late)` : ''}</span>
+            {useRealData && criticalPath && criticalPath.delayedTaskIds.length > 0 && (
+              <span className="badge b-wn"><i className="ti ti-link" /> {criticalPath.delayedTaskIds.length} tasks end after deadline</span>
+            )}
           </div>
         </div>
       )}
@@ -708,15 +1327,6 @@ function ProjectScreen() {
                   <div className="bar" style={{ flex: 1, maxWidth: 100 }}><i style={{ width: Math.round(p.done / p.tasks * 100) + '%' }} /></div>
                 )}
               </div>
-              {p.statusLabel === 'Completed' && (
-                <button
-                  className="btn btn-sm btn-ai mt12"
-                  style={{ width: '100%' }}
-                  onClick={(e) => { e.stopPropagation(); addToast('Contribution report generated', 'ti-file-export'); }}
-                >
-                  <i className="ti ti-download" /> Generate Contribution
-                </button>
-              )}
             </div>
           ))}
         </div>

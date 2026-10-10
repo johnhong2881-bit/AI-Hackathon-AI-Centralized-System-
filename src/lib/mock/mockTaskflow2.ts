@@ -1,10 +1,12 @@
 // ===== TaskFlow AI Mockup2 Data =====
 // All mock data for the TaskFlow AI UI mockup2 prototype
 
+import type { Member, Skill } from '../../types/types';
+
 export const AVC: Record<string, string> = { AT: 'av0', BL: 'av1', CN: 'av2', DC: 'av3', EW: 'av5', FA: 'av0', GL: 'av1', HS: 'av2', IK: 'av3', JW: 'av4' };
 
-type Member = { k: string; n: string; lead?: number; sk: [string, number][]; wk: string[]; h: number[] };
-export const MEM: Member[] = [
+type MockMember = { k: string; n: string; lead?: number; sk: [string, number][]; wk: string[]; h: number[] };
+export const MEM: MockMember[] = [
   { k: 'AT', n: 'Alice Tan', lead: 1, sk: [['Research', 3], ['Academic Writing', 2], ['Documentation', 2]], wk: ['Programming', 'Testing'], h: [2, 3, 0, 2, 4, 5, 3] },
   { k: 'BL', n: 'Bob Lee', sk: [['Documentation', 3], ['Testing', 2], ['Academic Writing', 2]], wk: ['UI/UX Design', 'Presentation'], h: [1, 1, 2, 1, 2, 3, 3] },
   { k: 'CN', n: 'Chloe Ng', sk: [['UI/UX Design', 3], ['Presentation', 3], ['Research', 1]], wk: ['Programming', 'Data Analysis'], h: [2, 2, 2, 2, 2, 3, 3] },
@@ -151,3 +153,52 @@ export const REASONS: [string, string][] = [
 
 // Rejection reasons
 export const RJ_OPTS = ['Not Enough Time', 'Lack of Skills', 'Too Much Workload', 'Other'];
+
+// ===== MEM → Member[] conversion (for API calls) =====
+// Maps the UI mockup's skill names to the Skill type enum
+
+const SKILL_MAP: Record<string, Skill> = {
+  'Research': 'research',
+  'Academic Writing': 'writing',
+  'Documentation': 'editing',
+  'Testing': 'management',
+  'UI/UX Design': 'design',
+  'Programming': 'coding',
+  'Data Analysis': 'analysis',
+  'Presentation': 'presentation',
+};
+
+const ALL_SKILLS: Skill[] = ['writing', 'research', 'design', 'coding', 'presentation', 'analysis', 'editing', 'management'];
+
+export function memToMembers(): Member[] {
+  return MEM.map((m, i) => {
+    const skills: Skill[] = m.sk.map(s => SKILL_MAP[s[0]] || 'management');
+    const proficiency = Math.min(5, Math.max(1, ...m.sk.map(s => s[1]))) >= 3 ? 5 : 3;
+    const skillProficiency = {} as Record<Skill, number>;
+    for (const sk of ALL_SKILLS) {
+      const match = m.sk.find(s => SKILL_MAP[s[0]] === sk);
+      skillProficiency[sk] = match ? Math.min(5, match[1] + 1) : 1;
+    }
+    const weeklyAvailability: NonNullable<Member['weeklyAvailability']> = {
+      monday: m.h[0] || 0,
+      tuesday: m.h[1] || 0,
+      wednesday: m.h[2] || 0,
+      thursday: m.h[3] || 0,
+      friday: m.h[4] || 0,
+      saturday: m.h[5] || 0,
+      sunday: m.h[6] || 0,
+    };
+    return {
+      id: `mem-${String(i + 1).padStart(3, '0')}`,
+      name: m.n,
+      avatar: m.k,
+      skills,
+      skillProficiency,
+      availability: m.h.reduce((a, b) => a + b, 0),
+      weeklyAvailability,
+      role: m.lead ? 'Team Lead' : 'Member',
+      isLeader: !!m.lead,
+      currentTaskIds: [],
+    };
+  });
+}

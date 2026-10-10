@@ -1,0 +1,124 @@
+{
+  "assignmentId": "asg-rubric-001",
+  "items": [
+    {
+      "id": "rub-001",
+      "criteria": "Introduction & Deliverables",
+      "marks": 3,
+      "weightage": 30,
+      "mandatory": true,
+      "description": "Introduction provides sufficient background to understand the problem. Problem statement is articulated clearly. Stakeholders are correctly identified. Deliverables are realistic, and the system is well-scoped.",
+      "goodLevelRequirements": {
+        "description": "Introduction provides sufficient background to understand the problem. Problem statement is articulated clearly. Stakeholders are correctly identified. Deliverables are realistic, and the system is well-scoped.",
+        "estimatedHours": 4,
+        "keyDeliverables": [
+          "Problem statement with clear articulation",
+          "Stakeholder identification and analysis",
+          "Realistic deliverables list",
+          "Well-scoped system boundaries"
+        ]
+      },
+      "averageLevelRequirements": {
+        "description": "Introduction and deliverables are reasonably described, but may include some uncertainty that requires further clarification.",
+        "estimatedHours": 2,
+        "keyDeliverables": [
+          "Problem statement (may need clarification)",
+          "Some stakeholder identification",
+          "Deliverables list (may have gaps)"
+        ]
+      },
+      "poorLevelRequirements": {
+        "description": "Introduction provides insufficient background for understanding the current problem, problem statement is vague or stakeholders are missing or incorrectly identified. Deliverables and scope do not align with the stakeholder expectations.",
+        "estimatedHours": 1,
+        "keyDeliverables": [
+          "Vague or missing problem statement",
+          "Missing or incorrect stakeholders",
+          "Misaligned deliverables"
+        ]
+      }
+    },
+    {
+      "id": "rub-002",
+      "criteria": "Planning",
+      "marks": 3,
+      "weightage": 30,
+      "mandatory": true,
+      "description": "Methodology is clear and the milestones are properly thought out. Work breakdown clearly identifies activities to be carried out and roles of team members are clear with communication processes in place for coordinating work. Risk properly analyzed and managed with clear mitigation strategies.",
+      "goodLevelRequirements": {
+        "description": "Methodology is clear and the milestones are properly thought out. Work breakdown clearly identifies activities to be carried out and roles of team members are clear with communication processes in place for coordinating work. Risk properly analyzed and managed with clear mitigation strategies.",
+        "estimatedHours": 5,
+        "keyDeliverables": [
+          "Clear methodology document",
+          "Realistic milestones with timeline",
+          "Work breakdown structure (WBS)",
+          "Team roles and responsibilities (RACI)",
+          "Communication plan and channels",
+          "Risk register with mitigation strategies"
+        ]
+      },
+      "averageLevelRequirements": {
+        "description": "Methodology is identified and milestones set are reasonable. Work breakdown is present with roles and communication medium is agreed upon. Risk management analysis is conducted with some mitigation strategies in place.",
+        "estimatedHours": 3,
+        "keyDeliverables": [
+          "Methodology identified",
+          "Reasonable milestones",
+          "Work breakdown present",
+          "Roles assigned",
+          "Basic risk analysis"
+        ]
+      },
+      "poorLevelRequirements": {
+        "description": "Planning is incomplete, with unrealistic milestones, incomplete work breakdown and missing project roles. No clear communication process in place and risk is not properly managed.",
+        "estimatedHours": 1,
+        "keyDeliverables": [
+          "Unrealistic or missing milestones",
+          "Incomplete work breakdown",
+          "Missing project roles",
+          "No risk management"
+        ]
+      }
+    },
+    {
+      "id": "rub-003",
+      "criteria": "Requirements",
+      "marks": 4,
+      "weightage": 40,
+      "mandatory": true,
+      "description": "Requirements are comprehensive with all relevant user stories identified and correctly translated into use cases. Non-functional requirements are clearly specified along with the criteria used to measure them. Constraints are properly thought out and reflects the real-world scenario.",
+      "goodLevelRequirements": {
+        "description": "Requirements are comprehensive with all relevant user stories identified and correctly translated into use cases. Non-functional requirements are clearly specified along with the criteria used to measure them. Constraints are properly thought out and reflects the real-world scenario.",
+        "estimatedHours": 6,
+        "keyDeliverables": [
+          "Complete user stories with acceptance criteria",
+          "Use case diagrams and descriptions",
+          "Non-functional requirements with measurable metrics",
+          "Constraints documented and justified",
+          "Requirements traceability matrix"
+        ]
+      },
+      "averageLevelRequirements": {
+        "description": "Requirements covers the necessary user stories and use cases for the system to meet the client's requirements. Non-functional requirements are reasonable but may not include specifics for how to measure them. Constraints are considered and itemized.",
+        "estimatedHours": 4,
+        "keyDeliverables": [
+          "Necessary user stories",
+          "Use cases for core functionality",
+          "Non-functional requirements (may lack metrics)",
+          "Constraints listed"
+        ]
+      },
+      "poorLevelRequirements": {
+        "description": "Requirements are incomplete or misaligned with missing user stories or use cases necessary for the system to fully function. Non-functional requirements are missing or do not align with the stakeholder requirements. Missing constraints or constraints are not related to the stakeholder requirements.",
+        "estimatedHours": 2,
+        "keyDeliverables": [
+          "Missing user stories or use cases",
+          "No or misaligned non-functional requirements",
+          "Missing or irrelevant constraints"
+        ]
+      }
+    }
+  ],
+  "totalMarks": 10,
+  "parsedAt": "2026-10-10T22:24:00+08:00",
+  "rawExtractionConfidence": 1.0,
+  "warnings": []
+}
