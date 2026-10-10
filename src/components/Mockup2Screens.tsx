@@ -892,6 +892,10 @@ function OverviewScreen() {
   const todayPct = isCompleted ? 100 : (1 - daysLeft / totalDays) * 100;
   const deadlinePct = isCompleted ? 100 : (daysLeft / totalDays) * 100 + todayPct;
   const predictedPct = isAtRisk ? deadlinePct + (3 / totalDays) * 100 : deadlinePct - (2 / totalDays) * 100;
+  const clampedDeadlinePct = Math.min(deadlinePct, 95);
+  const clampedPredictedPct = Math.min(predictedPct, 98);
+  // When markers are visually too close (clamped), stack Predicted below the line so labels don't collide
+  const stackPredictedBelow = isAtRisk && (clampedPredictedPct - clampedDeadlinePct) < 10;
 
   return (
     <section className="scr page wide on" id="s-overview">
@@ -909,7 +913,7 @@ function OverviewScreen() {
             {isAtRisk && <div className="lt" style={{ left: `${todayPct}%`, width: `${Math.min(deadlinePct - todayPct + (3 / totalDays) * 100, 100 - todayPct)}%` }} />}
             <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Sun 11 Oct</div>
             <div className="mk" style={{ left: `${Math.min(deadlinePct, 95)}%`, top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />{project.due}</div>
-            <div className="mk" style={{ left: `${Math.min(predictedPct, 98)}%`, top: 0, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
+            <div className={`mk ${stackPredictedBelow ? 'below' : ''}`} style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
             <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }} />
           </div>
           {isAtRisk ? (
