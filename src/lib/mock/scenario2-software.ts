@@ -178,6 +178,7 @@ const members: Member[] = [
     },
     availability: 15,
     role: 'Frontend Developer',
+    isLeader: false,
     currentTaskIds: ['s2-task-06', 's2-task-07'],
   },
   {
@@ -197,6 +198,7 @@ const members: Member[] = [
     },
     availability: 15,
     role: 'Backend Developer',
+    isLeader: false,
     currentTaskIds: ['s2-task-03', 's2-task-04', 's2-task-05'],
   },
   {
@@ -216,6 +218,7 @@ const members: Member[] = [
     },
     availability: 12,
     role: 'QA / Testing Specialist',
+    isLeader: false,
     currentTaskIds: ['s2-task-02', 's2-task-11'],
   },
   {
@@ -235,6 +238,7 @@ const members: Member[] = [
     },
     availability: 12,
     role: 'UI/UX Designer',
+    isLeader: false,
     currentTaskIds: ['s2-task-12'],
   },
   {
@@ -254,6 +258,7 @@ const members: Member[] = [
     },
     availability: 10,
     role: 'Project Manager',
+    isLeader: true,
     currentTaskIds: ['s2-task-01'],
   },
 ];
@@ -277,6 +282,7 @@ const tasks: Task[] = [
     order: 1,
     createdAt: now,
     updatedAt: '2026-10-10T18:00:00+08:00',
+    confirmed: false,
   },
   {
     id: 's2-task-02',
@@ -294,6 +300,7 @@ const tasks: Task[] = [
     order: 2,
     createdAt: now,
     updatedAt: '2026-10-11T12:00:00+08:00',
+    confirmed: false,
   },
   {
     id: 's2-task-03',
@@ -311,6 +318,7 @@ const tasks: Task[] = [
     order: 3,
     createdAt: now,
     updatedAt: '2026-10-11T16:00:00+08:00',
+    confirmed: false,
   },
   {
     id: 's2-task-04',
@@ -328,6 +336,7 @@ const tasks: Task[] = [
     order: 4,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-05',
@@ -345,6 +354,7 @@ const tasks: Task[] = [
     order: 5,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-06',
@@ -362,6 +372,7 @@ const tasks: Task[] = [
     order: 6,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-07',
@@ -379,6 +390,7 @@ const tasks: Task[] = [
     order: 7,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-08',
@@ -396,6 +408,7 @@ const tasks: Task[] = [
     order: 8,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-09',
@@ -413,6 +426,7 @@ const tasks: Task[] = [
     order: 9,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-10',
@@ -430,6 +444,7 @@ const tasks: Task[] = [
     order: 10,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-11',
@@ -447,6 +462,7 @@ const tasks: Task[] = [
     order: 11,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
   {
     id: 's2-task-12',
@@ -464,6 +480,7 @@ const tasks: Task[] = [
     order: 12,
     createdAt: now,
     updatedAt: now,
+    confirmed: false,
   },
 ];
 
@@ -484,6 +501,13 @@ const plan: PlanResult = {
     's2-task-12',
   ],
   totalEstimatedHours: 92,
+  rubricCoverage: {
+    coveredRubricIds: ['s2-rub-01', 's2-rub-02', 's2-rub-03', 's2-rub-04', 's2-rub-05', 's2-rub-06'],
+    uncoveredRubricIds: [],
+    totalMarks: 100,
+    maxMarks: 100,
+    coveragePercent: 100,
+  },
   generatedAt: now,
 };
 

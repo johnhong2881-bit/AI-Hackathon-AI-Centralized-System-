@@ -24,4 +24,4 @@ export {
   buildRubricAgentCall, buildTaskAgentCall, buildSkillAgentCall, buildRiskAgentCall, buildRescueAgentCall,
 } from './prompts';
 export type { BeforeAfterData } from './prompts';
-export { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent, callRescueAgent } from './mock-llm';
+export { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent, callRescueAgent, getLLMMode } from './mock-llm';

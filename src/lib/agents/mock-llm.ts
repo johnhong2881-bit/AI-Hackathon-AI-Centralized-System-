@@ -1,17 +1,35 @@
 // ============================================================
-// Mock LLM Layer — Swappable with WorkBuddy Cloud LLM
+// LLM Layer — Mock / Cloud Router (Swappable)
 // ============================================================
-// This file simulates LLM calls by returning pre-built mock data.
-// When WorkBuddy cloud-service is activated, replace the functions
-// below with real cloud.llm.chat.completions.create() calls.
+// This file is the single entry point for all LLM calls.
+// It automatically routes to:
+//   - Real WorkBuddy Cloud LLM (cloud-llm.ts) when cloud config is filled in
+//   - Mock LLM (below) when cloud is not yet activated
 //
-// The interface (LLMCallParams → LLMCallResult) stays the same,
-// so NO other code needs to change.
+// The interface (LLMCallParams -> LLMCallResult) stays the same,
+// so NO other code needs to change when switching.
+//
+// To activate real LLM:
+//   1. Ask AI to run workbuddy_cloud_service with action="activate"
+//   2. Copy the returned publicConfig values into src/lib/cloud/config.ts
+//   3. That's it — this router will automatically use real LLM.
 // ============================================================
 
 import type { LLMCallParams, LLMCallResult } from './types';
 import { mockRubric, mockPlanResult, mockSkillMatch, mockRiskAssessment, mockRescuePlan } from '../mock';
-import type { RubricResult, PlanResult, SkillMatchResult, RiskAssessment, RescuePlan } from '../../types/types';
+import { isCloudConfigured } from '../cloud/config';
+import type {
+  RubricResult,
+  PlanResult,
+  SkillMatchResult,
+  RiskAssessment,
+  RescuePlan,
+  Assignment,
+  Task,
+  Member,
+  DeadlineInfo,
+  ProjectProgress,
+} from '../../types/types';
 
 // ===== Simulated network latency (ms) =====
 
@@ -23,7 +41,7 @@ const SIMULATED_LATENCY = {
   'rescue-agent': 2200,
 };
 
-// ===== Mock LLM implementations =====
+// ===== Mock LLM implementation (fallback) =====
 
 function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallResult> {
   const latency = SIMULATED_LATENCY[agentId as keyof typeof SIMULATED_LATENCY] || 1500;
@@ -51,102 +69,86 @@ function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallRes
         content: JSON.stringify(parsed, null, 2),
         parsed,
         durationMs: latency,
-        model: 'mock-llm (swap for cloud.llm when WorkBuddy is activated)',
+        model: 'mock-llm (configure cloud service to switch to real LLM)',
         tokensUsed: Math.floor(Math.random() * 2000) + 500,
       });
     }, latency);
   });
 }
 
-// ===== Agent-specific call wrappers =====
+// ===== Router: automatically uses real cloud LLM when configured =====
 
-export async function callRubricAgent(assignment: import('../../types/types').Assignment): Promise<{
+/**
+ * Routes to realLLMCall (cloud-llm.ts) when cloud is configured,
+ * otherwise falls back to mockLLMCall.
+ */
+async function routeLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallResult> {
+  if (isCloudConfigured()) {
+    // Dynamic import avoids loading the SDK when not needed
+    const { realLLMCall } = await import('./cloud-llm');
+    return realLLMCall(params);
+  }
+  return mockLLMCall(params, agentId);
+}
+
+// ===== Agent-specific call wrappers =====
+// These have identical signatures in cloud-llm.ts, so the router
+// transparently swaps between mock and real.
+
+export async function callRubricAgent(assignment: Assignment): Promise<{
   result: LLMCallResult;
   data: RubricResult;
 }> {
   const { buildRubricAgentCall } = await import('./prompts');
   const params = buildRubricAgentCall(assignment);
-  const result = await mockLLMCall(params, 'rubric-agent');
+  const result = await routeLLMCall(params, 'rubric-agent');
   return { result, data: result.parsed as RubricResult };
 }
 
 export async function callTaskAgent(
-  assignment: import('../../types/types').Assignment,
+  assignment: Assignment,
   rubric: RubricResult
 ): Promise<{ result: LLMCallResult; data: PlanResult }> {
   const { buildTaskAgentCall } = await import('./prompts');
   const params = buildTaskAgentCall(assignment, rubric);
-  const result = await mockLLMCall(params, 'task-agent');
+  const result = await routeLLMCall(params, 'task-agent');
   return { result, data: result.parsed as PlanResult };
 }
 
 export async function callSkillAgent(
-  tasks: import('../../types/types').Task[],
-  members: import('../../types/types').Member[]
+  tasks: Task[],
+  members: Member[]
 ): Promise<{ result: LLMCallResult; data: SkillMatchResult }> {
   const { buildSkillAgentCall } = await import('./prompts');
   const params = buildSkillAgentCall(tasks, members);
-  const result = await mockLLMCall(params, 'skill-agent');
+  const result = await routeLLMCall(params, 'skill-agent');
   return { result, data: result.parsed as SkillMatchResult };
 }
 
 export async function callRiskAgent(
-  tasks: import('../../types/types').Task[],
-  members: import('../../types/types').Member[],
-  deadline: import('../../types/types').DeadlineInfo | null,
-  progress: import('../../types/types').ProjectProgress | null
+  tasks: Task[],
+  members: Member[],
+  deadline: DeadlineInfo | null,
+  progress: ProjectProgress | null
 ): Promise<{ result: LLMCallResult; data: RiskAssessment }> {
   const { buildRiskAgentCall } = await import('./prompts');
   const params = buildRiskAgentCall(tasks, members, deadline, progress);
-  const result = await mockLLMCall(params, 'risk-agent');
+  const result = await routeLLMCall(params, 'risk-agent');
   return { result, data: result.parsed as RiskAssessment };
 }
 
 export async function callRescueAgent(
   riskAssessment: RiskAssessment,
-  tasks: import('../../types/types').Task[],
-  members: import('../../types/types').Member[]
+  tasks: Task[],
+  members: Member[]
 ): Promise<{ result: LLMCallResult; data: RescuePlan }> {
   const { buildRescueAgentCall } = await import('./prompts');
   const params = buildRescueAgentCall(riskAssessment, tasks, members);
-  const result = await mockLLMCall(params, 'rescue-agent');
+  const result = await routeLLMCall(params, 'rescue-agent');
   return { result, data: result.parsed as RescuePlan };
 }
 
-// ===== Real WorkBuddy LLM (for when cloud-service is activated) =====
-// Uncomment and use this when cloud-service is activated:
-//
-// import { createWorkBuddyCloud } from '@tencent-ai/workbuddy-cloud-sdk';
-//
-// const cloud = createWorkBuddyCloud({
-//   endpoint: publicConfig.endpoint,
-//   publishableKey: publicConfig.publishableKey,
-// });
-//
-// async function realLLMCall(params: LLMCallParams): Promise<LLMCallResult> {
-//   const startTime = Date.now();
-//   let content = '';
-//
-//   for await (const chunk of cloud.llm.chat.completions.create({
-//     model: 'model-id-from-list',
-//     messages: [
-//       { role: 'system', content: params.systemPrompt },
-//       { role: 'user', content: params.userPrompt },
-//     ],
-//     stream: true,
-//     temperature: params.temperature ?? 0.3,
-//     response_format: params.responseFormat === 'json_object'
-//       ? { type: 'json_object' }
-//       : undefined,
-//   })) {
-//     const delta = chunk.choices[0]?.delta?.content;
-//     if (delta) content += delta;
-//   }
-//
-//   return {
-//     content,
-//     parsed: params.responseFormat === 'json_object' ? JSON.parse(content) : content,
-//     durationMs: Date.now() - startTime,
-//     model: 'workbuddy-cloud-llm',
-//   };
-// }
+// Export status helper for UI display
+export function getLLMMode(): 'mock' | 'cloud' {
+  return isCloudConfigured() ? 'cloud' : 'mock';
+}

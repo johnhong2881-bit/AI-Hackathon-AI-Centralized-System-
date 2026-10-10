@@ -22,8 +22,11 @@
 import type { Assignment, Member } from '../../types/types';
 import type { PipelineState, PipelineStep, StepStatus } from './types';
 import { AGENTS } from './types';
-import { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent, callRescueAgent } from './mock-llm';
+import { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent } from './mock-llm';
 import { calculateCriticalPath } from '../logic/critical-path';
+import { validatePlan } from '../logic/plan-validator';
+import { assignMultiMember } from '../logic/multi-member-assigner';
+import { runRescueWorkflow } from '../logic/rescue-engine';
 import { calculateDeadline } from '../utils/helpers';
 import { mockProgress, mockMembers } from '../mock';
 
@@ -142,6 +145,20 @@ export async function runPipeline(
     return state;
   }
 
+  // === Post-Step-2: Plan Validation (deterministic) ===
+  {
+    const validation = validatePlan(state.plan!, state.rubric!, deadline);
+    state.plan = { ...state.plan!, validation };
+    updateStep(1, {
+      logs: [
+        ...state.steps[1].logs,
+        `📋 Validation: ${validation.isValid ? '✅ Valid plan' : '⚠️ ' + validation.issues.length + ' issues found'}`,
+        ...validation.issues.map(i => `   • ${i}`),
+      ],
+    });
+    onProgress({ ...state });
+  }
+
   // === Step 3: Skill Agent (LLM) ===
   state.currentStepIndex = 2;
   updateStep(2, {
@@ -169,6 +186,22 @@ export async function runPipeline(
     state.isRunning = false;
     onProgress({ ...state });
     return state;
+  }
+
+  // === Post-Step-3: Multi-Member Assignment (deterministic) ===
+  {
+    const updatedTasks = assignMultiMember(state.plan!.tasks, members);
+    const multiCount = updatedTasks.filter(
+      (t) => t.memberAssignments && t.memberAssignments.length > 1
+    ).length;
+    state.plan = { ...state.plan!, tasks: updatedTasks };
+    updateStep(2, {
+      logs: [
+        ...state.steps[2].logs,
+        `👥 Multi-member assignments: ${multiCount} tasks with 2+ members`,
+      ],
+    });
+    onProgress({ ...state });
   }
 
   // === Step 4: Critical Path Agent (Deterministic) ===
@@ -231,26 +264,44 @@ export async function runPipeline(
     return state;
   }
 
-  // === Step 6: Rescue Agent (Hybrid) ===
+  // === Step 6: Rescue Agent (Hybrid — deterministic 6-step workflow) ===
   state.currentStepIndex = 5;
   updateStep(5, {
     status: 'running',
     startedAt: new Date().toISOString(),
-    logs: ['🛡️ Generating rescue actions...', '📈 Calculating projected recovery...'],
+    logs: [
+      '🛡️ Starting 6-step rescue workflow...',
+      '  1️⃣ Detect: extracting risk flags...',
+      '  2️⃣ Analyze: identifying critical path...',
+      '  3️⃣ Optimize: generating rescue actions...',
+      '  4️⃣ Validate: checking dependencies...',
+      '  5️⃣ Apply: determining permissions...',
+      '  6️⃣ Compare: before/after analysis...',
+    ],
   });
 
   try {
-    const { result, data } = await callRescueAgent(state.riskAssessment!, state.plan!.tasks, members);
+    const data = runRescueWorkflow({
+      riskAssessment: state.riskAssessment!,
+      tasks: state.plan!.tasks,
+      members,
+      deadline: state.deadline,
+    });
+    const cmp = data.comparisonResult!;
     updateStep(5, {
       status: 'completed',
       completedAt: new Date().toISOString(),
-      durationMs: result.durationMs,
+      durationMs: 15,
       result: `${data.actions.length} rescue actions, confidence ${(data.confidence * 100).toFixed(0)}%`,
       logs: [
         ...state.steps[5].logs,
         `✅ Generated ${data.actions.length} rescue actions`,
-        `📈 Projected: ${data.projectedRecovery}`,
-        `⏱️ Completed in ${(result.durationMs / 1000).toFixed(1)}s`,
+        `📊 Comparison: ${cmp.beforeHours}h → ${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`,
+        `⚠️ Risk: ${cmp.beforeRiskLevel} → ${cmp.afterRiskLevel}, ${cmp.beforeTasksAtRisk} → ${cmp.afterTasksAtRisk} tasks at risk`,
+        `📅 Deadline buffer: ${cmp.beforeDeadlineBuffer}h → ${cmp.afterDeadlineBuffer}h`,
+        `🔐 Approval: ${data.requiresLeaderApproval ? 'Leader approval required' : 'Auto-applied'}`,
+        `📈 ${data.projectedRecovery}`,
+        `⚡ Instant (deterministic rescue engine)`,
       ],
     });
     setState({ rescuePlan: data });
