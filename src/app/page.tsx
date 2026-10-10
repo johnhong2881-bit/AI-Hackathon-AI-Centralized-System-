@@ -6,6 +6,7 @@ import BeforeAfterComparison from '@/components/BeforeAfterComparison';
 import Dashboard from '@/components/Dashboard';
 import MemberCard from '@/components/MemberCard';
 import CountdownTimer from '@/components/CountdownTimer';
+import AssignmentInputForm from '@/components/AssignmentInputForm';
 
 /**
  * TaskFlow AI — Main Page
@@ -66,6 +67,11 @@ export default function Home() {
           color="text-amber-600"
         />
       </div>
+
+      {/* Assignment Input Form — "One Prompt" entry point */}
+      <section className="mb-8">
+        <AssignmentInputForm />
+      </section>
 
       {/* Agentic Pipeline — THE KEY SECTION FOR JUDGING */}
       <section className="mb-8">
