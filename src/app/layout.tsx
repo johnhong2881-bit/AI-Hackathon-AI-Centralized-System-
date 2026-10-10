@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TaskFlow AI — Smart Project Manager for Student Teams',
+  title: 'TaskFlow AI — Plan smarter. Rescue your deadline.',
   description: 'AI-powered project manager that decomposes assignments, matches skills, and defends deadlines.',
 };
 
@@ -13,7 +13,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+      <head>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+      </head>
+      <body>
         {children}
       </body>
     </html>
