@@ -170,7 +170,6 @@
 .tf-root .dline .mk:after{content:"";display:block;margin:3px auto 0;width:2px;height:14px;background:currentColor}
 .tf-root .dline .mk.below{top:auto;bottom:0;display:flex;flex-direction:column}
 .tf-root .dline .mk.below:after{order:-1;margin:0 auto 3px}
-.tf-root .dline .mk.below.shift{transform:translateX(calc(-50% + 32px))}
 .tf-root .dline .pt{position:absolute;top:56px;width:14px;height:14px;border-radius:50%;border:3px solid #fff;transform:translateX(-50%);box-shadow:0 0 0 2px currentColor;background:currentColor}
 .tf-root .tk{display:grid;grid-template-columns:28px minmax(0,2.4fr) 78px 62px 120px 66px 92px;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer;transition:background .12s}
 .tf-root .tk:hover{background:var(--soft)}
