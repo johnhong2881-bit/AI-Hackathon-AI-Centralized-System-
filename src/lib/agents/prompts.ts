@@ -4,19 +4,15 @@
 // Each agent has: systemPrompt + userPromptTemplate
 // The user prompt uses {variable} placeholders that get filled at runtime.
 //
-// TO SWAP TO REAL WORKBUDDY LLM:
-// Replace mockLLM() with:
-//   for await (const chunk of cloud.llm.chat.completions.create({
-//     model: model.id,
-//     messages: [
-//       { role: 'system', content: agent.systemPrompt },
-//       { role: 'user', content: filledUserPrompt },
-//     ],
-//     stream: true,
-//     response_format: { type: 'json_object' },
-//   })) { ... collect chunks ... }
+// These prompts are production-ready for any OpenAI-compatible LLM
+// (SovernStack GPT-OSS, OpenAI GPT, Claude, DeepSeek, etc.)
 //
-// The prompts below are production-ready — they work with any OpenAI-compatible LLM.
+// Key design principles:
+// 1. Every prompt specifies the EXACT JSON schema with all required fields
+// 2. "Return ONLY valid JSON" is enforced with multiple instructions
+// 3. No markdown code fences (```json) — raw JSON only
+// 4. Field names match TypeScript types in src/types/types.ts exactly
+// 5. Example values show the LLM what format to use
 // ============================================================
 
 import type { Assignment, RubricResult, Member, Task, DeadlineInfo, ProjectProgress, RiskAssessment, RescuePlan } from '../../types/types';
@@ -26,46 +22,50 @@ import type { LLMCallParams } from './types';
 // Input: Raw rubric text from PDF/image
 // Output: Structured RubricResult JSON
 
-export const RUBRIC_AGENT_SYSTEM = `You are RubricIntelligence, an expert academic rubric analyzer.
-Your job is to parse assignment rubrics (extracted from PDFs, images, or text) into structured,
-machine-readable criteria.
+export const RUBRIC_AGENT_SYSTEM = `You are RubricIntelligence, an expert academic rubric analyzer for university group assignments.
+Your job is to parse assignment rubrics (extracted from PDFs, images, or text) into structured, machine-readable criteria.
 
 RULES:
-1. Every criterion must have: id (rub-001, rub-002...), criteria name, marks, weightage (%),
-   mandatory (true/false), and a clear description.
+1. Every criterion must have: id (rub-001, rub-002...), criteria name, marks, weightage (%), mandatory (true/false), and a clear description.
 2. If marks or weightage cannot be determined, use null/"Unknown" — never guess.
 3. Total marks should be the sum of all item marks if determinable.
 4. Include a confidence score (0.0-1.0) for the extraction quality.
 5. List any warnings (e.g., "Could not read page 3", "Marks unclear for criterion X").
-6. MVP — QUALITY LEVELS: For each criterion, extract Good/Average/Poor level requirements:
+6. QUALITY LEVELS: For each criterion, extract Good/Average/Poor level requirements:
    - goodLevelRequirements: what earns full/near-full marks (target standard)
    - averageLevelRequirements: what earns a passing grade (minimum acceptable)
    - poorLevelRequirements: what would fail this criterion (below standard)
-   Each level should include: description, estimatedHours, keyDeliverables[].
-7. Return JSON ONLY. No markdown, no explanation, no code fences.`;
+   Each level MUST include: description (string), estimatedHours (number), keyDeliverables (array of strings).
+7. The assignmentId field MUST match the assignmentId provided in the user prompt.
+8. Return ONLY valid JSON. Do NOT wrap in markdown code fences. Do NOT include any text before or after the JSON.
+9. Do NOT include comments (// or /* */) inside the JSON.
+10. All string values must be properly escaped JSON strings.
+11. Use ISO 8601 format for all timestamps (e.g., "2026-10-10T15:00:00Z").`;
 
 export const RUBRIC_AGENT_USER = (assignment: Assignment) => `Parse the following assignment rubric into structured criteria.
 
+ASSIGNMENT ID: ${assignment.id}
 ASSIGNMENT TITLE: ${assignment.title}
 ASSIGNMENT TYPE: ${assignment.assignmentType}
 
 RUBRIC TEXT (extracted from source):
 """
-${assignment.rubricText || 'No rubric text provided. Generate a typical rubric for this assignment type.'}
+${assignment.rubricText || 'No rubric text provided. Generate a typical rubric for this assignment type with 5-6 criteria totaling 100 marks.'}
 """
 
-Return JSON in this exact format:
+Return ONLY raw JSON (no markdown, no code fences) in this EXACT format:
 {
+  "assignmentId": "${assignment.id}",
   "items": [
     {
       "id": "rub-001",
       "criteria": "Criterion Name",
-      "marks": 25,
-      "weightage": 25,
+      "marks": 20,
+      "weightage": 20,
       "mandatory": true,
       "description": "What this criterion evaluates",
       "goodLevelRequirements": {
-        "description": "What earns full marks",
+        "description": "What earns full marks - be specific",
         "estimatedHours": 8,
         "keyDeliverables": ["deliverable 1", "deliverable 2"]
       },
@@ -76,16 +76,18 @@ Return JSON in this exact format:
       },
       "poorLevelRequirements": {
         "description": "What would fail this criterion",
-        "estimatedHours": 3,
+        "estimatedHours": 2,
         "keyDeliverables": []
       }
     }
   ],
   "totalMarks": 100,
-  "parsedAt": "ISO timestamp",
+  "parsedAt": "2026-10-10T15:00:00Z",
   "rawExtractionConfidence": 0.92,
   "warnings": []
-}`;
+}
+
+IMPORTANT: The "assignmentId" field MUST be "${assignment.id}". Generate 4-6 criteria items. All marks should sum to 100.`;
 
 // ===== Agent 2: Task Decomposition (FR-002) =====
 // Input: Assignment + RubricResult
@@ -98,20 +100,21 @@ RULES:
 1. Every task MUST map to at least one rubric criterion via relatedRubricIds.
 2. Tasks must have realistic dependencies (task IDs they depend on).
 3. Estimate hours based on complexity: low=2-4h, medium=4-8h, high=8-15h.
-4. Priority: "critical" for tasks on the critical path, "high" for major deliverables,
-   "medium" for supporting work, "low" for nice-to-haves.
+4. Priority: "critical" for tasks on the critical path, "high" for major deliverables, "medium" for supporting work, "low" for nice-to-haves.
 5. requiredSkills must use only these values: writing, research, design, coding, presentation, analysis, editing, management.
-6. Each task needs: id (task-001...), title, description, requiredSkills, estimatedHours,
-   complexity, priority, dependencies, relatedRubricIds, status ("todo"), assignedTo (null), order.
+6. Each task needs: id (task-001...), title, description, requiredSkills, estimatedHours, complexity, priority, dependencies, relatedRubricIds, status ("todo"), assignedTo (null), confirmed (false), invitationStatus ("pending"), order, createdAt, updatedAt.
 7. Calculate the critical path (longest chain of dependencies).
-8. MVP — MULTI-MEMBER: Some tasks may need multiple members. For those, include memberAssignments[]
-   with per-member estimatedHours (personalized time estimation), role, and invitationStatus ("pending").
-9. MVP — INVITATION FLOW: All new tasks start with invitationStatus: "pending". Members accept/reject
-   after Leader confirms. rejected tasks need rejectReason.
-10. Return JSON ONLY. No markdown, no code fences.`;
+8. MULTI-MEMBER: Some tasks may need multiple members. For those, include memberAssignments[] with per-member estimatedHours (personalized time estimation), role ("Primary" or "Support"), and invitationStatus ("pending").
+9. INVITATION FLOW: All new tasks start with invitationStatus: "pending". Members accept/reject after Leader confirms.
+10. RUBRIC COVERAGE: Calculate which rubric items are covered by the tasks. Include coveredRubricIds, uncoveredRubricIds, totalMarks, maxMarks, and coveragePercent.
+11. The assignmentId field MUST match the assignmentId provided in the user prompt.
+12. Return ONLY valid JSON. Do NOT wrap in markdown code fences. Do NOT include any text before or after the JSON.
+13. Do NOT include comments inside the JSON.
+14. Use ISO 8601 format for all timestamps.`;
 
 export const TASK_AGENT_USER = (assignment: Assignment, rubric: RubricResult) => `Decompose this assignment into actionable tasks.
 
+ASSIGNMENT ID: ${assignment.id}
 ASSIGNMENT:
 - Title: ${assignment.title}
 - Type: ${assignment.assignmentType}
@@ -120,12 +123,13 @@ ASSIGNMENT:
 - Team Size: ${assignment.teamSize}
 - Description: ${assignment.description}
 
-RUBRIC CRITERIA (must be covered by tasks):
+RUBRIC CRITERIA (must ALL be covered by tasks):
 ${rubric.items.map((item, i) => `${i + 1}. [${item.id}] ${item.criteria} (${item.marks} marks, ${item.mandatory ? 'MANDATORY' : 'optional'})
    ${item.description}`).join('\n')}
 
-Decompose into 8-15 tasks. Return JSON:
+Decompose into 8-12 tasks. Return ONLY raw JSON (no markdown, no code fences) in this EXACT format:
 {
+  "assignmentId": "${assignment.id}",
   "tasks": [
     {
       "id": "task-001",
@@ -142,22 +146,34 @@ Decompose into 8-15 tasks. Return JSON:
       "confirmed": false,
       "invitationStatus": "pending",
       "order": 1,
-      "createdAt": "ISO timestamp",
-      "updatedAt": "ISO timestamp"
+      "createdAt": "2026-10-10T15:00:00Z",
+      "updatedAt": "2026-10-10T15:00:00Z"
     }
   ],
   "criticalPath": ["task-001", "task-002"],
   "totalEstimatedHours": 50,
-  "generatedAt": "ISO timestamp"
-}`;
+  "rubricCoverage": {
+    "coveredRubricIds": ["rub-001", "rub-002"],
+    "uncoveredRubricIds": [],
+    "totalMarks": 100,
+    "maxMarks": 100,
+    "coveragePercent": 100
+  },
+  "generatedAt": "2026-10-10T15:00:00Z"
+}
+
+IMPORTANT:
+- The "assignmentId" field MUST be "${assignment.id}".
+- Every rubric ID listed above must appear in at least one task's relatedRubricIds.
+- All tasks start with status="todo", assignedTo=null, confirmed=false, invitationStatus="pending".
+- Dependencies can only reference task IDs that exist in the tasks array.`;
 
 // ===== Agent 3: Skill Matching (FR-003) =====
 // Input: Tasks + Members
 // Output: SkillMatchResult with assignments[]
 
 export const SKILL_AGENT_SYSTEM = `You are SkillMatcher, a team optimization specialist.
-Your job is to optimally assign tasks to team members based on skill proficiency, availability,
-and task requirements. Maximize overall match scores while respecting availability constraints.
+Your job is to optimally assign tasks to team members based on skill proficiency, availability, and task requirements. Maximize overall match scores while respecting availability constraints.
 
 RULES:
 1. matchScore: 0.0-1.0 — how well the member's skills match the task requirements.
@@ -165,34 +181,43 @@ RULES:
 3. Do not assign a member more tasks than their availability allows.
 4. If no good match exists (>0.3 threshold), leave the task unmatched and list it in unmatchedTaskIds.
 5. Consider task dependencies — prefer assigning sequential tasks to the same person for continuity.
-6. Return JSON ONLY. No markdown, no code fences.`;
+6. The assignmentId MUST match the assignmentId from the tasks input.
+7. Return ONLY valid JSON. Do NOT wrap in markdown code fences. Do NOT include any text before or after the JSON.
+8. Use ISO 8601 format for all timestamps.`;
 
-export const SKILL_AGENT_USER = (tasks: Task[], members: Member[]) => `Match these tasks to team members.
+export const SKILL_AGENT_USER = (tasks: Task[], members: Member[]) => {
+  const assignmentId = tasks[0]?.id?.split('-')[0] ? `asg-${tasks[0].id.split('-')[1]}` : 'asg-001';
+  return `Match these tasks to team members.
+
+ASSIGNMENT ID: ${assignmentId}
 
 TASKS TO ASSIGN:
 ${tasks.map((t) => `- [${t.id}] ${t.title} (priority: ${t.priority}, est: ${t.estimatedHours}h, skills: ${t.requiredSkills.join(', ')})`).join('\n')}
 
 TEAM MEMBERS:
-${members.map((m) => `- [${m.id}] ${m.name} (${m.role})
+${members.map((m) => `- [${m.id}] ${m.name} (${m.role})${m.isLeader ? ' [LEADER]' : ''}
   Skills: ${m.skills.map((s) => `${s}(${m.skillProficiency[s]}/5)`).join(', ')}
   Availability: ${m.availability}h/week
   Current tasks: ${m.currentTaskIds.length}`).join('\n')}
 
-Return JSON:
+Return ONLY raw JSON (no markdown, no code fences) in this EXACT format:
 {
-  "assignmentId": "asg-001",
+  "assignmentId": "${assignmentId}",
   "assignments": [
     {
       "taskId": "task-001",
       "memberId": "mem-001",
       "matchScore": 0.92,
       "matchReason": "Strong in research (5/5) and analysis (5/5), available 14h",
-      "assignedAt": "ISO timestamp"
+      "assignedAt": "2026-10-10T15:00:00Z"
     }
   ],
-  "unmatchedTaskIds": ["task-009"],
-  "generatedAt": "ISO timestamp"
-}`;
+  "unmatchedTaskIds": [],
+  "generatedAt": "2026-10-10T15:00:00Z"
+}
+
+IMPORTANT: The "assignmentId" MUST be "${assignmentId}". Match as many tasks as possible. Only leave unmatched if no member has relevant skills.`;
+};
 
 // ===== Agent 4: Risk Detection (FR-006) =====
 // Input: Tasks + Members + Deadline + Progress
@@ -201,13 +226,13 @@ Return JSON:
 export const RISK_AGENT_SYSTEM = `You are RiskDetector, a project risk analyst for student teams.
 Your job is to identify at-risk tasks that could jeopardize the project deadline or quality.
 
-RISK TYPES (7 types in MVP):
+RISK TYPES (7 types):
 - "deadline": Task running late, blocking critical path, or unlikely to finish before deadline.
 - "dependency": Upstream task is delayed, blocking downstream work.
 - "skill_gap": No team member has the required skills at adequate proficiency.
 - "overload": Assigned member has too many tasks / not enough availability.
 - "quality": Task quality at risk due to complexity vs. skill level mismatch.
-- "insufficient_time": Task estimated hours exceed available time in the deadline window, even if not yet started.
+- "insufficient_time": Task estimated hours exceed available time in the deadline window.
 - "unassigned": Task has no member assigned (assignedTo is null), blocking execution.
 
 RISK LEVELS: "high" (immediate action needed), "medium" (monitor closely), "low" (minor concern).
@@ -215,18 +240,23 @@ RISK LEVELS: "high" (immediate action needed), "medium" (monitor closely), "low"
 RULES:
 1. Every flag must have: taskId, riskLevel, riskType, description, recommendation (specific actionable advice).
 2. Be specific in recommendations — not "improve time management" but "Split task-002: finish personas first (4h) to unblock wireframing".
-3. Use "unassigned" riskType when a task has no assignee (not "skill_gap" — those are different issues).
-4. Use "insufficient_time" when the total remaining hours for a task + its dependency chain exceed the member's weekly availability.
+3. Use "unassigned" riskType when a task has no assignee (not "skill_gap" — those are different).
+4. Use "insufficient_time" when total remaining hours exceed the member's weekly availability.
 5. Calculate overallRiskLevel based on the highest individual risk level and number of flags.
-6. Return JSON ONLY. No markdown, no code fences.`;
+6. The assignmentId MUST match the assignmentId from the tasks input.
+7. Return ONLY valid JSON. Do NOT wrap in markdown code fences. Do NOT include any text before or after.
+8. Use ISO 8601 format for all timestamps.`;
 
 export const RISK_AGENT_USER = (
   tasks: Task[],
   members: Member[],
   deadline: DeadlineInfo | null,
   progress: ProjectProgress | null
-) => `Analyze project risks.
+) => {
+  const assignmentId = tasks[0]?.id?.split('-')[0] ? `asg-${tasks[0].id.split('-')[1]}` : 'asg-001';
+  return `Analyze project risks.
 
+ASSIGNMENT ID: ${assignmentId}
 DEADLINE: ${deadline?.deadline || 'No deadline'} (${deadline?.daysRemaining ?? '?'} days remaining, ${deadline?.isUrgent ? 'URGENT' : 'not urgent'})
 
 TASKS WITH PROGRESS:
@@ -242,9 +272,9 @@ ${tasks.map((t) => {
 TEAM WORKLOAD:
 ${members.map((m) => `- ${m.name}: ${m.currentTaskIds.length} tasks, ${m.availability}h/week available`).join('\n')}
 
-Identify all risks. Return JSON:
+Identify all risks. Return ONLY raw JSON (no markdown, no code fences) in this EXACT format:
 {
-  "assignmentId": "asg-001",
+  "assignmentId": "${assignmentId}",
   "flags": [
     {
       "taskId": "task-002",
@@ -252,12 +282,15 @@ Identify all risks. Return JSON:
       "riskType": "deadline",
       "description": "Specific risk description",
       "recommendation": "Specific actionable recommendation",
-      "detectedAt": "ISO timestamp"
+      "detectedAt": "2026-10-10T15:00:00Z"
     }
   ],
   "overallRiskLevel": "medium",
-  "assessedAt": "ISO timestamp"
-}`;
+  "assessedAt": "2026-10-10T15:00:00Z"
+}
+
+IMPORTANT: The "assignmentId" MUST be "${assignmentId}". Identify 2-5 risks. Use the correct riskType for each.`;
+};
 
 // ===== Agent 5: Rescue Plan Generator (FR-012) =====
 // Input: RiskAssessment + Tasks + Members
