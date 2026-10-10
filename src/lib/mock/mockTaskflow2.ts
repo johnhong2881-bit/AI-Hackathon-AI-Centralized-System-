@@ -17,17 +17,25 @@ export const LVN = ['', 'Beginner', 'Intermediate', 'Advanced'];
 export const DN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export const SCR: [string, string, number][] = [
+  ['project', 'Home', 0],
   ['create', 'Create', 1], ['team', 'Team', 1], ['review', 'Review', 1], ['analysis', 'AI analysis', 1],
   ['overview', 'Overview', 2], ['tasks', 'Tasks', 2], ['timeline', 'Timeline', 2], ['defender', 'AI Defender', 2],
 ];
 
-export const GRP: Record<number, string> = { 1: 'Create', 2: 'Workspace', 3: 'System' };
+export const GRP: Record<number, string> = { 0: '', 1: 'Create', 2: 'Workspace', 3: 'System' };
 
 export const PROJECTS = [
   { id: 'srs', name: 'Software Requirements Specification', desc: 'Group SRS for a student library management system', status: 'dg', statusLabel: 'At Risk', members: 4, tasks: 14, done: 5, due: 'Fri 30 Oct' },
-  { id: 'web', name: 'Web Application Development', desc: 'Full-stack web app with React and Node.js', status: 'ok', statusLabel: 'On Track', members: 3, tasks: 8, done: 2, due: 'Mon 16 Nov' },
-  { id: 'data', name: 'Data Analysis Report', desc: 'Statistical analysis of survey data', status: 'ok', statusLabel: 'Completed', members: 2, tasks: 6, done: 6, due: 'Mon 5 Oct' },
+  { id: 'web', name: 'Web Application Development', desc: 'Full-stack web app with React and Node.js', status: 'ok', statusLabel: 'On Track', members: 2, tasks: 4, done: 1, due: 'Mon 16 Nov' },
+  { id: 'data', name: 'Data Analysis Report', desc: 'Statistical analysis of survey data', status: 'ok', statusLabel: 'Completed', members: 2, tasks: 3, done: 3, due: 'Mon 5 Oct' },
 ];
+
+// Maps project ID → member keys that belong to that project
+export const PROJECT_MEMBERS: Record<string, string[]> = {
+  srs: ['AT', 'BL', 'CN', 'DC'],
+  web: ['EW', 'FA'],
+  data: ['GL', 'HS'],
+};
 
 export const FLOW = [
   { icon: 'ti-upload', title: 'Upload assignment', desc: 'PDF or paste text — the AI reads it instantly' },
@@ -90,9 +98,9 @@ export const PGP: PgpMember[] = [
   ['FA', 'Farid Aziz', 'Data modelling, SQL', 28, 0, [
     ['Data model and ER diagram', 8, 8, 'todo'], ['API outline', 6, 6, 'todo', 'p']]],
   ['GL', 'Grace Lim', 'Research, Writing', 24, 0, [
-    ['Competitor review', 6, 0, 'done'], ['Related work summary', 5, 5, 'todo']]],
+    ['Competitor review', 6, 0, 'done'], ['Related work summary', 5, 0, 'done']]],
   ['HS', 'Hana Sato', 'QA, Accessibility', 22, 0, [
-    ['Prototype usability checks', 5, 5, 'todo'], ['Defect log', 3, 3, 'todo', 'p']]],
+    ['Prototype usability checks', 5, 0, 'done'], ['Defect log', 3, 0, 'done']]],
   ['IK', 'Ivan Koh', 'Git, Documentation', 20, 0, [
     ['Version control and build setup', 4, 2, 'prog'], ['Release checklist', 3, 3, 'todo']]],
   ['JW', 'Jun Wei', 'Interviews, Editing', 20, 0, [

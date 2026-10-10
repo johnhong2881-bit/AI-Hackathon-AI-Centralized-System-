@@ -33,6 +33,7 @@ interface MockupState {
   defenderWho: string;
   expandedProgress: Set<number>;
   progressSort: ProgressSort;
+  activeProjectId: string;
   toasts: ToastMsg[];
   // actions
   go: (s: ScreenId) => void;
@@ -50,6 +51,7 @@ interface MockupState {
   setDefenderWho: (w: string) => void;
   toggleProgress: (i: number) => void;
   setProgressSort: (s: ProgressSort) => void;
+  setActiveProject: (id: string) => void;
   addToast: (text: string, icon?: string) => void;
   removeToast: (id: number) => void;
 }
@@ -71,6 +73,7 @@ export const useMockupStore2 = create<MockupState>((set, get) => ({
   defenderWho: 'Alice Tan',
   expandedProgress: new Set([0]),
   progressSort: 'def',
+  activeProjectId: 'srs',
   toasts: [],
   go: (s) => {
     set({ screen: s, overlay: null, taskEditMode: false });
@@ -95,6 +98,7 @@ export const useMockupStore2 = create<MockupState>((set, get) => ({
     set({ expandedProgress: s });
   },
   setProgressSort: (s) => set({ progressSort: s }),
+  setActiveProject: (id) => set({ activeProjectId: id }),
   addToast: (text, icon = 'ti-circle-check') => {
     const id = ++toastId;
     set({ toasts: [...get().toasts, { id, text, icon }] });

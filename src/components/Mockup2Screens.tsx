@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type Key as ReactKey } from 'react';
 import { useMockupStore2, type ScreenId } from '@/store/useMockupStore2';
 import {
   AVC, MEM, LVN, DN, TABS,
-  STG, TK, PGP, GT, PROJECTS, FLOW,
+  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW,
   type TaskStatus, type PgpMember,
 } from '@/lib/mock/mockTaskflow2';
 
@@ -51,19 +51,25 @@ function Stepper({ step }: { step: number }) {
 function WorkspaceHeader({ tab }: { tab: string }) {
   const go = useMockupStore2(s => s.go);
   const openOverlay = useMockupStore2(s => s.openOverlay);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
+  const openTasks = project.tasks - project.done;
+
   return (
     <div data-ws={tab}>
-      <div className="crumb sm mut mb8">Projects / Software Requirements Specification</div>
+      <div className="crumb sm mut mb8">
+        <span style={{ cursor: 'pointer' }} onClick={() => go('project')}>Projects</span> / {project.name}
+      </div>
       <div className="row wrap g12">
         <div>
           <div className="row g12 wrap">
-            <h1 className="h1">Software Requirements Specification</h1>
-            <span className="stat s-dg">At Risk</span>
+            <h1 className="h1">{project.name}</h1>
+            <span className={`stat s-${project.status}`}>{project.statusLabel}</span>
           </div>
           <div className="row wrap g16 sm mut mt8">
-            <span><i className="ti ti-calendar" /> Due Fri 30 Oct, 17:00</span>
-            <span><i className="ti ti-users" /> 4 members</span>
-            <span><i className="ti ti-list-check" /> 14 open tasks</span>
+            <span><i className="ti ti-calendar" /> Due {project.due}</span>
+            <span><i className="ti ti-users" /> {project.members} members</span>
+            <span><i className="ti ti-list-check" /> {openTasks > 0 ? `${openTasks} open tasks` : 'All tasks done'}</span>
             <span className="badge b-ai"><i className="ti ti-sparkles" /> AI plan v1</span>
           </div>
         </div>
@@ -200,6 +206,7 @@ function CreateScreen() {
         </div>
       </div>
       <div className="row mt24">
+        <button className="btn btn-lg" onClick={() => go('project')}><i className="ti ti-arrow-left" /> Back</button>
         <button className="btn btn-sm btn-g" onClick={() => { setName(''); addToast('Form cleared', 'ti-eraser'); }}><i className="ti ti-eraser" /> Clear form</button>
         <span className="sp" />
         <button className="btn btn-p btn-lg" onClick={() => go('team')}>Continue to Team Setup <i className="ti ti-arrow-right" /></button>
@@ -366,6 +373,12 @@ function OverviewScreen() {
   const progressSort = useMockupStore2(s => s.progressSort);
   const setProgressSort = useMockupStore2(s => s.setProgressSort);
   const openOverlay = useMockupStore2(s => s.openOverlay);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
+  const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const isCompleted = project.statusLabel === 'Completed';
+  const isAtRisk = project.status === 'dg';
 
   const pgStats = (m: PgpMember) => {
     const al = sum(m[5].map(t => t[1]));
@@ -373,8 +386,12 @@ function OverviewScreen() {
     return { al, dn, left: al - dn, pc: al ? Math.round(dn / al * 100) : 0, nd: m[5].filter(t => t[3] === 'done').length };
   };
 
-  let rows = PGP.slice(0, 4).map((m, i) => ({ m, i, s: pgStats(m) }));
+  // Filter PGP to only show members in the active project
+  const projectPGP = PGP.filter(m => memberKeys.includes(m[0]));
+  let rows = projectPGP.map((m, i) => ({ m, i, s: pgStats(m) }));
   if (progressSort === 'low') rows.sort((a, b) => a.s.pc - b.s.pc || a.i - b.i);
+
+  const memberCount = projectPGP.length;
 
   const tt: Record<string, string[]> = {};
   rows.forEach(r => r.m[5].forEach(t => { (tt[t[0]] = tt[t[0]] || []).push(t[3]); }));
@@ -386,30 +403,56 @@ function OverviewScreen() {
   return (
     <section className="scr page wide on" id="s-overview">
       <WorkspaceHeader tab="overview" />
-      <div className="card mb16">
-        <div className="row mb12 wrap">
-          <div><div className="h3">Predicted completion</div><div className="sm mut">Calculated from task dependencies and each member&apos;s weekly availability.</div></div>
-          <span className="sp" /><span className="stat s-dg">At Risk · 7 days late</span>
-        </div>
-        <div className="dline">
-          <div className="ax" /><div className="ok" style={{ left: 0, width: '70.3%' }} /><div className="lt" style={{ left: '70.3%', width: '25.9%' }} />
-          <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Mon 12 Oct</div>
-          <div className="mk" style={{ left: '70.3%', top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />Fri 30 Oct</div>
-          <div className="mk" style={{ left: '96.2%', top: 0, color: 'var(--dg)' }}><b>Predicted</b><br />Fri 6 Nov</div>
-          <div className="pt" style={{ left: '96.2%', color: 'var(--dg)' }} />
-        </div>
-        <div className="alert al-dg mt16">
-          <i className="ti ti-alert-triangle" />
-          <div className="row wrap" style={{ flex: 1 }}>
-            <div><b>4 tasks finish after the deadline.</b><div className="sm mut">Compile SRS document is waiting on diagrams and architecture.</div></div>
+      {!isCompleted && (
+        <div className="card mb16">
+          <div className="row mb12 wrap">
+            <div><div className="h3">Predicted completion</div><div className="sm mut">Calculated from task dependencies and each member&apos;s weekly availability.</div></div>
             <span className="sp" />
-            <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-shield-bolt" /> Open AI Deadline Defender</button>
+            <span className={`stat ${isAtRisk ? 's-dg' : 's-ok'}`}>
+              {isAtRisk ? 'At Risk \u00b7 7 days late' : 'On Track \u00b7 on schedule'}
+            </span>
+          </div>
+          {isAtRisk ? (
+            <>
+              <div className="dline">
+                <div className="ax" /><div className="ok" style={{ left: 0, width: '70.3%' }} /><div className="lt" style={{ left: '70.3%', width: '25.9%' }} />
+                <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Mon 12 Oct</div>
+                <div className="mk" style={{ left: '70.3%', top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />Fri 30 Oct</div>
+                <div className="mk" style={{ left: '96.2%', top: 0, color: 'var(--dg)' }}><b>Predicted</b><br />Fri 6 Nov</div>
+                <div className="pt" style={{ left: '96.2%', color: 'var(--dg)' }} />
+              </div>
+              <div className="alert al-dg mt16">
+                <i className="ti ti-alert-triangle" />
+                <div className="row wrap" style={{ flex: 1 }}>
+                  <div><b>4 tasks finish after the deadline.</b><div className="sm mut">Compile SRS document is waiting on diagrams and architecture.</div></div>
+                  <span className="sp" />
+                  <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-shield-bolt" /> Open AI Deadline Defender</button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="alert al-ok mt16">
+              <i className="ti ti-circle-check" />
+              <div className="row wrap" style={{ flex: 1 }}>
+                <div><b>On track.</b><div className="sm mut">All tasks are predicted to finish before the deadline.</div></div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {isCompleted && (
+        <div className="card mb16">
+          <div className="alert al-ok">
+            <i className="ti ti-circle-check" />
+            <div className="row wrap" style={{ flex: 1 }}>
+              <div><b>Project completed.</b><div className="sm mut">Delivered on {project.due}. All {project.tasks} tasks done.</div></div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <div className="card">
         <div className="row wrap g16 mb12">
-          <div><div className="h3">Team progress <span className="badge">4 members</span></div><div className="sm mut">Select a member to see their tasks.</div></div>
+          <div><div className="h3">Team progress <span className="badge">{memberCount} members</span></div><div className="sm mut">Select a member to see their tasks.</div></div>
           <span className="sp" />
           <div className="row g12 wrap">
             <div className="seg">
@@ -417,8 +460,8 @@ function OverviewScreen() {
               <button className={progressSort === 'low' ? 'on' : ''} onClick={() => setProgressSort('low')}>Lowest progress first</button>
             </div>
             <button className="btn btn-sm" onClick={() => {
-              const all = expandedProgress.size < 4;
-              useMockupStore2.setState({ expandedProgress: all ? new Set([0, 1, 2, 3]) : new Set() });
+              const all = expandedProgress.size < memberCount;
+              useMockupStore2.setState({ expandedProgress: all ? new Set(rows.map(r => r.i)) : new Set() });
             }}>Expand all</button>
           </div>
         </div>
@@ -428,7 +471,7 @@ function OverviewScreen() {
             <span className="sp" />
             <span><b style={{ color: 'var(--ink)' }}>{DN2}</b> of {AL} h</span>
           </div>
-          <div className="bar"><i style={{ width: Math.round(DN2 / AL * 100) + '%' }} /></div>
+          {AL > 0 && <div className="bar"><i style={{ width: Math.round(DN2 / AL * 100) + '%' }} /></div>}
         </div>
         <div className="prh prhd"><span>Member</span><span>Progress</span><span className="hide-m">Tasks</span><span className="hide-m">Hours left</span><span className="hide-m">Status</span><span /></div>
         {rows.map(({ m, i, s }) => {
@@ -477,6 +520,10 @@ function TasksScreen() {
   const taskView = useMockupStore2(s => s.taskView);
   const setTaskView = useMockupStore2(s => s.setTaskView);
   const openOverlay = useMockupStore2(s => s.openOverlay);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const projectTK = TK.filter(t => t[5].some((k: string) => memberKeys.includes(k)));
+
   return (
     <section className="scr page wide on" id="s-tasks">
       <WorkspaceHeader tab="tasks" />
@@ -491,10 +538,16 @@ function TasksScreen() {
           <button className={taskView === 'board' ? 'on' : ''} onClick={() => setTaskView('board')}>Board</button>
         </div>
       </div>
-      {taskView === 'list' && (
+      {projectTK.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+          <i className="ti ti-list-check" style={{ fontSize: 32, color: 'var(--ink3)' }} />
+          <div className="mut mt8">No tasks for this project yet.</div>
+        </div>
+      )}
+      {taskView === 'list' && projectTK.length > 0 && (
         <div className="card pad0" style={{ overflow: 'hidden' }}>
           <div className="tk hd"><span /><span>Task</span><span>Priority</span><span>Hours</span><span>Assigned</span><span>Deps</span><span>Target</span></div>
-          {TK.map(t => (
+          {projectTK.map(t => (
             <div key={t[0]} className="tk" onClick={() => openOverlay('drTask')}>
               <span>{SI[t[8]]}</span>
               <div style={{ minWidth: 0 }}><div className="b" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[1]}</div><div className="xs mut" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[2]}</div></div>
@@ -511,7 +564,7 @@ function TasksScreen() {
           </div>
         </div>
       )}
-      {taskView === 'board' && (
+      {taskView === 'board' && projectTK.length > 0 && (
         <div className="kb">
           {([
             ['To do', 'todo'],
@@ -519,14 +572,14 @@ function TasksScreen() {
             ['Done', 'done'],
           ] as [string, TaskStatus][]).map(c => (
             <div key={c[1]} className="kc">
-              <div className="row b"><span>{c[0]}</span><span className="badge">{TK.filter(t => t[8] === c[1]).length}</span></div>
-              {TK.filter(t => t[8] === c[1]).slice(0, 4).map(t => (
+              <div className="row b"><span>{c[0]}</span><span className="badge">{projectTK.filter(t => t[8] === c[1]).length}</span></div>
+              {projectTK.filter(t => t[8] === c[1]).slice(0, 4).map(t => (
                 <div key={t[0]} className="kcard" onClick={() => openOverlay('drTask')}>
                   <div className="b sm">{t[1]}</div>
                   <div className="row mt8">{pri(t[3])}<span className="sp" /><span className="stk">{t[5].map((k: string, ki: number) => av(k, 's', ki))}</span></div>
                 </div>
               ))}
-              {TK.filter(t => t[8] === c[1]).length === 0 && <div className="xs mut3 mt12">Nothing here yet.</div>}
+              {projectTK.filter(t => t[8] === c[1]).length === 0 && <div className="xs mut3 mt12">Nothing here yet.</div>}
             </div>
           ))}
         </div>
@@ -537,47 +590,58 @@ function TasksScreen() {
 
 // ===== Timeline Screen =====
 function TimelineScreen() {
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const projectGT = GT.filter(g => memberKeys.includes(g[1]));
   const N = 27, W = 100 / N;
+
   return (
     <section className="scr page wide on" id="s-timeline">
       <WorkspaceHeader tab="timeline" />
-      <div className="card">
-        <div className="row mb12 wrap">
-          <div className="h3">Schedule</div>
-          <span className="sp" />
-          <span className="row g12 xs mut">
-            <span><i className="ti ti-square-filled" style={{ color: 'var(--blue)' }} /> Planned</span>
-            <span><i className="ti ti-square-filled" style={{ color: '#e0483c' }} /> Ends after deadline</span>
-            <span><i className="ti ti-square-filled" style={{ color: '#18a67a' }} /> Done</span>
-          </span>
+      {projectGT.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+          <i className="ti ti-gantt" style={{ fontSize: 32, color: 'var(--ink3)' }} />
+          <div className="mut mt8">No schedule data for this project yet.</div>
         </div>
-        <div className="gnt">
-          <div style={{ minWidth: 860 }}>
-            <div className="gr" style={{ gridTemplateColumns: '230px 1fr', borderTop: 0, background: 'var(--soft)', minHeight: 34 }}>
-              <div className="xs mut3 b" style={{ padding: '0 14px' }}>TASK</div>
-              <div style={{ position: 'relative', height: 34 }}>
-                {[0, 7, 14, 21].map(d => <span key={d} className="xs mut" style={{ position: 'absolute', left: `${d * W}%`, top: 8, paddingLeft: 4 }}>{['12 Oct', '19 Oct', '26 Oct', '2 Nov'][d / 7]}</span>)}
-              </div>
-            </div>
-            {GT.map((g, i) => (
-              <div key={i} className="gr" style={{ gridTemplateColumns: '230px 1fr' }}>
-                <div className="sm" style={{ padding: '0 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g[0]}</div>
-                <div style={{ position: 'relative', height: 40 }}>
-                  {[7, 14, 21].map(d => <i key={d} style={{ position: 'absolute', left: `${d * W}%`, top: 0, bottom: 0, borderLeft: '1px solid var(--line)' }} />)}
-                  <div style={{ position: 'absolute', left: `${19 * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
-                  <div style={{ position: 'absolute', left: `${26 * W}%`, top: 0, bottom: 0, borderLeft: '2px dashed #e0483c' }} />
-                  <div className={`gbar ${g[4] || ''}`} style={{ left: `${g[2] * W}%`, width: `${(g[3] - g[2] + 1) * W}%` }}>{g[1]}</div>
+      ) : (
+        <div className="card">
+          <div className="row mb12 wrap">
+            <div className="h3">Schedule</div>
+            <span className="sp" />
+            <span className="row g12 xs mut">
+              <span><i className="ti ti-square-filled" style={{ color: 'var(--blue)' }} /> Planned</span>
+              <span><i className="ti ti-square-filled" style={{ color: '#e0483c' }} /> Ends after deadline</span>
+              <span><i className="ti ti-square-filled" style={{ color: '#18a67a' }} /> Done</span>
+            </span>
+          </div>
+          <div className="gnt">
+            <div style={{ minWidth: 860 }}>
+              <div className="gr" style={{ gridTemplateColumns: '230px 1fr', borderTop: 0, background: 'var(--soft)', minHeight: 34 }}>
+                <div className="xs mut3 b" style={{ padding: '0 14px' }}>TASK</div>
+                <div style={{ position: 'relative', height: 34 }}>
+                  {[0, 7, 14, 21].map(d => <span key={d} className="xs mut" style={{ position: 'absolute', left: `${d * W}%`, top: 8, paddingLeft: 4 }}>{['12 Oct', '19 Oct', '26 Oct', '2 Nov'][d / 7]}</span>)}
                 </div>
               </div>
-            ))}
+              {projectGT.map((g, i) => (
+                <div key={i} className="gr" style={{ gridTemplateColumns: '230px 1fr' }}>
+                  <div className="sm" style={{ padding: '0 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g[0]}</div>
+                  <div style={{ position: 'relative', height: 40 }}>
+                    {[7, 14, 21].map(d => <i key={d} style={{ position: 'absolute', left: `${d * W}%`, top: 0, bottom: 0, borderLeft: '1px solid var(--line)' }} />)}
+                    <div style={{ position: 'absolute', left: `${19 * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
+                    <div style={{ position: 'absolute', left: `${26 * W}%`, top: 0, bottom: 0, borderLeft: '2px dashed #e0483c' }} />
+                    <div className={`gbar ${g[4] || ''}`} style={{ left: `${g[2] * W}%`, width: `${(g[3] - g[2] + 1) * W}%` }}>{g[1]}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="row wrap g16 xs mut mt12">
+            <span><i className="ti ti-minus" style={{ color: 'var(--blue)' }} /> Deadline Fri 30 Oct</span>
+            <span><i className="ti ti-minus" style={{ color: '#e0483c' }} /> Predicted completion Fri 6 Nov</span>
+            <span className="badge b-wn"><i className="ti ti-link" /> Blocked/delayed: 4 tasks wait on the diagram &rarr; compile chain</span>
           </div>
         </div>
-        <div className="row wrap g16 xs mut mt12">
-          <span><i className="ti ti-minus" style={{ color: 'var(--blue)' }} /> Deadline Fri 30 Oct</span>
-          <span><i className="ti ti-minus" style={{ color: '#e0483c' }} /> Predicted completion Fri 6 Nov</span>
-          <span className="badge b-wn"><i className="ti ti-link" /> Blocked/delayed: 4 tasks wait on the diagram → compile chain</span>
-        </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -585,6 +649,7 @@ function TimelineScreen() {
 // ===== Project Screen =====
 function ProjectScreen() {
   const go = useMockupStore2(s => s.go);
+  const setActiveProject = useMockupStore2(s => s.setActiveProject);
   const addToast = useMockupStore2(s => s.addToast);
 
   return (
@@ -622,7 +687,7 @@ function ProjectScreen() {
               key={i}
               className="stc"
               style={{ cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s' }}
-              onClick={() => p.statusLabel === 'Completed' ? addToast('This project is completed', 'ti-circle-check') : go('overview')}
+              onClick={() => { setActiveProject(p.id); go('overview'); }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--blue)'; e.currentTarget.style.boxShadow = 'var(--sh)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
@@ -643,6 +708,15 @@ function ProjectScreen() {
                   <div className="bar" style={{ flex: 1, maxWidth: 100 }}><i style={{ width: Math.round(p.done / p.tasks * 100) + '%' }} /></div>
                 )}
               </div>
+              {p.statusLabel === 'Completed' && (
+                <button
+                  className="btn btn-sm btn-ai mt12"
+                  style={{ width: '100%' }}
+                  onClick={(e) => { e.stopPropagation(); addToast('Contribution report generated', 'ti-file-export'); }}
+                >
+                  <i className="ti ti-download" /> Generate Contribution
+                </button>
+              )}
             </div>
           ))}
         </div>
