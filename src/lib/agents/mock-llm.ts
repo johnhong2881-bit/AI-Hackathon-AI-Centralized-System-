@@ -3,8 +3,9 @@
 // ============================================================
 // This file is the single entry point for all LLM calls.
 // It automatically routes to:
-//   - Real WorkBuddy Cloud LLM (cloud-llm.ts) when cloud config is filled in
-//   - Mock LLM (below) when cloud is not yet activated
+//   1. Real WorkBuddy Cloud LLM (cloud-llm.ts) when cloud config is filled in
+//   2. SovernStack API (external-llm.ts) when SovernStack API key is set
+//   3. Mock LLM (below) as fallback
 //
 // The interface (LLMCallParams -> LLMCallResult) stays the same,
 // so NO other code needs to change when switching.
@@ -77,7 +78,7 @@ function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallRes
         content: JSON.stringify(parsed, null, 2),
         parsed,
         durationMs: latency,
-        model: 'mock-llm (configure cloud service to switch to real LLM)',
+        model: 'mock-llm (set SovernStack API key in .env to switch to real LLM)',
         tokensUsed: Math.floor(Math.random() * 2000) + 500,
       });
     }, latency);
@@ -89,7 +90,7 @@ function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallRes
 /**
  * Routes to the appropriate LLM backend:
  *   1. WorkBuddy Cloud SDK (if endpoint + publishableKey set)
- *   2. SovernStack API (if API key set, via external-llm.ts — TODO)
+ *   2. SovernStack API via external-llm.ts (if API key set)
  *   3. Mock LLM (fallback)
  */
 async function routeLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallResult> {
@@ -99,10 +100,9 @@ async function routeLLMCall(params: LLMCallParams, agentId: string): Promise<LLM
     return realLLMCall(params);
   }
   if (isSovernStackConfigured()) {
-    // TODO: implement external-llm.ts for SovernStack API calls
-    // const { sovernStackCall } = await import('./external-llm');
-    // return sovernStackCall(params);
-    console.warn('[llm] SovernStack configured but external-llm.ts not yet implemented — falling back to mock');
+    // Dynamic import avoids loading external-llm.ts when not needed
+    const { sovernStackCall } = await import('./external-llm');
+    return sovernStackCall(params);
   }
   return mockLLMCall(params, agentId);
 }
