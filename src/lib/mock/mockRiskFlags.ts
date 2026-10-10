@@ -21,9 +21,17 @@ export const mockRiskAssessment: RiskAssessment = {
       detectedAt: '2026-10-10T14:00:00+08:00',
     },
     {
+      taskId: 'task-002',
+      riskLevel: 'high',
+      riskType: 'insufficient_time',
+      description: 'task-002 has 4h remaining but only 14h left in mem-003\'s weekly availability. With dependency chain task-003→task-004→task-005 (19h total), timeline is tight.',
+      recommendation: 'Split task-002: finish personas (4h) first, defer transcription. Frees 4h for downstream tasks.',
+      detectedAt: '2026-10-10T14:00:00+08:00',
+    },
+    {
       taskId: 'task-008',
       riskLevel: 'medium',
-      riskType: 'skill_gap',
+      riskType: 'unassigned',
       description: 'No member assigned to "Iterate Prototype" — requires design + analysis skills. No available member has both at 4+.',
       recommendation: 'Assign to mem-002 (design 5/5, analysis 3/5) after task-004 completes, or pair mem-001 + mem-003.',
       detectedAt: '2026-10-10T14:00:00+08:00',
@@ -31,8 +39,8 @@ export const mockRiskAssessment: RiskAssessment = {
     {
       taskId: 'task-009',
       riskLevel: 'medium',
-      riskType: 'skill_gap',
-      description: 'Report writing (3000 words, APA 7th) has no assigned member. Only mem-002 has writing 5/5 but is at capacity.',
+      riskType: 'unassigned',
+      description: 'Report writing (3000 words, APA 7th) has no assigned member. Original assignee (mem-002) rejected: at capacity.',
       recommendation: 'Reassign task-004 to mem-001 (design 4/5), free mem-002 for report writing.',
       detectedAt: '2026-10-10T14:00:00+08:00',
     },
@@ -96,6 +104,72 @@ export const mockRescuePlan: RescuePlan = {
   projectedRecovery: 'On track for deadline with ~4h buffer after rescue actions',
   confidence: 0.82,
   generatedAt: '2026-10-10T14:05:00+08:00',
+  // MVP: 6-step rescue workflow (Detect→Analyze→Optimize→Validate→Apply→Compare)
+  workflow: {
+    currentStep: 'compare',
+    optimizationRound: 1,
+    maxRounds: 3,
+    stepHistory: [
+      {
+        step: 'detect',
+        round: 1,
+        timestamp: '2026-10-10T14:00:00+08:00',
+        description: 'Risk Detector identified 5 risk flags (1 high deadline, 1 high insufficient_time, 2 medium unassigned, 1 low deadline)',
+        result: '5 risks detected, overall risk: medium',
+      },
+      {
+        step: 'analyze',
+        round: 1,
+        timestamp: '2026-10-10T14:01:00+08:00',
+        description: 'Analyzed critical path impact: task-002 blocks 8 downstream tasks. task-008/009 unassigned breaks coverage.',
+        result: 'Critical path at risk, 3 unassigned tasks, rubric coverage 100% but execution gaps',
+      },
+      {
+        step: 'optimize',
+        round: 1,
+        timestamp: '2026-10-10T14:02:00+08:00',
+        description: 'Generated 4 rescue actions: split task-002, reassign task-004, reassign task-009, reorder task-011',
+        result: '4 actions proposed, estimated 7h savings',
+      },
+      {
+        step: 'validate',
+        round: 1,
+        timestamp: '2026-10-10T14:03:00+08:00',
+        description: 'Validated: no circular dependencies introduced, rubric coverage maintained at 100%, deadline feasible (50h < 864h remaining)',
+        result: 'Plan valid, no issues found',
+      },
+      {
+        step: 'apply',
+        round: 1,
+        timestamp: '2026-10-10T14:04:00+08:00',
+        description: 'Applied: res-002/003/004 auto-applied (unconfirmed tasks). res-001 requires Leader approval (task-002 is confirmed).',
+        result: '3 actions auto-applied, 1 pending Leader approval → approved by David (Leader)',
+      },
+      {
+        step: 'compare',
+        round: 1,
+        timestamp: '2026-10-10T14:05:00+08:00',
+        description: 'Compared before/after: 57h→50h, 5 risks→0, deadline -4h→+4h buffer',
+        result: 'Improvement confirmed, rescue successful. Round 1 sufficient, no need for round 2.',
+      },
+    ],
+  },
+  // MVP: Permission rules — res-001 affects task-002 (confirmed=true), requires Leader approval
+  requiresLeaderApproval: true,
+  approvalStatus: 'approved',
+  // MVP: Comparison result from the Compare step
+  comparisonResult: {
+    beforeHours: 57,
+    afterHours: 50,
+    hoursSaved: 7,
+    beforeRiskLevel: 'medium',
+    afterRiskLevel: 'none',
+    beforeTasksAtRisk: 5,
+    afterTasksAtRisk: 0,
+    beforeDeadlineBuffer: -4,
+    afterDeadlineBuffer: 4,
+    improvementSummary: 'Rescue plan saved 7 hours, resolved all 5 risk flags, and moved from 4h behind to 4h ahead of deadline buffer.',
+  },
 };
 
 /**

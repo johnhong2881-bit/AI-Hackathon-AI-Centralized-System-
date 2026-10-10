@@ -21,6 +21,95 @@ export type RiskLevel = 'high' | 'medium' | 'low' | 'none';
 
 export type Skill = 'writing' | 'research' | 'design' | 'coding' | 'presentation' | 'analysis' | 'editing' | 'management';
 
+// ===== MVP: Rubric Level Requirements =====
+
+/**
+ * Describes what is expected at a specific quality level for a rubric criterion.
+ * MVP: Rubric Intelligence extracts Good/Average/Poor level requirements from the rubric.
+ */
+export interface RubricLevelRequirements {
+  description: string;              // what's expected at this level
+  estimatedHours?: number;          // suggested hours to achieve this level
+  keyDeliverables?: string[];       // specific deliverables expected
+}
+
+// ===== MVP: Multi-Member Task Assignment =====
+
+/**
+ * A single member's assignment to a task with personalized time estimation.
+ * MVP: Same task can have multiple members with different estimated hours each.
+ */
+export interface MemberTaskAssignment {
+  memberId: string;
+  estimatedHours: number;           // per-member hours for this task (personalized)
+  matchScore: number;               // 0.0 - 1.0
+  role: string;                     // e.g. "Primary", "Support", "Reviewer"
+  invitationStatus: InvitationStatus;
+  rejectReason?: string | null;     // reason if rejected
+}
+
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
+
+// ===== MVP: Rescue Workflow =====
+
+export type RescueWorkflowStep = 'detect' | 'analyze' | 'optimize' | 'validate' | 'apply' | 'compare';
+
+export interface RescueWorkflowState {
+  currentStep: RescueWorkflowStep;
+  optimizationRound: number;        // current round (1, 2, 3)
+  maxRounds: number;                // always 3 in MVP
+  stepHistory: RescueStepRecord[];
+}
+
+export interface RescueStepRecord {
+  step: RescueWorkflowStep;
+  round: number;
+  timestamp: string;
+  description: string;
+  result: string;
+}
+
+/**
+ * Before/after comparison result from the Compare step of the rescue workflow.
+ */
+export interface RescueComparisonResult {
+  beforeHours: number;
+  afterHours: number;
+  hoursSaved: number;
+  beforeRiskLevel: RiskLevel;
+  afterRiskLevel: RiskLevel;
+  beforeTasksAtRisk: number;
+  afterTasksAtRisk: number;
+  beforeDeadlineBuffer: number;     // hours
+  afterDeadlineBuffer: number;      // hours
+  improvementSummary: string;
+}
+
+// ===== MVP: Weekly Availability =====
+
+export interface WeeklyAvailability {
+  monday: number;                   // hours available
+  tuesday: number;
+  wednesday: number;
+  thursday: number;
+  friday: number;
+  saturday: number;
+  sunday: number;
+}
+
+// ===== MVP: Plan Validator Result =====
+
+export interface PlanValidationResult {
+  isValid: boolean;
+  rubricCoverageComplete: boolean;
+  allTasksHaveMembers: boolean;
+  noCircularDependencies: boolean;
+  deadlineFeasible: boolean;
+  issues: string[];
+  suggestions: string[];
+  validatedAt: string;
+}
+
 // ===== FR-001: Rubric Intelligence (Input: PDF/Image → Output: Structured Rubric) =====
 
 /**
@@ -34,6 +123,10 @@ export interface RubricItem {
   weightage: number | null;       // percentage, null if unknown
   mandatory: boolean;
   description: string;
+  // MVP: Rubric Intelligence extracts quality level requirements
+  goodLevelRequirements?: RubricLevelRequirements;       // target level
+  averageLevelRequirements?: RubricLevelRequirements;     // minimum acceptable level
+  poorLevelRequirements?: RubricLevelRequirements;        // below standard
 }
 
 /**
@@ -66,8 +159,13 @@ export interface Task {
   dependencies: string[];          // task IDs this depends on
   relatedRubricIds: string[];      // which RubricItem.id this satisfies
   status: TaskStatus;
-  assignedTo: string | null;       // member ID, null if unassigned
+  assignedTo: string | null;       // primary member ID, null if unassigned (backward compat)
+  // MVP: multi-member assignment with personalized time estimation
+  memberAssignments?: MemberTaskAssignment[];  // multiple members, each with different hours
   confirmed: boolean;              // Design Decision #3/#5: Leader confirms task; unconfirmed tasks can be auto-modified by Rescue
+  // MVP: accept/reject flow
+  invitationStatus?: InvitationStatus;        // pending → accepted/rejected
+  rejectReason?: string | null;                // reason if rejected
   order: number;                   // for display ordering
   createdAt: string;
   updatedAt: string;
@@ -83,6 +181,8 @@ export interface PlanResult {
   criticalPath: string[];         // ordered task IDs on the critical path
   totalEstimatedHours: number;
   rubricCoverage: RubricCoverage; // Design Decision #4: Planned coverage, NOT predicted grades
+  // MVP: Plan Validator output (deterministic check after task decomposition)
+  validation?: PlanValidationResult;
   generatedAt: string;
 }
 
@@ -111,7 +211,9 @@ export interface Member {
   avatar: string;                 // emoji or image URL
   skills: Skill[];
   skillProficiency: Record<Skill, number>; // 1-5 scale per skill
-  availability: number;           // hours available per week
+  availability: number;           // total hours available per week
+  // MVP: per-day availability (Monday-Sunday)
+  weeklyAvailability?: WeeklyAvailability;
   role: string;                   // e.g. "Team Lead", "Developer"
   isLeader: boolean;              // Design Decision #3: Leader has final say on task assignments
   currentTaskIds: string[];       // task IDs currently assigned
@@ -174,7 +276,8 @@ export interface CriticalPathResult {
 export interface RiskFlag {
   taskId: string;
   riskLevel: RiskLevel;
-  riskType: 'deadline' | 'dependency' | 'skill_gap' | 'overload' | 'quality';
+  // MVP: 7 risk types (expanded from 5)
+  riskType: 'deadline' | 'dependency' | 'skill_gap' | 'overload' | 'quality' | 'insufficient_time' | 'unassigned';
   description: string;
   recommendation: string;
   detectedAt: string;
@@ -215,6 +318,13 @@ export interface RescuePlan {
   projectedRecovery: string;     // e.g. "On track for deadline with 2h buffer"
   confidence: number;            // 0.0 - 1.0
   generatedAt: string;
+  // MVP: 6-step rescue workflow (Detect→Analyze→Optimize→Validate→Apply→Compare)
+  workflow?: RescueWorkflowState;
+  // MVP: Permission rules — if actions affect confirmed tasks, need Leader approval
+  requiresLeaderApproval?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  // MVP: Comparison result from the Compare step
+  comparisonResult?: RescueComparisonResult;
 }
 
 // ===== FR-013: Progress Tracking (Deterministic) =====

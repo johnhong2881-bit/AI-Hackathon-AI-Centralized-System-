@@ -19,7 +19,7 @@
 // The prompts below are production-ready — they work with any OpenAI-compatible LLM.
 // ============================================================
 
-import type { Assignment, RubricResult, Member, Task } from '../../types/types';
+import type { Assignment, RubricResult, Member, Task, DeadlineInfo, ProjectProgress, RiskAssessment, RescuePlan } from '../../types/types';
 import type { LLMCallParams } from './types';
 
 // ===== Agent 1: Rubric Intelligence (FR-001) =====
@@ -37,7 +37,12 @@ RULES:
 3. Total marks should be the sum of all item marks if determinable.
 4. Include a confidence score (0.0-1.0) for the extraction quality.
 5. List any warnings (e.g., "Could not read page 3", "Marks unclear for criterion X").
-6. Return JSON ONLY. No markdown, no explanation, no code fences.`;
+6. MVP — QUALITY LEVELS: For each criterion, extract Good/Average/Poor level requirements:
+   - goodLevelRequirements: what earns full/near-full marks (target standard)
+   - averageLevelRequirements: what earns a passing grade (minimum acceptable)
+   - poorLevelRequirements: what would fail this criterion (below standard)
+   Each level should include: description, estimatedHours, keyDeliverables[].
+7. Return JSON ONLY. No markdown, no explanation, no code fences.`;
 
 export const RUBRIC_AGENT_USER = (assignment: Assignment) => `Parse the following assignment rubric into structured criteria.
 
@@ -58,7 +63,22 @@ Return JSON in this exact format:
       "marks": 25,
       "weightage": 25,
       "mandatory": true,
-      "description": "What this criterion evaluates"
+      "description": "What this criterion evaluates",
+      "goodLevelRequirements": {
+        "description": "What earns full marks",
+        "estimatedHours": 8,
+        "keyDeliverables": ["deliverable 1", "deliverable 2"]
+      },
+      "averageLevelRequirements": {
+        "description": "What earns a passing grade",
+        "estimatedHours": 5,
+        "keyDeliverables": ["deliverable 1"]
+      },
+      "poorLevelRequirements": {
+        "description": "What would fail this criterion",
+        "estimatedHours": 3,
+        "keyDeliverables": []
+      }
     }
   ],
   "totalMarks": 100,
@@ -84,7 +104,11 @@ RULES:
 6. Each task needs: id (task-001...), title, description, requiredSkills, estimatedHours,
    complexity, priority, dependencies, relatedRubricIds, status ("todo"), assignedTo (null), order.
 7. Calculate the critical path (longest chain of dependencies).
-8. Return JSON ONLY. No markdown, no code fences.`;
+8. MVP — MULTI-MEMBER: Some tasks may need multiple members. For those, include memberAssignments[]
+   with per-member estimatedHours (personalized time estimation), role, and invitationStatus ("pending").
+9. MVP — INVITATION FLOW: All new tasks start with invitationStatus: "pending". Members accept/reject
+   after Leader confirms. rejected tasks need rejectReason.
+10. Return JSON ONLY. No markdown, no code fences.`;
 
 export const TASK_AGENT_USER = (assignment: Assignment, rubric: RubricResult) => `Decompose this assignment into actionable tasks.
 
@@ -115,6 +139,8 @@ Decompose into 8-15 tasks. Return JSON:
       "relatedRubricIds": ["rub-001"],
       "status": "todo",
       "assignedTo": null,
+      "confirmed": false,
+      "invitationStatus": "pending",
       "order": 1,
       "createdAt": "ISO timestamp",
       "updatedAt": "ISO timestamp"
@@ -175,20 +201,24 @@ Return JSON:
 export const RISK_AGENT_SYSTEM = `You are RiskDetector, a project risk analyst for student teams.
 Your job is to identify at-risk tasks that could jeopardize the project deadline or quality.
 
-RISK TYPES:
+RISK TYPES (7 types in MVP):
 - "deadline": Task running late, blocking critical path, or unlikely to finish before deadline.
 - "dependency": Upstream task is delayed, blocking downstream work.
 - "skill_gap": No team member has the required skills at adequate proficiency.
 - "overload": Assigned member has too many tasks / not enough availability.
 - "quality": Task quality at risk due to complexity vs. skill level mismatch.
+- "insufficient_time": Task estimated hours exceed available time in the deadline window, even if not yet started.
+- "unassigned": Task has no member assigned (assignedTo is null), blocking execution.
 
 RISK LEVELS: "high" (immediate action needed), "medium" (monitor closely), "low" (minor concern).
 
 RULES:
 1. Every flag must have: taskId, riskLevel, riskType, description, recommendation (specific actionable advice).
 2. Be specific in recommendations — not "improve time management" but "Split task-002: finish personas first (4h) to unblock wireframing".
-3. Calculate overallRiskLevel based on the highest individual risk level and number of flags.
-4. Return JSON ONLY. No markdown, no code fences.`;
+3. Use "unassigned" riskType when a task has no assignee (not "skill_gap" — those are different issues).
+4. Use "insufficient_time" when the total remaining hours for a task + its dependency chain exceed the member's weekly availability.
+5. Calculate overallRiskLevel based on the highest individual risk level and number of flags.
+6. Return JSON ONLY. No markdown, no code fences.`;
 
 export const RISK_AGENT_USER = (
   tasks: Task[],
@@ -245,6 +275,33 @@ ACTION TYPES:
 - "add_resource": Bring in additional capacity (borrow from another team).
 - "reorder": Change task sequence to unblock the critical path.
 
+MVP — 6-STEP RESCUE WORKFLOW:
+1. Detect: Identify risks from the RiskAssessment input.
+2. Analyze: Evaluate impact on critical path, dependencies, and rubric coverage.
+3. Optimize: Generate rescue actions, prioritized by:
+   a. Rubric-aware priority: Tasks covering more rubric marks are rescued first.
+   b. Critical path impact: Actions that unblock the most downstream tasks.
+   c. Feasibility: Actions that can be executed within member availability.
+4. Validate: Check that proposed actions don't break dependencies, reduce rubric coverage,
+   or introduce circular dependencies. Set requiresLeaderApproval if any action affects
+   a confirmed task (task.confirmed === true).
+5. Apply: Auto-apply actions on unconfirmed + not-started tasks (status="todo", confirmed=false).
+   For confirmed tasks, set approvalStatus to "pending" and requiresLeaderApproval to true.
+6. Compare: Generate before/after comparison (hours, risk level, tasks at risk, deadline buffer).
+
+MVP — PERMISSION RULES:
+- Unconfirmed + not-started tasks (confirmed=false, status="todo"): AUTO-MODIFY — no approval needed.
+- Confirmed tasks (confirmed=true): REQUIRE LEADER APPROVAL — set requiresLeaderApproval=true.
+- In-progress tasks (status="in-progress"): ALWAYS require Leader approval, regardless of confirmed.
+
+MVP — MAX 3 OPTIMIZATION ROUNDS:
+- Round 1: Generate initial rescue plan. If validation fails or comparison shows negative impact,
+  proceed to Round 2 with adjusted actions.
+- Round 2: Refine plan based on Round 1 feedback. If still not sufficient, proceed to Round 3.
+- Round 3: Final attempt. If plan is still insufficient after 3 rounds, escalate to Leader
+  with a "manual intervention required" message.
+- Track optimizationRound in workflow state. Stop when comparison shows improvement.
+
 RULES:
 1. Each action must have: id, taskId, actionType, description, priority, estimatedImpact, assignedTo.
 2. estimatedImpact should quantify the benefit: "Saves ~3h", "Unblocks task-005", "Reduces risk to low".
@@ -264,13 +321,23 @@ ${riskAssessment.flags.map((f) => `- [${f.taskId}] ${f.riskLevel.toUpperCase()} 
   ${f.description}
   Recommendation: ${f.recommendation}`).join('\n')}
 
-TASKS:
-${tasks.map((t) => `- [${t.id}] ${t.title} (status: ${t.status}, priority: ${t.priority}, est: ${t.estimatedHours}h, assigned: ${members.find((m) => m.id === t.assignedTo)?.name || 'UNASSIGNED'})`).join('\n')}
+TASKS (with confirmation status for permission rules):
+${tasks.map((t) => `- [${t.id}] ${t.title}
+  Status: ${t.status} | Priority: ${t.priority} | Confirmed: ${t.confirmed} | Est: ${t.estimatedHours}h
+  Assigned: ${members.find((m) => m.id === t.assignedTo)?.name || 'UNASSIGNED'}
+  Related Rubric IDs: ${t.relatedRubricIds.join(', ') || 'none'}
+  → Permission: ${t.confirmed ? 'REQUIRES LEADER APPROVAL' : (t.status === 'todo' ? 'AUTO-MODIFY OK' : 'REQUIRES LEADER APPROVAL (in-progress)')}`).join('\n')}
 
 TEAM MEMBERS:
-${members.map((m) => `- [${m.id}] ${m.name} (${m.role}) - Skills: ${m.skills.map((s) => `${s}(${m.skillProficiency[s]}/5)`).join(', ')} - Available: ${m.availability}h`).join('\n')}
+${members.map((m) => `- [${m.id}] ${m.name} (${m.role})${m.isLeader ? ' [LEADER]' : ''} - Skills: ${m.skills.map((s) => `${s}(${m.skillProficiency[s]}/5)`).join(', ')} - Available: ${m.availability}h`).join('\n')}
 
-Generate a rescue plan. Return JSON:
+RUBRIC-AWARE PRIORITY: Rescue tasks that cover more rubric marks first.
+Task → Rubric marks covered:
+${tasks.map((t) => `  ${t.id}: ${t.relatedRubricIds.length} rubric items`).join('\n')}
+
+Generate a rescue plan following the 6-step workflow (Detect→Analyze→Optimize→Validate→Apply→Compare).
+Max 3 optimization rounds. Include workflow state, comparison result, and approval status.
+Return JSON:
 {
   "assignmentId": "asg-001",
   "actions": [
@@ -286,7 +353,27 @@ Generate a rescue plan. Return JSON:
   ],
   "projectedRecovery": "On track for deadline with ~4h buffer after rescue actions",
   "confidence": 0.82,
-  "generatedAt": "ISO timestamp"
+  "generatedAt": "ISO timestamp",
+  "workflow": {
+    "currentStep": "compare",
+    "optimizationRound": 1,
+    "maxRounds": 3,
+    "stepHistory": []
+  },
+  "requiresLeaderApproval": true,
+  "approvalStatus": "approved",
+  "comparisonResult": {
+    "beforeHours": 57,
+    "afterHours": 50,
+    "hoursSaved": 7,
+    "beforeRiskLevel": "medium",
+    "afterRiskLevel": "none",
+    "beforeTasksAtRisk": 5,
+    "afterTasksAtRisk": 0,
+    "beforeDeadlineBuffer": -4,
+    "afterDeadlineBuffer": 4,
+    "improvementSummary": "Rescue plan saved 7 hours, resolved all risks"
+  }
 }`;
 
 // ===== Helper: Build LLM call params for each agent =====
