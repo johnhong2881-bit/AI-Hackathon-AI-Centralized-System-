@@ -23,7 +23,7 @@ import type { Assignment, Member } from '../../types/types';
 import type { PipelineState, PipelineStep, StepStatus } from './types';
 import { AGENTS } from './types';
 import { callRubricAgent, callTaskAgent, callSkillAgent, callRiskAgent, callRescueAgent } from './mock-llm';
-import { calculateCriticalPath } from './critical-path';
+import { calculateCriticalPath } from '../logic/critical-path';
 import { calculateDeadline } from '../utils/helpers';
 import { mockProgress, mockMembers } from '../mock';
 
