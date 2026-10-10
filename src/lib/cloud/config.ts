@@ -23,10 +23,15 @@ export const CLOUD_CONFIG: CloudPublicConfig = {
 };
 
 // === SovernStack API config (from .env, server-side only) ===
+// SovernStack uses custom headers (not OpenAI format):
+//   POST {baseUrl}/llm/chat
+//   x-user-id: <apiKey>
+//   x-model: <model>
 export const SOVERNSTACK_CONFIG = {
   apiKey: process.env.SOVERNSTACK_API_KEY ?? '',
-  baseUrl: process.env.SOVERNSTACK_BASE_URL ?? 'https://api.sovernstack.com/v1',
-  model: process.env.SOVERNSTACK_MODEL ?? 'gpt-oss-120b',
+  baseUrl: process.env.SOVERNSTACK_BASE_URL ?? 'https://api.sovernstack.com',
+  model: process.env.SOVERNSTACK_MODEL ?? 'GPT-OSS 120B',
+  endpoint: '/llm/chat',
 };
 
 /** True when WorkBuddy Cloud is configured */
