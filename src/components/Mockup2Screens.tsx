@@ -910,7 +910,7 @@ function OverviewScreen() {
             <div className={isAtRisk ? 'lt' : 'ok'} style={{ left: 0, width: `${Math.min(todayPct, 100)}%` }} />
             {isAtRisk && <div className="lt" style={{ left: `${todayPct}%`, width: `${Math.min(deadlinePct - todayPct + (3 / totalDays) * 100, 100 - todayPct)}%` }} />}
             <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Sun 11 Oct</div>
-            <div className="mk below" style={{ left: `${clampedDeadlinePct}%`, color: 'var(--blue6)' }}><b>Deadline</b><br />{project.due}</div>
+            <div className="mk below" style={{ left: `${clampedDeadlinePct}%`, color: 'var(--blue6)' }}><span><b>Deadline</b></span><span>{project.due}</span></div>
             <div className="mk" style={{ left: `${clampedPredictedPct}%`, top: 0, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
             <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }} />
           </div>
