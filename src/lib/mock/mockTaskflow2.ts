@@ -43,11 +43,11 @@ export const FLOW = [
   { icon: 'ti-upload', title: 'Upload assignment', desc: 'PDF or paste text — the AI reads it instantly' },
   { icon: 'ti-users-plus', title: 'Add your team', desc: 'Skills, weaknesses, and weekly availability' },
   { icon: 'ti-sparkles', title: 'AI generates plan', desc: 'Tasks, deadlines, workload — in seconds' },
-  { icon: 'ti-shield-bolt', title: 'Track & defend', desc: 'Monitor progress, rescue late deadlines' },
+  { icon: 'ti-trophy', title: 'Track & optimize', desc: 'Monitor progress, maximize your marks' },
 ];
 
 export const TABS: [string, string, string?][] = [
-  ['overview', 'Overview'], ['tasks', 'Tasks', '14'], ['timeline', 'Timeline'], ['defender', 'AI Defender', '!'],
+  ['overview', 'Overview'], ['tasks', 'Tasks', '14'], ['timeline', 'Timeline'], ['defender', 'Project Rescue', '!'],
 ];
 
 // Analysis stages: [title, subtitle, detail?, status?]
@@ -78,6 +78,21 @@ export const TK: [number, string, string, string, number, string[], number, stri
   [11, 'Compile SRS document', 'Merge all sections', 'M', 10, ['AT'], 4, 'Sat 31 Oct', 'todo', 'late'],
   [15, 'Final review and submission check', 'Check against the brief', 'H', 3, ['AT'], 3, 'Fri 6 Nov', 'todo', 'late'],
 ];
+
+// Rubric marks per task: TK id → marks (total = 30)
+export const RUBRIC_MARKS: Record<number, number> = {
+  2: 3,   // Gather requirements
+  3: 5,   // Requirements Analysis
+  4: 2,   // Write introduction and scope
+  5: 4,   // Draw use case diagrams
+  6: 5,   // Class and sequence diagrams
+  7: 4,   // Design system architecture
+  8: 3,   // UI wireframes and prototype
+  9: 2,   // Test plan and test cases
+  11: 1,  // Compile SRS document
+  15: 1,  // Final review and submission check
+};
+export const RUBRIC_TOTAL = 30;
 
 // Per-member progress: [key, name, skills, totalHours, critical, tasks[]]
 // tasks[]: [title, totalHours, remainingHours, status, pending?]
@@ -136,14 +151,14 @@ export const LOGS: [number, string, string, string, string, string?][] = [
 ];
 
 export const DST = [
-  'Analyzing Deadline Risks', 'Identifying Bottlenecks', 'Checking Available Team Capacity',
-  'Evaluating Reallocation Opportunities', 'Optimizing Task Dependencies', 'Generating a Recovery Plan',
-  'Checking Task Priorities', 'Validating Deadline Feasibility',
+  'Analyzing Remaining Time', 'Evaluating Task Difficulty', 'Scoring Mark Value per Task',
+  'Ranking by Effort-to-Score Ratio', 'Identifying Quick Wins', 'Filtering Drop Candidates',
+  'Generating Priority Plan', 'Validating Maximum Marks',
 ];
 
 // Defender reasons: [icon, label]
 export const REASONS: [string, string][] = [
-  ['ti-hourglass', 'Tasks are taking longer than planned'],
+  ['ti-hourglass', 'Not enough time to finish all tasks'],
   ['ti-user-off', 'A member is unavailable'],
   ['ti-gauge', 'A member is overloaded'],
   ['ti-puzzle', 'Skills don\u2019t match the task'],

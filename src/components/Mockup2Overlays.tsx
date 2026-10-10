@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
-import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS } from '@/lib/mock/mockTaskflow2';
+import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
 import type { Task, Member, Skill, TaskStatus, Priority } from '@/types/types';
 
 // ===== Overlay Wrapper =====
@@ -379,11 +379,32 @@ function TaskDrawer() {
     return baseDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
   })();
 
+  // Local state fallback — ensures progress buttons always work even if task lookup fails
+  const [localStatus, setLocalStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
+  const [localHours, setLocalHours] = useState(0);
+
+  // Sync local state with task whenever task changes
+  useEffect(() => {
+    if (task) {
+      const tStatus = task.status === 'done' ? 'done' : task.status === 'in-progress' ? 'in-progress' : 'todo';
+      setLocalStatus(tStatus);
+      setLocalHours(task.estimatedHours || 0);
+    } else if (mockTaskEntry) {
+      const mStatus = mockTaskEntry[8] === 'prog' ? 'in-progress' : mockTaskEntry[8] === 'done' ? 'done' : 'todo';
+      setLocalStatus(override?.status as any || mStatus);
+      setLocalHours(override?.hours ?? mockTaskEntry[4]);
+    }
+  }, [task?.id, task?.status, task?.estimatedHours, selectedTaskId]);
+
+  // Effective values — use task from store/override, fall back to local state
+  const effectiveStatus = task?.status ? (task.status === 'done' ? 'done' : task.status === 'in-progress' ? 'in-progress' : 'todo') : localStatus;
+  const effectiveHours = task?.estimatedHours ?? localHours;
+
   // Update task status (todo / in-progress / done) in store
   const updateTaskStatus = (status: 'todo' | 'in-progress' | 'done') => {
-    if (!task) return;
+    setLocalStatus(status); // immediate UI feedback
     // Update real plan if it exists
-    if (plan) {
+    if (plan && task) {
       const currentPlan = useTaskStore.getState().plan;
       if (currentPlan) {
         const updatedTasks = currentPlan.tasks.map(t =>
@@ -394,16 +415,17 @@ function TaskDrawer() {
     }
     // Also update overrides (works for both real and mock tasks)
     if (overrideTaskId) {
-      setTaskOverride(overrideTaskId, { status, hours: task.estimatedHours || 0 });
+      setTaskOverride(overrideTaskId, { status, hours: effectiveHours });
     }
     addToast(`Status updated to "${status === 'done' ? 'Done' : status === 'in-progress' ? 'In progress' : 'To do'}"`, 'ti-circle-check');
   };
 
   // Update remaining hours in store
   const updateRemainingHours = (hours: number) => {
-    if (!task || hours < 0) return;
+    if (hours < 0) return;
+    setLocalHours(hours); // immediate UI feedback
     // Update real plan if it exists
-    if (plan) {
+    if (plan && task) {
       const currentPlan = useTaskStore.getState().plan;
       if (currentPlan) {
         const updatedTasks = currentPlan.tasks.map(t =>
@@ -414,7 +436,7 @@ function TaskDrawer() {
     }
     // Also update overrides
     if (overrideTaskId) {
-      setTaskOverride(overrideTaskId, { status: task.status || 'todo', hours });
+      setTaskOverride(overrideTaskId, { status: effectiveStatus, hours });
     }
   };
 
@@ -461,7 +483,7 @@ function TaskDrawer() {
               const pLabel = pChar === 'H' ? 'High' : pChar === 'M' ? 'Medium' : 'Low';
               return <span className={`pri pri-${pChar}`}><i className={`ti ${pIcon}`} />{pLabel}</span>;
             })()}
-            <span className="badge"><i className={`ti ${task?.status === 'done' ? 'ti-circle-check' : task?.status === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} /> {task?.status === 'done' ? 'Done' : task?.status === 'in-progress' ? 'In progress' : 'To do'}</span>
+            <span className="badge"><i className={`ti ${effectiveStatus === 'done' ? 'ti-circle-check' : effectiveStatus === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} /> {effectiveStatus === 'done' ? 'Done' : effectiveStatus === 'in-progress' ? 'In progress' : 'To do'}</span>
             {taskLocked && <span className="badge b-wn"><i className="ti ti-lock" /> Locked</span>}
           </div>
           <div className="h2">{task?.title || 'Requirements Analysis'}</div>
@@ -472,11 +494,16 @@ function TaskDrawer() {
       <div className="bd">
         {!taskEditMode ? (
           <div>
-            <div className="g2r mb16" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="g2r mb16" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div className="card flat">
                 <div className="xs mut">Estimated hours</div>
-                <div className="h2">{task?.estimatedHours || 10} h</div>
-                <div className="xs mut">{task?.estimatedHours || 10} h remaining</div>
+                <div className="h2">{effectiveHours || 10} h</div>
+                <div className="xs mut">{effectiveHours || 10} h remaining</div>
+              </div>
+              <div className="card flat">
+                <div className="xs mut">Rubric marks</div>
+                <div className="h2">{mockTaskEntry ? (RUBRIC_MARKS[mockTaskEntry[0]] ?? 0) : (task ? (RUBRIC_MARKS[parseInt(task.id.replace(/\D/g, ''))] ?? 0) : 0)} <span className="xs mut">/ {RUBRIC_TOTAL}</span></div>
+                <div className="xs mut">{(() => { const mk = mockTaskEntry ? (RUBRIC_MARKS[mockTaskEntry[0]] ?? 0) : (task ? (RUBRIC_MARKS[parseInt(task.id.replace(/\D/g, ''))] ?? 0) : 0); return `${Math.round(mk / RUBRIC_TOTAL * 100)}% of total`; })()}</div>
               </div>
               <div className="card flat">
                 <div className="xs mut">Target date</div>
@@ -488,7 +515,7 @@ function TaskDrawer() {
               <div className="eyebrow mb8">Why this priority</div>
               <div className="alert al-blue sm" style={{ padding: '10px 14px' }}>
                 <i className="ti ti-sparkles" />
-                <div><b>{task?.priority === 'critical' || task?.priority === 'high' ? 'High' : task?.priority === 'medium' ? 'Medium' : 'Low'}:</b> {task?.estimatedHours || 10}h of work, {depTasks.length} task{depTasks.length !== 1 ? 's' : ''} depend on it{task?.priority === 'critical' ? ', and it is on the critical path' : ''}.</div>
+                <div><b>{task?.priority === 'critical' || task?.priority === 'high' ? 'High' : task?.priority === 'medium' ? 'Medium' : 'Low'}:</b> {effectiveHours || 10}h of work, {depTasks.length} task{depTasks.length !== 1 ? 's' : ''} depend on it{task?.priority === 'critical' ? ', and it is on the critical path' : ''}.</div>
               </div>
             </div>
             <div className="sec">
@@ -509,10 +536,10 @@ function TaskDrawer() {
                 <div key={m.id} className="card flat mb8" style={{ padding: 14 }}>
                   <div className="row">
                     <span className={`av av${i % 4}`}>{m.avatar}</span>
-                    <div style={{ flex: 1 }}><div className="b">{m.name}</div><div className="xs mut">Allocated {task?.estimatedHours || 10}h &middot; Remaining <b>{task?.estimatedHours || 10}h</b></div></div>
+                    <div style={{ flex: 1 }}><div className="b">{m.name}</div><div className="xs mut">Allocated {effectiveHours || 10}h &middot; Remaining <b>{effectiveHours || 10}h</b></div></div>
                     <span className={`badge ${m.currentTaskIds?.includes(task?.id || '') ? 'b-blue' : ''}`}>
-                      <i className={`ti ${task?.status === 'done' ? 'ti-circle-check' : task?.status === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} />
-                      {task?.status === 'done' ? 'Done' : task?.status === 'in-progress' ? 'In progress' : 'To do'}
+                      <i className={`ti ${effectiveStatus === 'done' ? 'ti-circle-check' : effectiveStatus === 'in-progress' ? 'ti-progress' : 'ti-circle'}`} />
+                      {effectiveStatus === 'done' ? 'Done' : effectiveStatus === 'in-progress' ? 'In progress' : 'To do'}
                     </span>
                     {i === 0 && (
                       <span className={`badge ${taskAccepted || task?.invitationStatus === 'accepted' ? 'b-ok' : 'b-wn'}`}>
@@ -557,33 +584,23 @@ function TaskDrawer() {
                     <div className="xs mut mb4">Current status</div>
                     <div className="seg">
                       <button
-                        className={(!task?.status || task?.status === 'todo') ? 'on' : ''}
+                        className={effectiveStatus === 'todo' ? 'on' : ''}
                         onClick={() => updateTaskStatus('todo')}
                       >To do</button>
                       <button
-                        className={task?.status === 'in-progress' ? 'on' : ''}
+                        className={effectiveStatus === 'in-progress' ? 'on' : ''}
                         onClick={() => updateTaskStatus('in-progress')}
                       >In progress</button>
                       <button
-                        className={task?.status === 'done' ? 'on' : ''}
+                        className={effectiveStatus === 'done' ? 'on' : ''}
                         onClick={() => updateTaskStatus('done')}
                       >Done</button>
                     </div>
                   </div>
                 </div>
-                <div className="row g8 wrap">
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <label className="xs mut">Remaining hours</label>
-                    <div className="row g8 mt4">
-                      <button className="btn btn-sm" onClick={() => updateRemainingHours(Math.max(0, (task?.estimatedHours || 0) - 1))}><i className="ti ti-minus" /></button>
-                      <input className="inp" type="number" style={{ width: 70 }} value={task?.estimatedHours || 0} onChange={e => updateRemainingHours(parseInt(e.target.value) || 0)} />
-                      <button className="btn btn-sm" onClick={() => updateRemainingHours((task?.estimatedHours || 0) + 1)}><i className="ti ti-plus" /></button>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <label className="xs mut">Completion</label>
-                    <div className="bar mt4"><i style={{ width: `${task?.status === 'done' ? 100 : task?.status === 'in-progress' ? 50 : 0}%` }} /></div>
-                  </div>
+                <div>
+                  <label className="xs mut">Completion</label>
+                  <div className="bar mt4"><i style={{ width: `${effectiveStatus === 'done' ? 100 : effectiveStatus === 'in-progress' ? 50 : 0}%` }} /></div>
                 </div>
               </div>
             </div>
@@ -633,8 +650,8 @@ function TaskDrawer() {
                   <div className="row g12 wrap">
                     <span className={`av av${i % 4}`}>{m.avatar}</span>
                     <div style={{ flex: 1, minWidth: 90 }} className="b">{m.name}</div>
-                    <label className="xs mut">Allocated <input className="inp" type="number" defaultValue={task?.estimatedHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
-                    <label className="xs mut">Remaining <input className="inp" type="number" defaultValue={task?.estimatedHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
+                    <label className="xs mut">Allocated <input className="inp" type="number" defaultValue={effectiveHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
+                    <label className="xs mut">Remaining <input className="inp" type="number" defaultValue={effectiveHours || 10} style={{ width: 68, padding: '6px 8px' }} /></label>
                     <button className="icb" title="Remove from task" onClick={() => {
                       const currentPlan = useTaskStore.getState().plan;
                       if (currentPlan && task) {
@@ -672,7 +689,7 @@ function TaskDrawer() {
                   ))}
                 </select>
               )}
-              <div className="hint">Total: {task?.estimatedHours || 10}h across {assignedMembers.length || 0} member{assignedMembers.length !== 1 ? 's' : ''}.</div>
+              <div className="hint">Total: {effectiveHours || 10}h across {assignedMembers.length || 0} member{assignedMembers.length !== 1 ? 's' : ''}.</div>
             </div>
             <label className="row g8" style={{ cursor: 'pointer' }}>
               <span className="sw"><input type="checkbox" checked={taskLocked} onChange={e => setTaskLocked(e.target.checked)} /><span /></span>

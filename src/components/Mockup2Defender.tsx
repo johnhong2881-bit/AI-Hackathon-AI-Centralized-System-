@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
 import { WorkspaceHeader, av } from './Mockup2Screens';
-import { MEM, LOGS, DST, REASONS } from '@/lib/mock/mockTaskflow2';
+import { MEM, LOGS, DST, REASONS, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
 import type { RescuePlan } from '@/types/types';
 
 // ===== Defender Screen =====
@@ -52,22 +52,23 @@ function RiskPhase() {
   return (
     <div className="nv-hero">
       <div className="row wrap g12 mb16">
-        <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)' }}><i className="ti ti-shield-bolt" /> AI Deadline Defender</span>
+        <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)' }}><i className="ti ti-trophy" /> Project Rescue</span>
         <span className="badge" style={{ background: '#ffd9d4', color: '#8d1f15' }}><i className="ti ti-alert-triangle" /> Deadline at risk</span>
       </div>
       <h2 style={{ fontSize: 30, lineHeight: 1.15, fontWeight: 700, letterSpacing: '-.02em', maxWidth: 640 }}>
-        Your team will finish about 7 days after the deadline.
+        Not enough time to finish everything. Here&apos;s how to maximize your marks.
       </h2>
       <p className="mut mt8" style={{ maxWidth: 600 }}>
-        The schedule is limited by a chain of dependent tasks, not by total hours. TaskFlow can reorganize work and check the new plan before anything changes.
+        The AI will prioritize easy, high-value tasks so your team gets the most marks with the time left. You don&apos;t need to finish everything &mdash; just the tasks that matter most.
       </p>
       <div className="g2r mt24" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
         <div className="kv"><div className="k">Current deadline</div><div className="v">Fri 30 Oct</div></div>
-        <div className="kv"><div className="k">Predicted completion</div><div className="v" style={{ color: '#ffb4ac' }}>Fri 6 Nov</div></div>
-        <div className="kv"><div className="k">Estimated delay</div><div className="v">7 days</div></div>
+        <div className="kv"><div className="k">Time remaining</div><div className="v" style={{ color: '#ffb4ac' }}>7 days</div></div>
+        <div className="kv"><div className="k">Tasks completable</div><div className="v">5 of 10</div></div>
+        <div className="kv"><div className="k">Marks achievable</div><div className="v" style={{ color: '#6fe0b2' }}>22 / {RUBRIC_TOTAL}</div></div>
       </div>
       <div className="mt24 lead-only">
-        <div className="b mb8" style={{ fontSize: 15 }}>Why does the plan need to change? <span style={{ color: '#ffb4ac', fontWeight: 500, fontSize: 13 }}>Required</span></div>
+        <div className="b mb8" style={{ fontSize: 15 }}>What&apos;s the situation? <span style={{ color: '#ffb4ac', fontWeight: 500, fontSize: 13 }}>Required</span></div>
         <div className="row wrap g8">
           {REASONS.map((r, i) => (
             <button key={i} className={`rs ${defenderReason === i ? 'on' : ''}`} onClick={() => { setDefenderReason(i); setShowErr(false); }}>
@@ -87,18 +88,18 @@ function RiskPhase() {
         </div>
         {showErr && (
           <div className="mt8" style={{ color: '#ffb4ac', fontSize: 13 }}>
-            <i className="ti ti-alert-circle" /> Choose a reason first so the AI knows what to fix.
+            <i className="ti ti-alert-circle" /> Pick a situation so the AI knows how to prioritize.
           </div>
         )}
       </div>
       <div className="row wrap mt24 g12 lead-only">
         <button className="btn btn-lg" style={{ background: '#fff', color: 'var(--navy)', borderColor: '#fff', fontWeight: 650 }} onClick={handleRun}>
-          <i className="ti ti-player-play" /> Run AI Rescue
+          <i className="ti ti-trophy" /> Optimize for Maximum Marks
         </button>
-        <span className="sm mut" style={{ color: '#b5c3f3' }}>The AI only reassigns work after you pick a reason. Nothing changes until you review the proposals.</span>
+        <span className="sm mut" style={{ color: '#b5c3f3' }}>The AI ranks tasks by effort-to-score ratio. Easy high-value tasks go first. You review before anything changes.</span>
       </div>
       <div className="sm mem-only mt12" style={{ color: '#ffd9a0' }}>
-        <i className="ti ti-lock" /> Only the project leader can run AI Rescue.
+        <i className="ti ti-lock" /> Only the project leader can run the optimizer.
       </div>
     </div>
   );
@@ -211,7 +212,7 @@ function RunPhase() {
           const cmp = rescuePlan.comparisonResult;
           newLogs.push({
             icon: cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low' ? 'ti-check' : 'ti-alert-triangle',
-            msg: `Rescue complete: ${cmp.beforeHours}h → ${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`,
+            msg: `Optimization complete: ${cmp.beforeHours}h → ${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`,
             tool: 'comparison',
             detail: cmp.improvementSummary,
             flag: cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low' ? 'o' : 'f',
@@ -232,7 +233,7 @@ function RunPhase() {
         if (cancelled) return;
         const errMsg = err instanceof Error ? err.message : String(err);
         setError(errMsg);
-        addToast(`Rescue failed: ${errMsg}`, 'ti-alert-circle');
+        addToast(`Optimization failed: ${errMsg}`, 'ti-alert-circle');
       }
     };
 
@@ -248,18 +249,18 @@ function RunPhase() {
     <div>
       <div className="row wrap mb12">
         <div>
-          <div className="eyebrow">AI Deadline Defender</div>
-          <h2 className="h2 mt4">Recovering your deadline</h2>
+          <div className="eyebrow">Project Rescue</div>
+          <h2 className="h2 mt4">Optimizing for maximum marks</h2>
         </div>
         <span className="sp" />
-        <span className="demo"><i className="ti ti-flask" /> {error ? 'Error' : logs.length > 0 ? 'Complete' : 'Running rescue workflow...'}</span>
+        <span className="demo"><i className="ti ti-flask" /> {error ? 'Error' : logs.length > 0 ? 'Complete' : 'Ranking tasks by effort-to-score...'}</span>
         <button className="btn btn-sm" onClick={() => setDefenderPhase('result')}>Skip to result</button>
       </div>
       {error && (
         <div className="alert al-dg mb12">
           <i className="ti ti-alert-triangle" />
           <div>
-            <b>Rescue error</b>
+            <b>Optimization error</b>
             <div className="sm mut">{error}</div>
           </div>
         </div>
@@ -278,13 +279,13 @@ function RunPhase() {
           })}
         </div>
         <div className="logbox">
-          <div className="mb8" style={{ color: '#8ea2e8' }}>AI Deadline Defender &middot; live run</div>
+          <div className="mb8" style={{ color: '#8ea2e8' }}>Project Rescue &middot; live run</div>
           <div className="lg">
             <i className="ti ti-message-2" style={{ color: '#8ea2e8' }} />
             <div>
-              <div style={{ color: '#fff' }}>Reason from leader: {reasonText() || 'No reason selected'}</div>
+              <div style={{ color: '#fff' }}>Situation: {reasonText() || 'No situation selected'}</div>
               <div className="mt4"><span className="tool">leader_input</span></div>
-              <div className="xs mt4" style={{ color: '#a9b8ea' }}>The AI plans reassignments around this reason.</div>
+              <div className="xs mt4" style={{ color: '#a9b8ea' }}>The AI ranks tasks by how easy they are vs how many marks they&apos;re worth.</div>
             </div>
           </div>
           {logs.map((l, i) => {
@@ -304,8 +305,8 @@ function RunPhase() {
             <div className="lg">
               <i className="ti ti-loader-2 spin" style={{ color: '#8ea2e8' }} />
               <div>
-                <div style={{ color: '#fff' }}>Running scheduler-validated rescue search...</div>
-                <div className="xs mt4" style={{ color: '#a9b8ea' }}>3-round optimization: move unstarted work, rebalance accepted work, reduce low-priority scope.</div>
+                <div style={{ color: '#fff' }}>Ranking tasks by effort-to-score ratio...</div>
+                <div className="xs mt4" style={{ color: '#a9b8ea' }}>3-round optimization: identify quick wins, rank by mark value, flag low-value tasks to drop.</div>
               </div>
             </div>
           )}
@@ -346,7 +347,7 @@ function ResultPhase() {
   // Build dynamic data from real rescue plan, fall back to mock for display
   const cmp = rescuePlan?.comparisonResult;
   const actions = rescuePlan?.actions ?? [];
-  const projectedRecovery = rescuePlan?.projectedRecovery ?? 'Rescue plan generated';
+  const projectedRecovery = rescuePlan?.projectedRecovery ?? 'Priority plan generated';
   const confidence = rescuePlan ? Math.round(rescuePlan.confidence * 100) : 0;
 
   // Predicted completion from scheduler
@@ -360,9 +361,9 @@ function ResultPhase() {
     : projectedRecovery;
 
   const bannerMap: Record<string, [string, string, string, string]> = {
-    pending: ['al-wn', 'ti-hand-stop', 'Approval required', `${actions.length} rescue actions need your decision. ${projectedRecovery}.`],
-    approved: ['al-ok', 'ti-circle-check', 'Rescue validated', `The revised plan saves ${cmp?.hoursSaved ?? 0} hours. ${projectedRecovery}.`],
-    rejected: ['al-dg', 'ti-alert-triangle', 'Risk unresolved', `Without approval the plan still ends ${beforePredicted}. ${cmp?.improvementSummary ?? ''}`],
+    pending: ['al-wn', 'ti-hand-stop', 'Priority plan ready for review', `${actions.length} actions recommended to maximize your marks. ${projectedRecovery}.`],
+    approved: ['al-ok', 'ti-circle-check', 'Priority plan approved', `The optimized plan can score ${cmp?.hoursSaved ?? 0} more marks. ${projectedRecovery}.`],
+    rejected: ['al-dg', 'ti-alert-triangle', 'Marks at risk', `Without optimization you may only score partial marks. ${cmp?.improvementSummary ?? ''}`],
   };
   const B = bannerMap[proposal2];
 
@@ -378,9 +379,9 @@ function ResultPhase() {
   return (
     <div>
       <div className="row g8 mb12 wrap">
-        <span className="badge b-blue"><i className="ti ti-message-2" /> Reason: {reasonText()}</span>
+        <span className="badge b-blue"><i className="ti ti-message-2" /> Situation: {reasonText()}</span>
         {rescuePlan && (
-          <span className="badge b-ok"><i className="ti ti-bolt" /> {actions.length} rescue actions · {confidence}% confidence</span>
+          <span className="badge b-ok"><i className="ti ti-trophy" /> {actions.length} tasks ranked · {confidence}% confidence</span>
         )}
       </div>
       <div className="mb16">
@@ -396,24 +397,24 @@ function ResultPhase() {
       {/* Rescue actions from real API data */}
       {actions.length > 0 && (
         <>
-          <h3 className="h3 mb8">Rescue recommendations</h3>
+          <h3 className="h3 mb8">Priority plan</h3>
           <div className="row g8 mb12 wrap">
-            <span className="badge b-ok"><i className="ti ti-bolt" /> Safe to apply automatically</span>
-            <span className="badge b-wn"><i className="ti ti-hand-stop" /> Needs leader approval</span>
-            <span className="xs mut">{actions.length} actions proposed</span>
+            <span className="badge b-ok"><i className="ti ti-bolt" /> Do first</span>
+            <span className="badge b-wn"><i className="ti ti-hand-stop" /> If time permits</span>
+            <span className="xs mut">{actions.length} tasks ranked by effort-to-score</span>
           </div>
           {actions.map((action, i) => {
             const needsApproval = action.priority === 'critical' || action.priority === 'high';
             const badgeClass = needsApproval ? 'b-wn' : 'b-ok';
             const badgeIcon = needsApproval ? 'ti-hand-stop' : 'ti-bolt';
-            const badgeLabel = needsApproval ? 'Needs approval' : 'Auto-applied';
+            const badgeLabel = needsApproval ? 'If time permits' : 'Do first';
             return (
               <div key={action.id} className={`prop ${needsApproval && proposal2 === 'pending' ? 'pend' : ''}`}>
                 <div className="row wrap mb12">
                   <span className={`badge ${badgeClass}`}>
                     <i className={`ti ${badgeIcon}`} /> {badgeLabel}
                   </span>
-                  <span className="h3">Action {i + 1} &mdash; {action.description}</span>
+                  <span className="h3">Task {i + 1} &mdash; {action.description}</span>
                 </div>
                 <div className="ba">
                   <div>
@@ -433,11 +434,11 @@ function ResultPhase() {
           {/* Approval buttons */}
           {rescuePlan?.requiresLeaderApproval && proposal2 === 'pending' && (
             <div className="row g8 mt16">
-              <button className="btn btn-p" onClick={() => { setProposal2('approved'); addToast('Rescue plan approved. Forecast recalculated.'); }}>
-                <i className="ti ti-check" /> Approve rescue plan
+              <button className="btn btn-p" onClick={() => { setProposal2('approved'); addToast('Priority plan approved. Marks optimized.'); }}>
+                <i className="ti ti-check" /> Approve priority plan
               </button>
-              <button className="btn" onClick={() => { setProposal2('rejected'); addToast('Rescue plan rejected. Risk is still unresolved.', 'ti-alert-triangle'); }}>
-                <i className="ti ti-x" /> Reject rescue plan
+              <button className="btn" onClick={() => { setProposal2('rejected'); addToast('Priority plan rejected. No changes made.', 'ti-alert-triangle'); }}>
+                <i className="ti ti-x" /> Reject plan
               </button>
             </div>
           )}
@@ -451,9 +452,9 @@ function ResultPhase() {
           <div className="card">
             <div className="cmp" style={{ borderTop: 0, paddingTop: 0 }}>
               <div className="eyebrow">Metric</div>
-              <div className="eyebrow">Before rescue</div>
+              <div className="eyebrow">Before</div>
               <div />
-              <div className="eyebrow" style={{ color: 'var(--blue6)' }}>After rescue</div>
+              <div className="eyebrow" style={{ color: 'var(--blue6)' }}>After</div>
             </div>
             {cmpRow('Total hours', `${cmp.beforeHours}h`, `${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`)}
             {cmpRow('Risk level', <span className="stat s-dg">{cmp.beforeRiskLevel}</span>, <span className={`stat ${cmp.afterRiskLevel === 'none' ? 's-ok' : cmp.afterRiskLevel === 'low' ? 's-ok' : 's-dg'}`}>{cmp.afterRiskLevel}</span>)}
@@ -470,8 +471,8 @@ function ResultPhase() {
         <div className="alert al-wn">
           <i className="ti ti-info-circle" />
           <div>
-            <b>No rescue data yet</b>
-            <div className="sm mut">Run AI Rescue from the risk alert to generate a rescue plan.</div>
+            <b>No priority plan yet</b>
+            <div className="sm mut">Run the optimizer from the risk alert to generate a priority plan.</div>
           </div>
         </div>
       )}
@@ -493,12 +494,12 @@ function ResultPhase() {
           // Reset defender state
           setDefenderPhase('risk');
           setProposal2('pending');
-          addToast(ok ? 'Rescue plan applied to the project. Schedule updated.' : 'Approved changes applied.', 'ti-circle-check');
-          setTimeout(() => go('timeline'), 600);
+          addToast(ok ? 'Priority plan applied. Tasks reordered by marks value.' : 'Approved changes applied.', 'ti-circle-check');
+          setTimeout(() => go('tasks'), 600);
         }}>
-          <i className="ti ti-circle-check" /> {ok ? 'Apply plan to project' : 'Apply approved changes only'}
+          <i className="ti ti-circle-check" /> {ok ? 'Apply priority plan' : 'Apply approved changes only'}
         </button>
-        <button className="btn btn-lg" onClick={() => { addToast('Rescue discarded. No changes were made.', 'ti-trash'); setDefenderPhase('risk'); setProposal2('pending'); setRescuePlan(null); }}>Discard rescue</button>
+        <button className="btn btn-lg" onClick={() => { addToast('Plan discarded. No changes were made.', 'ti-trash'); setDefenderPhase('risk'); setProposal2('pending'); setRescuePlan(null); }}>Discard plan</button>
         <button className="btn btn-lg btn-g" onClick={() => { setDefenderPhase('risk'); setProposal2('pending'); }}>Back to risk alert</button>
       </div>
     </div>

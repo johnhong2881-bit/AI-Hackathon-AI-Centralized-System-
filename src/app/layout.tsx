@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TaskFlow AI — Plan smarter. Rescue your deadline.',
-  description: 'AI-powered project manager that decomposes assignments, matches skills, and defends deadlines.',
+  title: 'TaskFlow AI — Plan smarter. Maximize your marks.',
+  description: 'AI-powered project manager that decomposes assignments, matches skills, and prioritizes work for the best score.',
 };
 
 export default function RootLayout({

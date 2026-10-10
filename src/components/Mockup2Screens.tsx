@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type Key as ReactKey } from 'react';import
 import { useTaskStore } from '@/store/useTaskStore';
 import {
   AVC, MEM, LVN, DN, TABS,
-  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers,
+  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers, RUBRIC_MARKS, RUBRIC_TOTAL,
   type TaskStatus, type PgpMember,
 } from '@/lib/mock/mockTaskflow2';
 import { mockAssignment, mockMembers, mockProgress } from '@/lib/mock';
@@ -852,7 +852,7 @@ function OverviewScreen() {
       const override = taskOverrides[taskId];
       if (!override) return t;
       const newStatus = override.status === 'done' ? 'done' : override.status === 'in-progress' ? 'prog' : 'todo';
-      const newRemaining = override.status === 'done' ? 0 : override.status === 'in-progress' ? Math.floor(t[1] / 2) : t[1];
+      const newRemaining = override.hours ?? (override.status === 'done' ? 0 : override.status === 'in-progress' ? Math.floor(t[1] / 2) : t[1]);
       return [t[0], t[1], newRemaining, newStatus as TaskStatus, t[4]] as typeof t;
     });
     return [...m.slice(0, 5), modifiedTasks] as PgpMember;
@@ -907,9 +907,9 @@ function OverviewScreen() {
             <div className="alert al-dg mt16">
               <i className="ti ti-alert-triangle" />
               <div className="row wrap" style={{ flex: 1 }}>
-                <div><b>{criticalPath?.delayedTaskIds.length ?? 0} tasks finish after the deadline.</b><div className="sm mut">Open AI Deadline Defender to generate a rescue plan.</div></div>
+                <div><b>{criticalPath?.delayedTaskIds.length ?? 0} tasks finish after the deadline.</b><div className="sm mut">Open AI Deadline Defender to prioritize tasks and maximize your marks.</div></div>
                 <span className="sp" />
-                <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-shield-bolt" /> Open AI Deadline Defender</button>
+                <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-trophy" /> Open Project Rescue</button>
               </div>
             </div>
           ) : (
@@ -1088,7 +1088,7 @@ function TasksScreen() {
       )}
       {taskView === 'list' && (
         <div className="card pad0" style={{ overflow: 'hidden' }}>
-          <div className="tk hd"><span /><span>Task</span><span>Priority</span><span>Hours</span><span>Assigned</span><span>Deps</span><span>Target</span></div>
+          <div className="tk hd"><span /><span>Task</span><span>Priority</span><span>Hours</span><span>Marks</span><span>Assigned</span><span>Deps</span><span>Target</span></div>
           {realTK.map(t => (
             <div key={t[0]} className="tk" onClick={() => {
               const realTask = useRealData && plan ? plan.tasks.find(pt => parseInt(pt.id.replace(/\D/g, '')) === t[0]) : null;
@@ -1099,6 +1099,7 @@ function TasksScreen() {
               <div style={{ minWidth: 0 }}><div className="b" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[1]}</div><div className="xs mut" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t[2]}</div></div>
               {pri(t[3])}
               <span className="mono">{t[4]} h</span>
+              <span className="mono"><b>{RUBRIC_MARKS[t[0]] ?? 0}</b> mk</span>
               <span className="stk">{t[5].map((k, ki) => av(k, 's', ki))}</span>
               <span className="xs mut"><i className="ti ti-link" /> {t[6]}</span>
               <span className={`xs ${t[9] ? '' : 'mut'}`} style={t[9] ? { color: 'var(--dg)', fontWeight: 600 } : {}}>{t[7]}{t[9] && <i className="ti ti-alert-triangle" />}</span>
@@ -1275,8 +1276,8 @@ function ProjectScreen() {
     <section className="scr page on" id="s-project">
       {/* Hero */}
       <div className="hero">
-        <h1>Plan smarter. <em>Rescue your deadline.</em></h1>
-        <p className="mut mt8">AI-powered project manager that decomposes assignments, matches skills, and defends deadlines.</p>
+        <h1>Plan smarter. <em>Maximize your marks.</em></h1>
+        <p className="mut mt8">AI-powered project manager that decomposes assignments, matches skills, and prioritizes work for the best score.</p>
         <button className="btn btn-ai btn-lg mt24" onClick={() => go('create')}>
           <i className="ti ti-plus" /> Create new project
         </button>
