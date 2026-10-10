@@ -162,7 +162,7 @@
 .tf-root .stat{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;font-weight:600;font-size:13px;white-space:nowrap;line-height:1.2}
 .tf-root .stat:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
 .tf-root .s-ok{background:var(--ok1);color:var(--ok)}.tf-root .s-wn{background:var(--wn1);color:var(--wn)}.tf-root .s-dg{background:var(--dg1);color:var(--dg)}.tf-root .s-bl{background:var(--blue1);color:var(--blue6)}
-.tf-root .dline{position:relative;height:100px;margin:6px 18px 0}
+.tf-root .dline{position:relative;height:120px;margin:6px 18px 0}
 .tf-root .dline .ax{position:absolute;left:0;right:0;top:60px;height:6px;background:var(--line);border-radius:6px}
 .tf-root .dline .ok{position:absolute;top:60px;height:6px;background:var(--blue);border-radius:6px}
 .tf-root .dline .lt{position:absolute;top:60px;height:6px;background:repeating-linear-gradient(135deg,#e0483c 0 5px,#f7b4ae 5px 10px);border-radius:0 6px 6px 0}
