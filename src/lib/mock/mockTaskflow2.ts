@@ -26,10 +26,14 @@ export const SCR: [string, string, number][] = [
 
 export const GRP: Record<number, string> = { 0: '', 1: 'Create', 2: 'Workspace', 3: 'System' };
 
+// Deadlines are relative to "today" = Oct 11 2026 (Sunday)
+// At Risk: ~1 week left (Oct 18)
+// On Track: ~1 month left (Nov 8)
+// Completed: already done (Oct 5)
 export const PROJECTS = [
-  { id: 'srs', name: 'Software Requirements Specification', desc: 'Group SRS for a student library management system', status: 'dg', statusLabel: 'At Risk', members: 4, tasks: 14, done: 5, due: 'Fri 30 Oct' },
-  { id: 'web', name: 'Web Application Development', desc: 'Full-stack web app with React and Node.js', status: 'ok', statusLabel: 'On Track', members: 2, tasks: 4, done: 1, due: 'Mon 16 Nov' },
-  { id: 'data', name: 'Data Analysis Report', desc: 'Statistical analysis of survey data', status: 'ok', statusLabel: 'Completed', members: 2, tasks: 3, done: 3, due: 'Mon 5 Oct' },
+  { id: 'srs', name: 'Software Requirements Specification', desc: 'Group SRS for a student library management system', status: 'dg', statusLabel: 'At Risk', members: 4, tasks: 10, done: 5, due: 'Sun 18 Oct', daysLeft: 7 },
+  { id: 'web', name: 'Web Application Development', desc: 'Full-stack web app with React and Node.js', status: 'ok', statusLabel: 'On Track', members: 2, tasks: 4, done: 1, due: 'Sun 8 Nov', daysLeft: 28 },
+  { id: 'data', name: 'Data Analysis Report', desc: 'Statistical analysis of survey data', status: 'ok', statusLabel: 'Completed', members: 2, tasks: 4, done: 4, due: 'Mon 5 Oct', daysLeft: 0 },
 ];
 
 // Maps project ID → member keys that belong to that project
@@ -47,7 +51,7 @@ export const FLOW = [
 ];
 
 export const TABS: [string, string, string?][] = [
-  ['overview', 'Overview'], ['tasks', 'Tasks', '14'], ['timeline', 'Timeline'], ['defender', 'Project Rescue', '!'],
+  ['overview', 'Overview'], ['tasks', 'Tasks'], ['timeline', 'Timeline'], ['defender', 'Project Rescue', '!'],
 ];
 
 // Analysis stages: [title, subtitle, detail?, status?]
@@ -67,14 +71,14 @@ export const STG: [string, string, string?, string?][] = [
 // Tasks: [id, title, desc, priority, hours, assignees, deps, date, status, late?]
 export type TaskStatus = 'prog' | 'todo' | 'done';
 export const TK: [number, string, string, string, number, string[], number, string, TaskStatus, string?][] = [
-  [2, 'Gather requirements', 'Collect stakeholder needs into a requirement log', 'H', 6, ['AT', 'CN'], 1, 'Tue 13 Oct', 'prog'],
-  [3, 'Requirements Analysis', 'Functional and non-functional requirements', 'H', 10, ['AT', 'BL'], 1, 'Wed 14 Oct', 'prog'],
-  [4, 'Write introduction and scope', 'Purpose, audience, assumptions', 'M', 4, ['AT'], 1, 'Wed 14 Oct', 'todo'],
-  [5, 'Draw use case diagrams', 'Actors and use cases', 'H', 8, ['DC'], 1, 'Thu 22 Oct', 'todo'],
+  [2, 'Gather requirements', 'Collect stakeholder needs into a requirement log', 'H', 6, ['AT', 'CN'], 1, 'Tue 13 Oct', 'done'],
+  [3, 'Requirements Analysis', 'Functional and non-functional requirements', 'H', 10, ['AT', 'BL'], 1, 'Wed 14 Oct', 'done'],
+  [4, 'Write introduction and scope', 'Purpose, audience, assumptions', 'M', 4, ['AT'], 1, 'Wed 14 Oct', 'done'],
+  [5, 'Draw use case diagrams', 'Actors and use cases', 'H', 8, ['DC'], 1, 'Thu 22 Oct', 'prog'],
   [7, 'Design system architecture', 'Components, data flow, technology', 'H', 8, ['DC'], 1, 'Mon 26 Oct', 'todo'],
   [6, 'Class and sequence diagrams', 'UML models for core flows', 'H', 10, ['DC'], 1, 'Sat 24 Oct', 'todo'],
-  [8, 'UI wireframes and prototype', 'Low-fidelity key screens', 'M', 8, ['CN'], 1, 'Mon 19 Oct', 'todo'],
-  [9, 'Test plan and test cases', 'Cases mapped to requirements', 'M', 8, ['BL'], 2, 'Sat 24 Oct', 'todo'],
+  [8, 'UI wireframes and prototype', 'Low-fidelity key screens', 'M', 8, ['CN'], 1, 'Mon 19 Oct', 'done'],
+  [9, 'Test plan and test cases', 'Cases mapped to requirements', 'M', 8, ['BL'], 2, 'Sat 24 Oct', 'done'],
   [11, 'Compile SRS document', 'Merge all sections', 'M', 10, ['AT'], 4, 'Sat 31 Oct', 'todo', 'late'],
   [15, 'Final review and submission check', 'Check against the brief', 'H', 3, ['AT'], 3, 'Fri 6 Nov', 'todo', 'late'],
 ];
@@ -100,18 +104,18 @@ export type PgpTask = [string, number, number, TaskStatus, string?];
 export type PgpMember = [string, string, string, number, number, PgpTask[]];
 export const PGP: PgpMember[] = [
   ['AT', 'Alice Tan', 'Research, Writing', 49, 1, [
-    ['Analyze assignment brief', 3, 0, 'done'], ['Gather requirements', 3, 2, 'prog'], ['Requirements Analysis', 6, 3, 'prog'],
-    ['Write introduction and scope', 4, 4, 'todo'], ['Compile SRS document', 10, 10, 'todo'], ['Referencing and formatting', 4, 4, 'todo'],
+    ['Analyze assignment brief', 3, 0, 'done'], ['Gather requirements', 3, 0, 'done'], ['Requirements Analysis', 6, 0, 'done'],
+    ['Write introduction and scope', 4, 0, 'done'], ['Compile SRS document', 10, 10, 'todo'], ['Referencing and formatting', 4, 4, 'todo'],
     ['Rehearse and finalize presentation', 2, 2, 'todo', 'p'], ['Final review and submission check', 3, 3, 'todo', 'p']]],
   ['BL', 'Bob Lee', 'Documentation, Testing', 33, 0, [
-    ['Requirements Analysis', 4, 4, 'todo', 'p'], ['Test plan and test cases', 8, 8, 'todo', 'p'], ['Quality and risk plan', 4, 4, 'todo', 'p']]],
+    ['Requirements Analysis', 4, 0, 'done'], ['Test plan and test cases', 8, 0, 'done'], ['Quality and risk plan', 4, 4, 'todo', 'p']]],
   ['CN', 'Chloe Ng', 'UI/UX, Presentation', 42, 0, [
-    ['Gather requirements', 3, 3, 'todo'], ['UI wireframes and prototype', 8, 8, 'todo'],
+    ['Gather requirements', 3, 0, 'done'], ['UI wireframes and prototype', 8, 0, 'done'],
     ['Prepare presentation slides', 6, 6, 'todo', 'p'], ['Rehearse and finalize presentation', 2, 2, 'todo', 'p']]],
   ['DC', 'David Chen', 'Programming, Testing', 53, 1, [
-    ['Draw use case diagrams', 8, 8, 'todo'], ['Class and sequence diagrams', 10, 10, 'todo', 'p'], ['Design system architecture', 8, 8, 'todo', 'p']]],
+    ['Draw use case diagrams', 8, 5, 'prog'], ['Class and sequence diagrams', 10, 10, 'todo', 'p'], ['Design system architecture', 8, 8, 'todo', 'p']]],
   ['EW', 'Emma Wong', 'User research, Testing', 30, 0, [
-    ['User testing', 8, 5, 'prog'], ['Accessibility review', 4, 4, 'todo']]],
+    ['User testing', 8, 0, 'done'], ['Accessibility review', 4, 4, 'todo']]],
   ['FA', 'Farid Aziz', 'Data modelling, SQL', 28, 0, [
     ['Data model and ER diagram', 8, 8, 'todo'], ['API outline', 6, 6, 'todo', 'p']]],
   ['GL', 'Grace Lim', 'Research, Writing', 24, 0, [
@@ -216,4 +220,84 @@ export function memToMembers(): Member[] {
       currentTaskIds: [],
     };
   });
+}
+
+// ===== Per-project task derivation from PGP =====
+// For SRS, returns the detailed TK array.
+// For other projects (web, data), builds TK-format tuples from PGP member tasks.
+export function getProjectTK(projectId: string): typeof TK {
+  if (projectId === 'srs') return TK;
+  const memberKeys = PROJECT_MEMBERS[projectId] || PROJECT_MEMBERS['srs'];
+  const project = PROJECTS.find(p => p.id === projectId);
+  const tasks: typeof TK = [];
+  let id = 100;
+
+  const dueDate = project?.due || 'Fri 30 Oct';
+  const progDate = projectId === 'web' ? 'Wed 21 Oct' : dueDate;
+  const todoDate = projectId === 'web' ? 'Sat 31 Oct' : dueDate;
+  const pendDate = projectId === 'web' ? 'Fri 6 Nov' : dueDate;
+
+  for (const key of memberKeys) {
+    const pgpMember = PGP.find(p => p[0] === key);
+    if (!pgpMember) continue;
+    for (const t of pgpMember[5]) {
+      const title = t[0];
+      const totalHours = t[1];
+      const status = t[3];
+      const pending = t[4];
+
+      // Skip duplicate titles — add member as co-assignee instead
+      const existing = tasks.find(tk => tk[1] === title);
+      if (existing) {
+        if (!existing[5].includes(key)) existing[5].push(key);
+        continue;
+      }
+
+      const date = status === 'done' ? dueDate : status === 'prog' ? progDate : pending === 'p' ? pendDate : todoDate;
+      const priority = pending === 'p' || status === 'prog' ? 'H' : 'M';
+      const isLate = pending === 'p' ? 'late' : undefined;
+
+      tasks.push([
+        id++,
+        title,
+        `${title} for ${project?.name || 'the project'}`,
+        priority,
+        totalHours,
+        [key],
+        1,
+        date,
+        status,
+        isLate,
+      ]);
+    }
+  }
+  return tasks;
+}
+
+// ===== Per-project Gantt derivation from PGP =====
+// For SRS, returns the detailed GT array.
+// For other projects, builds GT-format tuples from PGP member tasks.
+export function getProjectGT(projectId: string): typeof GT {
+  if (projectId === 'srs') return GT;
+  const memberKeys = PROJECT_MEMBERS[projectId] || PROJECT_MEMBERS['srs'];
+  const result: typeof GT = [];
+
+  for (const key of memberKeys) {
+    const pgpMember = PGP.find(p => p[0] === key);
+    if (!pgpMember) continue;
+    let memberDay = 0;
+    for (const t of pgpMember[5]) {
+      const title = t[0];
+      const totalHours = t[1];
+      const status = t[3];
+      const pending = t[4];
+      const duration = Math.max(1, Math.ceil(totalHours / 4)); // ~4h per day
+      const startDay = memberDay;
+      const endDay = memberDay + duration - 1;
+      memberDay = endDay + 1;
+      const cls = pending === 'p' ? 'late' : '';
+      result.push([title, key, startDay, endDay, cls]);
+    }
+  }
+  return result;
 }

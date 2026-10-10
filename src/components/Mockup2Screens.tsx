@@ -5,6 +5,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import {
   AVC, MEM, LVN, DN, TABS,
   STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers, RUBRIC_MARKS, RUBRIC_TOTAL,
+  getProjectTK, getProjectGT,
   type TaskStatus, type PgpMember,
 } from '@/lib/mock/mockTaskflow2';
 import { mockAssignment, mockMembers, mockProgress } from '@/lib/mock';
@@ -64,7 +65,9 @@ function WorkspaceHeader({ tab }: { tab: string }) {
   const openOverlay = useMockupStore2(s => s.openOverlay);
   const activeProjectId = useMockupStore2(s => s.activeProjectId);
   const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
-  const openTasks = project.tasks - project.done;
+  const projectTasks = getProjectTK(activeProjectId);
+  const doneCount = projectTasks.filter(t => t[8] === 'done').length;
+  const openTasks = projectTasks.length - doneCount;
 
   return (
     <div data-ws={tab}>
@@ -94,13 +97,16 @@ function WorkspaceHeader({ tab }: { tab: string }) {
         </div>
       </div>
       <div className="tabs">
-        {TABS.map(t => (
-          <button key={t[0]} className={`tab ${t[0] === tab ? 'on' : ''}`} onClick={() => go(t[0] as ScreenId)}>
-            {t[1]}{t[2] && <span className={`badge ${t[2] === '!' || t[2] === '1 gap' ? 'b-wn' : ''}`}>
-              {t[2] === '!' ? <i className="ti ti-alert-triangle" /> : t[2]}
-            </span>}
-          </button>
-        ))}
+        {TABS.map(t => {
+          const badge = t[0] === 'tasks' ? String(projectTasks.length) : t[2];
+          return (
+            <button key={t[0]} className={`tab ${t[0] === tab ? 'on' : ''}`} onClick={() => go(t[0] as ScreenId)}>
+              {t[1]}{badge && <span className={`badge ${badge === '!' || badge === '1 gap' ? 'b-wn' : ''}`}>
+                {badge === '!' ? <i className="ti ti-alert-triangle" /> : badge}
+              </span>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -816,8 +822,9 @@ function OverviewScreen() {
     return { al, dn, left: al - dn, pc: al ? Math.round(dn / al * 100) : 0, nd: m[5].filter(t => t[3] === 'done').length };
   };
 
-  // Build progress rows: use real scheduler data if pipeline ran, otherwise fall back to project-filtered PGP
-  const useRealData = pipelineRan && criticalPath && members.length > 0;
+  // Build progress rows: use real scheduler data if pipeline ran for THIS project, otherwise fall back to project-filtered PGP
+  // (pipelineRan is global — without the projectId check, SRS scheduler data leaks into web/data projects)
+  const useRealData = activeProjectId === 'srs' && pipelineRan && criticalPath && members.length > 0;
 
   // Convert real member loads to PGP-compatible format for the existing UI
   const realPGP: PgpMember[] = useRealData && criticalPath ? criticalPath.memberLoads.map((ml, idx) => {
@@ -870,19 +877,21 @@ function OverviewScreen() {
   const AL = sum(rows.map(r => r.s.al));
   const DN2 = sum(rows.map(r => r.s.dn));
 
-  // Real predicted completion data from scheduler
-  const predictedDay = criticalPath?.predictedCompletionDay;
-  const deadlineDay = criticalPath?.deadlineDay;
-  const delayDays = criticalPath?.delayDays ?? 0;
-  const riskStatus = criticalPath?.riskStatus ?? '';
-  const isAtRisk = delayDays > 0;
-  const statusLabel = isAtRisk ? 'At Risk' : riskStatus === 'Complete' ? 'Completed' : 'On Track';
+  // Use project's own status/daysLeft for the deadline display
+  // (scheduler criticalPath may have unrealistic day values for mockup)
+  const isAtRisk = project.status === 'dg';
+  const isOnTrack = project.status === 'ok' && !isCompleted;
+  const daysLeft = project.daysLeft ?? 0;
+  const statusLabel = isCompleted ? 'Completed' : isAtRisk ? 'At Risk' : 'On Track';
   const statusClass = isAtRisk ? 's-dg' : 's-ok';
 
   // Calculate timeline positions for the deadline line
-  const todayPct = 0; // Start of project
-  const deadlinePct = deadlineDay ? Math.min(100, (deadlineDay / Math.max(predictedDay ?? deadlineDay, deadlineDay)) * 100) : 70.3;
-  const predictedPct = predictedDay ? Math.min(100, (predictedDay / Math.max(predictedDay, deadlineDay ?? predictedDay)) * 100) : 96.2;
+  // At Risk: predicted completion is ~3 days after deadline
+  // On Track: predicted completion is before deadline
+  const totalDays = isCompleted ? 30 : Math.max(daysLeft + (isAtRisk ? 3 : 0), 14);
+  const todayPct = isCompleted ? 100 : (1 - daysLeft / totalDays) * 100;
+  const deadlinePct = isCompleted ? 100 : (daysLeft / totalDays) * 100 + todayPct;
+  const predictedPct = isAtRisk ? deadlinePct + (3 / totalDays) * 100 : deadlinePct - (2 / totalDays) * 100;
 
   return (
     <section className="scr page wide on" id="s-overview">
@@ -892,22 +901,22 @@ function OverviewScreen() {
           <div className="row mb12 wrap">
             <div><div className="h3">Predicted completion</div><div className="sm mut">Calculated from task dependencies and each member&apos;s weekly availability.</div></div>
             <span className="sp" />
-            <span className={`stat ${statusClass}`}>{statusLabel}{isAtRisk ? ` \u00b7 ${delayDays} days late` : ''}</span>
+            <span className={`stat ${statusClass}`}>{statusLabel}{isAtRisk ? ` \u00b7 ${daysLeft} days left` : isOnTrack ? ` \u00b7 ${daysLeft} days left` : ''}</span>
           </div>
           <div className="dline">
             <div className="ax" />
-            <div className={isAtRisk ? 'lt' : 'ok'} style={{ left: 0, width: `${deadlinePct}%` }} />
-            {isAtRisk && <div className="lt" style={{ left: `${deadlinePct}%`, width: `${predictedPct - deadlinePct}%` }} />}
-            <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Mon 12 Oct</div>
-            <div className="mk" style={{ left: `${deadlinePct}%`, top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />Fri 30 Oct</div>
-            <div className="mk" style={{ left: `${Math.min(predictedPct, 98)}%`, top: 0, color: 'var(--dg)' }}><b>Predicted</b><br />Day {predictedDay ?? '6'}</div>
-            <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: 'var(--dg)' }} />
+            <div className={isAtRisk ? 'lt' : 'ok'} style={{ left: 0, width: `${Math.min(todayPct, 100)}%` }} />
+            {isAtRisk && <div className="lt" style={{ left: `${todayPct}%`, width: `${Math.min(deadlinePct - todayPct + (3 / totalDays) * 100, 100 - todayPct)}%` }} />}
+            <div className="mk" style={{ left: 0, top: 0, color: 'var(--ink2)' }}>Today<br />Sun 11 Oct</div>
+            <div className="mk" style={{ left: `${Math.min(deadlinePct, 95)}%`, top: 0, color: 'var(--blue6)' }}><b>Deadline</b><br />{project.due}</div>
+            <div className="mk" style={{ left: `${Math.min(predictedPct, 98)}%`, top: 0, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }}><b>{isAtRisk ? 'Predicted' : 'Done'}</b><br />{isAtRisk ? `${daysLeft + 3} days` : project.due}</div>
+            <div className="pt" style={{ left: `${Math.min(predictedPct, 98)}%`, color: isAtRisk ? 'var(--dg)' : 'var(--ok)' }} />
           </div>
           {isAtRisk ? (
             <div className="alert al-dg mt16">
               <i className="ti ti-alert-triangle" />
               <div className="row wrap" style={{ flex: 1 }}>
-                <div><b>{criticalPath?.delayedTaskIds.length ?? 0} tasks finish after the deadline.</b><div className="sm mut">Open AI Deadline Defender to prioritize tasks and maximize your marks.</div></div>
+                <div><b>4 tasks at risk of missing the deadline.</b><div className="sm mut">Only {daysLeft} days left. Open Project Rescue to prioritize tasks and maximize your marks.</div></div>
                 <span className="sp" />
                 <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-trophy" /> Open Project Rescue</button>
               </div>
@@ -916,7 +925,7 @@ function OverviewScreen() {
             <div className="alert al-ok mt16">
               <i className="ti ti-circle-check" />
               <div className="row wrap" style={{ flex: 1 }}>
-                <div><b>On track.</b><div className="sm mut">All tasks are predicted to finish before the deadline.</div></div>
+                <div><b>On track.</b><div className="sm mut">{daysLeft} days remaining. All tasks are predicted to finish before the deadline.</div></div>
               </div>
             </div>
           )}
@@ -927,7 +936,7 @@ function OverviewScreen() {
           <div className="alert al-ok">
             <i className="ti ti-circle-check" />
             <div className="row wrap" style={{ flex: 1 }}>
-              <div><b>Project completed.</b><div className="sm mut">Delivered on {project.due}. All {project.tasks} tasks done.</div></div>
+              <div><b>Project completed on time.</b><div className="sm mut">Delivered on {project.due}. All {getProjectTK(activeProjectId).length} tasks done.</div></div>
             </div>
           </div>
         </div>
@@ -1006,8 +1015,10 @@ function TasksScreen() {
   const taskView = useMockupStore2(s => s.taskView);
   const setTaskView = useMockupStore2(s => s.setTaskView);
   const openOverlay = useMockupStore2(s => s.openOverlay);
+  const go = useMockupStore2(s => s.go);
   const activeProjectId = useMockupStore2(s => s.activeProjectId);
   const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
   const pipelineRan = useMockupStore2(s => s.pipelineRan);
   const plan = useTaskStore(s => s.plan);
   const members = useTaskStore(s => s.members);
@@ -1019,8 +1030,9 @@ function TasksScreen() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [memberFilter, setMemberFilter] = useState('all');
 
-  // Build task rows: use real plan tasks if pipeline ran, otherwise fall back to project-filtered TK
-  const useRealData = pipelineRan && plan && plan.tasks.length > 0;
+  // Only use real plan data if the pipeline ran for THIS project
+  // (pipelineRan is global — without this check, SRS tasks leak into web/data projects)
+  const useRealData = activeProjectId === 'srs' && pipelineRan && plan && plan.tasks.length > 0;
 
   // Convert real Task[] to TK-compatible tuple format for the existing UI
   const allRealTK: typeof TK = useRealData && plan ? plan.tasks.map((t) => {
@@ -1039,7 +1051,7 @@ function TasksScreen() {
       statusChar as TaskStatus,
       t.priority === 'critical' ? 'late' : undefined,
     ] as typeof TK[number];
-  }) : TK.filter(t => t[5].some((k: string) => memberKeys.includes(k))).map(t => {
+  }) : getProjectTK(activeProjectId).map(t => {
     // Apply overrides to mock tasks
     const taskId = String(t[0]);
     const override = taskOverrides[taskId];
@@ -1151,8 +1163,9 @@ function TimelineScreen() {
   const members = useTaskStore(s => s.members);
   const taskOverrides = useMockupStore2(s => s.taskOverrides); // re-renders when progress changes
 
-  // Build Gantt data: use real schedule if pipeline ran, otherwise fall back to project-filtered GT
-  const useRealData = pipelineRan && criticalPath && plan && members.length > 0;
+  // Build Gantt data: use real schedule if pipeline ran for THIS project, otherwise fall back to project-filtered GT
+  // (pipelineRan is global — without the projectId check, SRS schedule data leaks into web/data projects)
+  const useRealData = activeProjectId === 'srs' && pipelineRan && criticalPath && plan && members.length > 0;
 
   // Convert real schedule to GT-compatible format: [task, member, startDay, endDay, class?]
   const realGT: typeof GT = useRealData && criticalPath && plan
@@ -1173,7 +1186,7 @@ function TimelineScreen() {
           barClass,
         ] as typeof GT[number];
       })
-    : GT.filter(g => memberKeys.includes(g[1])).map(g => {
+    : getProjectGT(activeProjectId).map(g => {
         // Check overrides for mock data tasks
         const tkEntry = TK.find(t => t[1] === g[0]);
         const taskId = tkEntry ? String(tkEntry[0]) : g[0];
@@ -1184,16 +1197,22 @@ function TimelineScreen() {
       });
 
   // Calculate timeline dimensions from real data
+  const mockProject = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
+  const mockIsAtRisk = mockProject.status === 'dg';
+  const mockIsCompleted = mockProject.statusLabel === 'Completed';
   const maxDay = useRealData && criticalPath
     ? Math.max(criticalPath.predictedCompletionDay, criticalPath.deadlineDay) + 2
     : 27;
   const N = maxDay;
   const W = 100 / N;
 
-  // Deadline and predicted positions
-  const deadlineDay = useRealData && criticalPath ? criticalPath.deadlineDay : 19;
-  const predictedDay = useRealData && criticalPath ? criticalPath.predictedCompletionDay : 26;
-  const delayDays = useRealData && criticalPath ? criticalPath.delayDays : 0;
+  // Deadline and predicted positions — project-aware for mock data
+  // At Risk: predicted 3 days late (red dashed)
+  // On Track: predicted 3 days early (blue solid)
+  // Completed: finished exactly on deadline (blue solid)
+  const deadlineDay = useRealData && criticalPath ? criticalPath.deadlineDay : (mockIsCompleted ? 19 : mockIsAtRisk ? 19 : 24);
+  const predictedDay = useRealData && criticalPath ? criticalPath.predictedCompletionDay : (mockIsCompleted ? 19 : mockIsAtRisk ? 22 : 21);
+  const delayDays = useRealData && criticalPath ? criticalPath.delayDays : (mockIsAtRisk ? 3 : 0);
 
   // Date labels for the timeline
   const dateLabels = [0, Math.floor(N / 4), Math.floor(N / 2), Math.floor(N * 3 / 4)];
@@ -1237,8 +1256,10 @@ function TimelineScreen() {
                   <div style={{ position: 'relative', height: 40 }}>
                     {[Math.floor(N / 4), Math.floor(N / 2), Math.floor(N * 3 / 4)].map(d => <i key={d} style={{ position: 'absolute', left: `${d * W}%`, top: 0, bottom: 0, borderLeft: '1px solid var(--line)' }} />)}
                     <div style={{ position: 'absolute', left: `${deadlineDay * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
-                    {delayDays > 0 && (
+                    {delayDays > 0 ? (
                       <div style={{ position: 'absolute', left: `${predictedDay * W}%`, top: 0, bottom: 0, borderLeft: '2px dashed #e0483c' }} />
+                    ) : (
+                      <div style={{ position: 'absolute', left: `${predictedDay * W}%`, top: 0, bottom: 0, borderLeft: '2px solid var(--blue)' }} />
                     )}
                     <div className={`gbar ${g[4] || ''}`} style={{ left: `${g[2] * W}%`, width: `${(g[3] - g[2] + 1) * W}%` }}>{g[1]}</div>
                   </div>
@@ -1255,7 +1276,7 @@ function TimelineScreen() {
           </div>
           <div className="row wrap g16 xs mut mt12">
             <span><i className="ti ti-minus" style={{ color: 'var(--blue)' }} /> Deadline Day {deadlineDay}</span>
-            <span><i className="ti ti-minus" style={{ color: '#e0483c' }} /> Predicted completion Day {predictedDay}{delayDays > 0 ? ` (${delayDays}d late)` : ''}</span>
+            <span><i className="ti ti-minus" style={{ color: delayDays > 0 ? '#e0483c' : 'var(--blue)' }} /> Predicted completion Day {predictedDay}{delayDays > 0 ? ` (${delayDays}d late)` : ' (on track)'}</span>
             {useRealData && criticalPath && criticalPath.delayedTaskIds.length > 0 && (
               <span className="badge b-wn"><i className="ti ti-link" /> {criticalPath.delayedTaskIds.length} tasks end after deadline</span>
             )}
@@ -1302,34 +1323,49 @@ function ProjectScreen() {
           <span className="xs mut">{PROJECTS.length} projects</span>
         </div>
         <div className="gp2">
-          {PROJECTS.map((p, i) => (
+          {PROJECTS.map((p, i) => {
+            const pTK = getProjectTK(p.id);
+            const pDone = pTK.filter(t => t[8] === 'done').length;
+            const pTotal = pTK.length;
+            return (
             <div
               key={i}
               className="stc"
-              style={{ cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s' }}
+              style={{ cursor: 'pointer' }}
               onClick={() => { setActiveProject(p.id); go('overview'); }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--blue)'; e.currentTarget.style.boxShadow = 'var(--sh)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
-              <div className="row mb8">
-                <span className={`stat s-${p.status}`}>{p.statusLabel}</span>
+              <div className="row mb12" style={{ alignItems: 'flex-start' }}>
+                <span className={`stat s-${p.status}`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{p.statusLabel}</span>
                 <span className="sp" />
-                <span className="xs mut"><i className="ti ti-calendar" /> {p.due}</span>
+                <div className="row g8" style={{ flexWrap: 'nowrap', color: 'var(--ink2)', fontSize: 12 }}>
+                  <span className="xs mut"><i className="ti ti-calendar" /> {p.due}</span>
+                  {p.daysLeft > 0 && p.statusLabel !== 'Completed' && (
+                    <span className="xs" style={{ color: p.status === 'dg' ? 'var(--dg)' : 'var(--ok)', fontWeight: 500 }}>
+                      &middot; {p.daysLeft} days left
+                    </span>
+                  )}
+                  {p.statusLabel === 'Completed' && (
+                    <span className="xs" style={{ color: 'var(--ok)', fontWeight: 500 }}>
+                      <i className="ti ti-circle-check" /> Completed on time
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="t"><i className="ti ti-folder" style={{ color: 'var(--blue)' }} /> {p.name}</div>
-              <div className="sm mut mt4">{p.desc}</div>
-              <div className="row g16 mt12">
+              <div className="t" style={{ marginBottom: 8 }}><i className="ti ti-folder" style={{ color: 'var(--blue)' }} /> {p.name}</div>
+              <div className="sm mut" style={{ marginBottom: 18, lineHeight: 1.5 }}>{p.desc}</div>
+              <div className="row g16" style={{ marginTop: 'auto' }}>
                 <span className="xs mut"><i className="ti ti-users" /> {p.members} members</span>
-                <span className="xs mut"><i className="ti ti-list-check" /> {p.done}/{p.tasks} tasks done</span>
-                {p.done < p.tasks && (
+                <span className="xs mut"><i className="ti ti-list-check" /> {pDone}/{pTotal} tasks done</span>
+                {pDone < pTotal && (
                   <span className="sp" />
                 )}
-                {p.done < p.tasks && (
-                  <div className="bar" style={{ flex: 1, maxWidth: 100 }}><i style={{ width: Math.round(p.done / p.tasks * 100) + '%' }} /></div>
+                {pDone < pTotal && (
+                  <div className="bar" style={{ flex: 1, maxWidth: 120 }}><i style={{ width: Math.round(pDone / pTotal * 100) + '%' }} /></div>
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
     </section>

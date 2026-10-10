@@ -1,5 +1,7 @@
 # TaskFlow AI — 6 个 Agent 的确认清单与调教 Prompt(交给 WorkBuddy)
 
+> 实现状态: 6 个 agent 的 prompt 模板在 `src/lib/agents/prompts.ts`。Mock LLM 在 `mock-llm.ts`。真实 LLM 在 `external-llm.ts`。WorkBuddy cloud.llm 在 `cloud-llm.ts`。排程在 `src/lib/logic/scheduler.ts`。Rescue engine 在 `src/lib/logic/rescue-engine.ts`。Per-project 任务推导在 `mockTaskflow2.ts` 的 `getProjectTK()`/`getProjectGT()`。所有任务计数已动态化。
+
 用途:
 1. **确认**六个 agent 在产品里都有用到,没有"做了却没人调用"的。
 2. 给每个需要模型的 agent 一份可直接贴进去的 **system prompt**、输出格式和调教方法。

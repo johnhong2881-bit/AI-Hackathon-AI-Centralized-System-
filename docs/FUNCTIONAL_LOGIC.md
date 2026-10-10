@@ -811,20 +811,25 @@ type ProgressCallback = (state: PipelineState) => void;
 
 | 组件                      | 数据源                                                  | 功能                   |
 | ----------------------- | ---------------------------------------------------- | -------------------- |
-| `AssignmentInputForm`   | 用户输入 → POST /api/pipeline/run                        | "One Prompt" 入口表单    |
-| `PipelineRunner`        | `runPipeline()` 客户端调用                                | 6-Agent 步骤可视化 (实时进度) |
-| `BeforeAfterComparison` | mockRiskAssessment + mockRescuePlan + mockPlanResult | Before/After 救援对比    |
-| `Dashboard`             | Zustand store (mockFullPipeline)                     | 项目概览 (进度、风险、截止日期)    |
-| `MemberCard`            | mockMembers                                          | 团队成员卡片 (技能条)         |
-| `CountdownTimer`        | mockDeadline                                         | 实时倒计时                |
-| `KanbanBoard`           | (待实现)                                                | 看板拖拽 (@dnd-kit)      |
-| `GanttChart`            | (待实现)                                                | 甘特图时间轴               |
-| `TaskDetailPanel`       | (待实现)                                                | 任务详情侧栏               |
-| `RescuePlanModal`       | (待实现)                                                | 救援方案弹窗               |
+| `TaskFlowMockup2`        | `useMockupStore2` Zustand store                       | Mockup 2 主容器(logo、role toggle、screen routing) |
+| `ProjectScreen`          | `PROJECTS` mock 数组                                   | 项目首页(项目卡片、流程引导、contribution 按钮)    |
+| `CreateScreen`           | 表单状态 + `/api/upload`                                 | Step 1: 项目创建表单        |
+| `TeamScreen`             | `MEM` mock + 本地状态                                     | Step 2: 团队成员编辑        |
+| `ReviewScreen`           | Create + Team 摘要                                     | Step 3: 审查摘要          |
+| `AnalysisScreen`         | `/api/pipeline/run` (DST 步骤动画)                       | Step 4: AI 分析进度可视化   |
+| `OverviewScreen`         | `useTaskStore` + `PGP` mock (per-project via `getProjectTK()`)  | 项目概览(预测完成线、团队进度、contribution);任务总数动态计算 |
+| `TasksScreen`            | `TK` mock / `getProjectTK()` (per-project derivation)            | 任务列表 + 看板 + 任务详情;SRS 用 TK,其他项目从 PGP 推导 |
+| `TimelineScreen`         | `GT` mock / `getProjectGT()` (per-project derivation)            | 甘特图时间轴;SRS 用 GT,其他项目从 PGP 推导;预测线颜色按项目状态 |
+| `DefenderScreen`         | `/api/pipeline/rescue` + `useTaskStore` + `getProjectTK()`    | AI Deadline Defender (3-phase);任务总数/可完成数动态计算 |
+| `Mockup2Overlays`        | `useMockupStore2` state + `PGP` (per-project)                 | Drawers, modals, toasts;Contribution Modal 用 PGP 显示各项目成员 |
+| `WorkspaceHeader`        | `PROJECTS` + `PROJECT_MEMBERS` + `getProjectTK()` (per-project) | 项目面包屑、标题、状态、tabs;任务徽章和开放任务数动态计算 |
 
-### Zustand Store
+### Zustand Stores
 
-`src/store/useTaskStore.ts` 预加载所有 mock 数据，组件通过 `useTaskStore()` 读取。切换到真实 API 时，只需在 store 的初始化处替换 mock 数据为 fetch 调用。
+- `useMockupStore2` (`src/store/useMockupStore2.ts`): UI 状态(screen, role, overlay, task view, defender phase, activeProjectId, toasts 等)
+- `useTaskStore` (`src/store/useTaskStore.ts`): Pipeline 数据(riskAssessment, plan, members, rescuePlan, criticalPath 等)
+
+切换到真实 API 时,只需在 store 的初始化处替换 mock 数据为 fetch 调用。
 
 ---
 
@@ -1720,4 +1725,4 @@ Round 3: 最终尝试 → Validate → Compare
 
 ---
 
-*文档版本: 2026-10-10 | 项目: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*
+*文档版本: 2026-10-11 v2 | 项目: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*

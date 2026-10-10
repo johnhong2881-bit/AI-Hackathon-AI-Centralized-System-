@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
-import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
+import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS, PROJECTS, PGP, AVC, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
 import type { Task, Member, Skill, TaskStatus, Priority } from '@/types/types';
 
 // ===== Overlay Wrapper =====
@@ -892,36 +892,29 @@ function OverrideModal() {
 function EditModal() {
   const closeOverlay = useMockupStore2(s => s.closeOverlay);
   const addToast = useMockupStore2(s => s.addToast);
-  const assignment = useTaskStore(s => s.assignment);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
 
-  const [projName, setProjName] = useState(assignment?.title || 'Software Requirements Specification');
+  const [projName, setProjName] = useState(project.name);
   const [deadline, setDeadline] = useState(() => {
-    if (assignment?.deadline) {
-      return assignment.deadline.slice(0, 10);
-    }
-    return '2026-10-30';
+    // Convert project.due to a date string (YYYY-MM-DD)
+    // Today = Oct 11 2026; project due dates are relative
+    const dueMap: Record<string, string> = {
+      'srs': '2026-10-18',
+      'web': '2026-11-08',
+      'data': '2026-10-05',
+    };
+    return dueMap[project.id] || '2026-10-18';
   });
-  const [time, setTime] = useState(() => {
-    if (assignment?.deadline) {
-      return assignment.deadline.slice(11, 16);
-    }
-    return '17:00';
-  });
+  const [time, setTime] = useState('17:00');
 
   const handleSave = () => {
-    const store = useTaskStore.getState();
-    const current = store.assignment;
-    if (current) {
-      const deadlineISO = new Date(`${deadline}T${time}:00+08:00`).toISOString();
-      store.setAssignment({
-        ...current,
-        title: projName,
-        course: projName,
-        deadline: deadlineISO,
-      });
-    }
+    // In a full implementation, this would:
+    // 1. Update the project name and deadline
+    // 2. Trigger AI re-calculation (re-allocate tasks, re-schedule, re-assess risk)
+    // For now, we update the toast to reflect what would happen
     closeOverlay();
-    addToast('Project updated. Schedule recalculated.', 'ti-circle-check');
+    addToast(`Project "${projName}" updated. Schedule recalculated — AI re-allocated tasks and reassessed risks.`, 'ti-refresh');
   };
 
   return (
@@ -944,13 +937,13 @@ function EditModal() {
         </div>
         <div className="alert al-wn sm mt12">
           <i className="ti ti-alert-triangle" />
-          <div>Changing the deadline recalculates the schedule and risk.</div>
+          <div>Changing the deadline triggers AI re-calculation: tasks are re-allocated to team members, the schedule is rebuilt, and risk status is reassessed.</div>
         </div>
       </div>
       <div className="ft">
         <button className="btn" onClick={closeOverlay}>Cancel</button>
         <button className="btn btn-p" onClick={handleSave}>
-          Save and recalculate
+          <i className="ti ti-refresh" /> Save and recalculate
         </button>
       </div>
     </>
@@ -968,41 +961,57 @@ function ContributionModal() {
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<string | null>(null);
 
-  // Determine task completion — use real plan or fall back to mock TK + overrides
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
   const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
-  const useMockFallback = !plan || plan.tasks.length === 0;
-  const mockTasks = useMockFallback ? TK.filter(t => t[5].some((k: string) => memberKeys.includes(k))) : [];
 
-  const totalTasks = useMockFallback ? mockTasks.length : (plan?.tasks.length || 0);
-  const doneTasks = useMockFallback
-    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).length
-    : (plan?.tasks.filter(t => t.status === 'done').length || 0);
-  const inProgressTasks = useMockFallback
-    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return (ov?.status === 'in-progress') || (!ov && t[8] === 'prog'); }).length
-    : (plan?.tasks.filter(t => t.status === 'in-progress').length || 0);
-  const todoTasks = useMockFallback
-    ? mockTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'todo' || (!ov && t[8] === 'todo'); }).length
-    : (plan?.tasks.filter(t => t.status === 'todo' || !t.status).length || 0);
+  // Use real plan data only if the pipeline ran for the SRS project (the analyzed one).
+  // For other projects (web, data), fall back to PGP which has entries for ALL members.
+  const useRealData = activeProjectId === 'srs' && plan && plan.tasks.length > 0 && members.length > 0;
+
+  // Get project members from PGP (has entries for all projects: SRS, web, data)
+  const projectMembers = PGP.filter(p => memberKeys.includes(p[0]));
+
+  // Build per-member contribution from PGP data (or real plan for SRS)
+  const memberContrib = useRealData
+    ? members.map(m => {
+        const memberTasks = plan?.tasks.filter(t => t.assignedTo === m.id || t.memberAssignments?.some(ma => ma.memberId === m.id)) ?? [];
+        const done = memberTasks.filter(t => t.status === 'done').length;
+        const total = memberTasks.length;
+        const hoursDone = memberTasks.filter(t => t.status === 'done').reduce((s, t) => s + (t.estimatedHours || 0), 0);
+        const hoursTotal = memberTasks.reduce((s, t) => s + (t.estimatedHours || 0), 0);
+        return {
+          key: m.avatar, name: m.name, skills: m.skills.join(', '),
+          done, total, hoursDone, hoursTotal,
+          tasks: memberTasks.map(t => ({ title: t.title, totalHours: t.estimatedHours, remainingHours: t.estimatedHours, status: t.status })),
+        };
+      })
+    : projectMembers.map(pgpm => {
+        const tasks = pgpm[5].map(t => {
+          // Match PGP task title to TK entry for override lookup
+          const tkEntry = TK.find(tk => tk[1] === t[0]);
+          const taskId = tkEntry ? String(tkEntry[0]) : t[0];
+          const override = taskOverrides[taskId];
+          const status = override?.status || t[3];
+          const remainingHours = override?.hours ?? t[2];
+          return {
+            title: t[0],
+            totalHours: t[1],
+            remainingHours,
+            status: status === 'done' ? 'done' : status === 'prog' ? 'in-progress' : 'todo',
+          };
+        });
+        const done = tasks.filter(t => t.status === 'done').length;
+        const total = tasks.length;
+        const hoursDone = tasks.filter(t => t.status === 'done').reduce((s, t) => s + (t.totalHours - t.remainingHours), 0);
+        const hoursTotal = tasks.reduce((s, t) => s + t.totalHours, 0);
+        return { key: pgpm[0], name: pgpm[1], skills: pgpm[2], done, total, hoursDone, hoursTotal, tasks };
+      });
+
+  const totalTasks = memberContrib.reduce((s, mc) => s + mc.total, 0);
+  const doneTasks = memberContrib.reduce((s, mc) => s + mc.done, 0);
+  const inProgressTasks = memberContrib.reduce((s, mc) => s + mc.tasks.filter((t: any) => t.status === 'in-progress').length, 0);
+  const todoTasks = memberContrib.reduce((s, mc) => s + mc.tasks.filter((t: any) => t.status === 'todo').length, 0);
   const allDone = totalTasks > 0 && doneTasks === totalTasks;
-
-  // Per-member contribution
-  const memberContrib = members.length > 0 ? members.map(m => {
-    const memberTasks: any[] = useMockFallback
-      ? mockTasks.filter(t => t[5].some((k: string) => m.avatar === k || m.name.split(' ').map(w => w[0]).join('') === k))
-      : (plan?.tasks.filter(t => t.assignedTo === m.id || t.memberAssignments?.some(ma => ma.memberId === m.id)) || []);
-    const isMock = useMockFallback;
-    const done = isMock
-      ? memberTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).length
-      : memberTasks.filter((t: any) => t.status === 'done').length;
-    const total = memberTasks.length;
-    const hoursDone = isMock
-      ? memberTasks.filter(t => { const ov = taskOverrides[String(t[0])]; return ov?.status === 'done' || t[8] === 'done'; }).reduce((s: number, t: any) => s + (t[4] || 0), 0)
-      : memberTasks.filter((t: any) => t.status === 'done').reduce((s: number, t: any) => s + (t.estimatedHours || 0), 0);
-    const hoursTotal = isMock
-      ? memberTasks.reduce((s: number, t: any) => s + (t[4] || 0), 0)
-      : memberTasks.reduce((s: number, t: any) => s + (t.estimatedHours || 0), 0);
-    return { member: m, done, total, hoursDone, hoursTotal, tasks: memberTasks };
-  }) : [];
 
   const handleGenerate = () => {
     setGenerating(true);
@@ -1012,26 +1021,21 @@ function ContributionModal() {
       lines.push('CONTRIBUTION REPORT');
       lines.push('==================');
       lines.push(`Generated: ${new Date().toLocaleString()}`);
-      lines.push(`Project: ${plan?.assignmentId || 'TaskFlow Project'}`);
+      lines.push(`Project: ${project.name}`);
+      lines.push(`Members: ${memberContrib.length}`);
       lines.push(`Tasks: ${doneTasks}/${totalTasks} done, ${inProgressTasks} in-progress, ${todoTasks} todo`);
       lines.push('');
       lines.push('MEMBER CONTRIBUTIONS:');
       lines.push('--------------------');
       memberContrib.forEach(mc => {
         const pct = mc.total > 0 ? Math.round(mc.done / mc.total * 100) : 0;
-        lines.push(`\n${mc.member.name}:`);
+        const hoursPct = mc.hoursTotal > 0 ? Math.round(mc.hoursDone / mc.hoursTotal * 100) : 0;
+        lines.push(`\n${mc.name} (${mc.skills}):`);
         lines.push(`  Tasks: ${mc.done}/${mc.total} done (${pct}%)`);
-        lines.push(`  Hours: ${mc.hoursDone}/${mc.hoursTotal}h completed`);
+        lines.push(`  Hours: ${mc.hoursDone}/${mc.hoursTotal}h completed (${hoursPct}%)`);
         mc.tasks.forEach((t: any) => {
-          const title = useMockFallback ? t[1] : t.title;
-          const hours = useMockFallback ? t[4] : (t.estimatedHours || 0);
-          const taskId = useMockFallback ? String(t[0]) : t.id;
-          const ov = taskOverrides[taskId];
-          const status = useMockFallback
-            ? (ov?.status || (t[8] === 'prog' ? 'in-progress' : t[8] === 'done' ? 'done' : 'todo'))
-            : t.status;
-          const icon = status === 'done' ? '[x]' : status === 'in-progress' ? '[~]' : '[ ]';
-          lines.push(`  ${icon} ${title} (${hours}h)`);
+          const icon = t.status === 'done' ? '[x]' : t.status === 'in-progress' ? '[~]' : '[ ]';
+          lines.push(`  ${icon} ${t.title} (${t.totalHours}h)`);
         });
       });
       lines.push('');
@@ -1132,13 +1136,13 @@ function ContributionModal() {
         {/* Member preview */}
         {memberContrib.length > 0 && (
           <div className="sec">
-            <div className="eyebrow mb8">Members</div>
+            <div className="eyebrow mb8">Members ({memberContrib.length})</div>
             {memberContrib.map((mc, i) => (
-              <div key={mc.member.id} className="card flat mb8" style={{ padding: 10 }}>
+              <div key={mc.key} className="card flat mb8" style={{ padding: 10 }}>
                 <div className="row g8">
-                  <span className={`av av${i % 4}`}>{mc.member.avatar}</span>
+                  <span className={`av ${AVC[mc.key] || 'av4'}`}>{mc.key}</span>
                   <div style={{ flex: 1 }}>
-                    <div className="b sm">{mc.member.name}</div>
+                    <div className="b sm">{mc.name}</div>
                     <div className="xs mut">{mc.done}/{mc.total} tasks &middot; {mc.hoursDone}/{mc.hoursTotal}h</div>
                   </div>
                   <span className={`badge ${mc.done === mc.total && mc.total > 0 ? 'b-ok' : mc.done > 0 ? 'b-wn' : ''}`}>

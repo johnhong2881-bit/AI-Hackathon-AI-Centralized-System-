@@ -4,8 +4,17 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
 import { WorkspaceHeader, av } from './Mockup2Screens';
-import { MEM, LOGS, DST, REASONS, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
+import { MEM, LOGS, DST, REASONS, RUBRIC_MARKS, RUBRIC_TOTAL, PROJECTS, PROJECT_MEMBERS, PGP, getProjectTK } from '@/lib/mock/mockTaskflow2';
 import type { RescuePlan } from '@/types/types';
+
+// Build a combined member list from MEM and PGP (PGP has members not in MEM, e.g. EW, FA, GL, HS)
+function getProjectMembers(activeProjectId: string): { k: string; n: string }[] {
+  const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+  const lookup = new Map<string, { k: string; n: string }>();
+  MEM.forEach(m => lookup.set(m.k, { k: m.k, n: m.n }));
+  PGP.forEach(p => { if (!lookup.has(p[0])) lookup.set(p[0], { k: p[0], n: p[1] }); });
+  return memberKeys.map(k => lookup.get(k) || { k, n: k });
+}
 
 // ===== Defender Screen =====
 export function DefenderScreen() {
@@ -32,6 +41,27 @@ function RiskPhase() {
   const addToast = useMockupStore2(s => s.addToast);
   const [showErr, setShowErr] = useState(false);
 
+  // Project-aware data
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
+  const projectMembers = getProjectMembers(activeProjectId);
+
+  // Calculate project-specific values for the info cards
+  const isCompleted = project.statusLabel === 'Completed';
+  const isAtRisk = project.status === 'dg';
+  const daysLeft = project.daysLeft ?? 0;
+  const tasksTotal = getProjectTK(activeProjectId).length;
+  const tasksDone = getProjectTK(activeProjectId).filter(t => t[8] === 'done').length;
+  const tasksCompletable = isCompleted ? tasksTotal : isAtRisk ? Math.max(tasksDone, Math.ceil(tasksTotal * 0.6)) : Math.max(tasksDone, Math.ceil(tasksTotal * 0.8));
+  const marksAchievable = isCompleted ? RUBRIC_TOTAL : isAtRisk ? Math.round(RUBRIC_TOTAL * 0.73) : Math.round(RUBRIC_TOTAL * 0.9);
+
+  // Reset defenderWho to a valid project member when switching projects
+  useEffect(() => {
+    if (projectMembers.length > 0 && !projectMembers.find(m => m.n === defenderWho)) {
+      setDefenderWho(projectMembers[0].n);
+    }
+  }, [activeProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const reasonText = () => {
     if (defenderReason === null) return '';
     const base = REASONS[defenderReason][1];
@@ -53,19 +83,33 @@ function RiskPhase() {
     <div className="nv-hero">
       <div className="row wrap g12 mb16">
         <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)' }}><i className="ti ti-trophy" /> Project Rescue</span>
-        <span className="badge" style={{ background: '#ffd9d4', color: '#8d1f15' }}><i className="ti ti-alert-triangle" /> Deadline at risk</span>
+        <span className="badge" style={{
+          background: isCompleted ? '#d4f4e4' : isAtRisk ? '#ffd9d4' : '#d4e8f4',
+          color: isCompleted ? '#0d6e4e' : isAtRisk ? '#8d1f15' : '#1a5fa8',
+        }}>
+          <i className={`ti ${isCompleted ? 'ti-circle-check' : isAtRisk ? 'ti-alert-triangle' : 'ti-clock'}`} />
+          {isCompleted ? 'Completed' : isAtRisk ? 'Deadline at risk' : 'On track'}
+        </span>
       </div>
       <h2 style={{ fontSize: 30, lineHeight: 1.15, fontWeight: 700, letterSpacing: '-.02em', maxWidth: 640 }}>
-        Not enough time to finish everything. Here&apos;s how to maximize your marks.
+        {isAtRisk
+          ? "Not enough time to finish everything. Here\u2019s how to maximize your marks."
+          : isCompleted
+          ? "Project complete. Here\u2019s the final mark breakdown."
+          : "Your project is on track. Here\u2019s how to stay ahead."}
       </h2>
       <p className="mut mt8" style={{ maxWidth: 600 }}>
-        The AI will prioritize easy, high-value tasks so your team gets the most marks with the time left. You don&apos;t need to finish everything &mdash; just the tasks that matter most.
+        {isAtRisk
+          ? "The AI will prioritize easy, high-value tasks so your team gets the most marks with the time left. You don\u2019t need to finish everything \u2014 just the tasks that matter most."
+          : isCompleted
+          ? "All tasks were completed on time. The contribution report and mark breakdown are available below."
+          : "The AI can still optimize your workflow. Run the optimizer to see if there\u2019s a better task ordering or quick wins to gain extra marks."}
       </p>
       <div className="g2r mt24" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
-        <div className="kv"><div className="k">Current deadline</div><div className="v">Fri 30 Oct</div></div>
-        <div className="kv"><div className="k">Time remaining</div><div className="v" style={{ color: '#ffb4ac' }}>7 days</div></div>
-        <div className="kv"><div className="k">Tasks completable</div><div className="v">5 of 10</div></div>
-        <div className="kv"><div className="k">Marks achievable</div><div className="v" style={{ color: '#6fe0b2' }}>22 / {RUBRIC_TOTAL}</div></div>
+        <div className="kv"><div className="k">Current deadline</div><div className="v">{project.due}</div></div>
+        <div className="kv"><div className="k">Time remaining</div><div className="v" style={{ color: isCompleted ? '#6fe0b2' : isAtRisk ? '#ffb4ac' : '#6fe0b2' }}>{isCompleted ? 'Completed' : `${daysLeft} days`}</div></div>
+        <div className="kv"><div className="k">Tasks completable</div><div className="v">{tasksCompletable} of {tasksTotal}</div></div>
+        <div className="kv"><div className="k">Marks achievable</div><div className="v" style={{ color: '#6fe0b2' }}>{marksAchievable} / {RUBRIC_TOTAL}</div></div>
       </div>
       <div className="mt24 lead-only">
         <div className="b mb8" style={{ fontSize: 15 }}>What&apos;s the situation? <span style={{ color: '#ffb4ac', fontWeight: 500, fontSize: 13 }}>Required</span></div>
@@ -79,7 +123,7 @@ function RiskPhase() {
         <div className="mt8">
           {(defenderReason === 1 || defenderReason === 2) && (
             <select className="rsel" value={defenderWho} onChange={e => setDefenderWho(e.target.value)}>
-              {MEM.map(m => <option key={m.k} value={m.n}>{m.n}</option>)}
+              {projectMembers.map(m => <option key={m.k} value={m.n}>{m.n}</option>)}
             </select>
           )}
           {defenderReason === 5 && (
@@ -130,8 +174,9 @@ function RunPhase() {
   const leaderReasonObj = () => {
     if (defenderReason === null) return undefined;
     const reasonLabel = REASONS[defenderReason][1];
-    // Map member name to ID
-    const member = MEM.find(m => m.n === defenderWho);
+    // Map member name to ID using combined MEM + PGP lookup (PGP has members not in MEM)
+    const projectMembers = getProjectMembers(useMockupStore2.getState().activeProjectId);
+    const member = projectMembers.find(m => m.n === defenderWho);
     return {
       type: reasonLabel,
       memberId: member?.k,

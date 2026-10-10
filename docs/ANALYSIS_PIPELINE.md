@@ -1,5 +1,7 @@
 # Assignment 分析(Plan 生成)完整规格
 
+> 实现状态: `/api/pipeline/run` 已实现完整 9 步 pipeline。排程由 `src/lib/logic/scheduler.ts` 实现。Plan 验证由 `src/lib/logic/plan-validator.ts` 实现。LLM 层使用 mock-llm(可切换到 external-llm 或 cloud-llm)。Per-project 任务/甘特数据通过 `getProjectTK()`/`getProjectGT()` 从 PGP 推导。所有任务计数已动态化。
+
 ## 0. 先回答:需要 agent 吗?
 
 **不需要自主 agent,需要的是"流水线(pipeline)+ 修复循环"。**

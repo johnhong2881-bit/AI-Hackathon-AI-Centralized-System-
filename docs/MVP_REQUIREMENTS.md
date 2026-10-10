@@ -1,8 +1,8 @@
 # TaskFlow AI — Hackathon Final MVP Requirements
 
 > Track 2: WorkBuddy Agentic Solution
-> Last updated: 2026-10-10
-> Status: All P0 items implemented in code + documented in FUNCTIONAL_LOGIC.md Section 15
+> Last updated: 2026-10-11
+> Status: All P0 items implemented in code + UI (Mockup 2) live. Per-project task data fully dynamic via `getProjectTK()`/`getProjectGT()`. P1 frontend items partially done.
 
 ---
 
@@ -166,22 +166,33 @@
 
 ---
 
-## 13. Demo UI — 4 Sections
+## 13. Demo UI — Full Next.js App (Mockup 2)
 
-1. **Problem Hero** — "4 students. 6 weeks. 1 grade." pain point
-2. **How It Works** — 3 steps: Paste → 6 AI Agents → Defended Plan
-3. **Live Demo** — AssignmentInputForm + PipelineRunner (6-step visualization)
-4. **Measurable Impact** — BeforeAfterComparison (killer demo: quantified rescue value)
-5. **Architecture** — 6 AgentCards + Track 2 criteria coverage table
+The app renders at `http://localhost:3000` via `page.tsx` → `TaskFlowMockup2`. It includes 8 screens with real API integration where applicable.
 
-### 5-Scene Demo Story:
-| Scene | Description | Component |
+1. **Project (Home)** — Landing page with hero, 4-step flow, project cards (At Risk / On Track / Completed), "Create new project" button, contribution report on completed projects
+2. **Create** — Step 1: project name, description, team size, assignment upload (PDF/DOCX via `/api/upload`), rubric, deadline. Back button to Home.
+3. **Team** — Step 2: add/edit/remove members with strengths (Beginner/Intermediate/Advanced), weaknesses, weekly availability, leader designation
+4. **Review** — Step 3: review summary before running AI
+5. **AI Analysis** — 9-stage pipeline visualization calling real `/api/pipeline/run` endpoint
+6. **Overview** — Per-project workspace: predicted completion, deadline risk, team progress (expandable), contribution report for completed projects
+7. **Tasks** — List + Board views, task detail drawer (view/edit), accept/reject for members, lock for leader
+8. **Timeline** — Per-project Gantt chart with deadline + predicted completion markers
+9. **AI Deadline Defender** — 3-phase rescue: (1) risk alert + reason selection → (2) live run via `/api/pipeline/rescue` → (3) priority plan with approve/reject + Before/After comparison
+
+### Screen-to-Data Mapping:
+| Screen | Component | Data Source |
 | --- | --- | --- |
-| 1: Input | Paste Assignment + Rubric text | AssignmentInputForm |
-| 2: Pipeline | 6-Agent real-time execution | PipelineRunner |
-| 3: Plan | 11 tasks, multi-member, invitation status | TaskBoard (TODO) |
-| 4: Risk + Rescue | 5 risks → 6-step rescue → comparison | BeforeAfterComparison |
-| 5: Architecture | 6 Agent cards + Track 2 mapping | AgentCard section |
+| Project | `ProjectScreen` in `Mockup2Screens.tsx` | `PROJECTS` mock array |
+| Create | `CreateScreen` in `Mockup2Screens.tsx` | Form state + `/api/upload` |
+| Team | `TeamScreen` in `Mockup2Screens.tsx` | `MEM` mock + local state |
+| Review | `ReviewScreen` in `Mockup2Screens.tsx` | Summary of Create + Team |
+| AI Analysis | `AnalysisScreen` in `Mockup2Screens.tsx` | `/api/pipeline/run` |
+| Overview | `OverviewScreen` in `Mockup2Screens.tsx` | `useTaskStore` + per-project filter |
+| Tasks | `TasksScreen` in `Mockup2Screens.tsx` | `TK` mock (filtered by project) |
+| Timeline | `TimelineScreen` in `Mockup2Screens.tsx` | `GT` mock (filtered by project) |
+| Defender | `Mockup2Defender.tsx` | `/api/pipeline/rescue` + `useTaskStore` |
+| Overlays | `Mockup2Overlays.tsx` | `useMockupStore2` state |
 
 ---
 
@@ -190,8 +201,12 @@
 ### P0 (Must Have — All Done):
 - 6-Agent Pipeline (Rubric→Task→Skill→CPM→Risk→Rescue) ✅
 - Mock LLM layer (swappable to real cloud.llm) ✅
+- External LLM integration (`external-llm.ts`) ✅
 - Before/After rescue comparison demo ✅
-- Narrative-driven landing page ✅
+- Full mockup2 UI with 8 screens ✅
+- Per-project workspace (filter by active project) ✅
+- Contribution report button on completed projects ✅
+- PDF/DOCX upload with text extraction (`/api/upload`) ✅
 - types.ts complete data contract ✅
 - Rubric Good/Average/Poor levels ✅
 - 7 risk types ✅
@@ -203,18 +218,21 @@
 - Accept/reject flow ✅
 - Plan Validator ✅
 - Weekly availability ✅
+- Resource-constrained scheduler ✅
+- Rescue engine (`rescue-engine.ts`) ✅
 
-### P1 (Should Have — Frontend TODO):
-- Kanban Board (@dnd-kit) — teammate
-- Gantt Chart — teammate
-- Task Detail Panel — teammate
-- Rescue Plan Modal — teammate
-- WorkBuddy cloud.llm integration — activate cloud-service
+### P1 (Should Have — Partially Done):
+- Tasks search/filter — UI exists, filtering not yet functional
+- Edit task save + re-schedule — UI exists, save not connected
+- Lock task requiring leader approval — UI button exists, logic not connected
+- Reject → re-assignment suggestion — UI exists, suggestion not shown
+- Review page reflecting real Create input — partially done
+- WorkBuddy cloud.llm integration — `cloud-llm.ts` ready, needs activation
 
 ### P2 (Nice to Have):
-- Hero typography polish
-- Visual polish
-- PDF upload (Assignment Input)
+- Mobile responsive verification
+- Dark mode
+- Accessibility (keyboard, screen reader)
 
 ---
 
@@ -245,14 +263,34 @@
 | `src/types/types.ts` | Single source of truth for all data types |
 | `src/lib/agents/prompts.ts` | 5 LLM prompt templates |
 | `src/lib/agents/orchestrator.ts` | 6-step pipeline runner |
-| `src/lib/agents/mock-llm.ts` | Swappable mock/real LLM layer |
-| `src/lib/agents/critical-path.ts` | CPM algorithm |
+| `src/lib/agents/mock-llm.ts` | Swappable mock LLM layer |
+| `src/lib/agents/external-llm.ts` | Real LLM API integration |
+| `src/lib/agents/cloud-llm.ts` | WorkBuddy cloud.llm integration (ready) |
+| `src/lib/logic/scheduler.ts` | Resource-constrained scheduler |
+| `src/lib/logic/critical-path.ts` | CPM algorithm |
+| `src/lib/logic/plan-validator.ts` | Plan validation checks |
+| `src/lib/logic/rescue-engine.ts` | 3-round rescue search engine |
+| `src/lib/logic/rescue-comparison.ts` | Before/After comparison logic |
+| `src/lib/logic/multi-member-assigner.ts` | Skill scoring + matching |
+| `src/lib/mock/mockTaskflow2.ts` | Mockup 2 data (screens, members, tasks, projects) |
 | `src/lib/mock/*.ts` | All mock data (rubric, tasks, members, risk, rescue) |
-| `src/app/api/pipeline/*/route.ts` | 7 API routes |
-| `src/app/page.tsx` | Narrative-driven landing page |
-| `src/components/*.tsx` | UI components |
+| `src/app/api/pipeline/*/route.ts` | 7 pipeline API routes |
+| `src/app/api/upload/route.ts` | PDF/DOCX upload + text extraction |
+| `src/app/api/tasks/[id]/invitation/route.ts` | Accept/reject invitation |
+| `src/app/page.tsx` | Entry point → renders TaskFlowMockup2 |
+| `src/components/TaskFlowMockup2.tsx` | Mockup 2 main wrapper |
+| `src/components/Mockup2Screens.tsx` | 8 screen components + helpers |
+| `src/components/Mockup2Defender.tsx` | AI Deadline Defender (3-phase) |
+| `src/components/Mockup2Overlays.tsx` | Drawers, modals, toasts |
+| `src/store/useMockupStore2.ts` | Mockup 2 Zustand store (active) |
+| `src/store/useTaskStore.ts` | Pipeline data store (Zustand) |
 | `docs/FUNCTIONAL_LOGIC.md` | 15-section functional logic documentation |
+| `docs/MVP_REQUIREMENTS.md` | This file |
+| `docs/AI_AGENT_SPEC.md` | AI agent specs + prompt notes |
+| `docs/ANALYSIS_PIPELINE.md` | 9-stage analysis pipeline spec |
+| `docs/FEATURES_AND_LOGIC.md` | Features, remaining work, business logic |
+| `docs/WORKBUDDY_AGENT_PROMPTS.md` | 6-agent prompt tuning guide |
 
 ---
 
-*Document version: 2026-10-10 | Track 2: WorkBuddy Agentic Solution*
+*Document version: 2026-10-11 | Track 2: WorkBuddy Agentic Solution*

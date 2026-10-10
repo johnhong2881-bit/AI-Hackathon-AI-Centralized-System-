@@ -1,6 +1,17 @@
 # TaskFlow AI — 接 AI Agent 的规格与 Prompt 注意事项
 
-这份文件对应目前的 UI mockup(`index.html`)。前半部分说明前端要收集哪些资料(Create、Team),后半部分说明接 AI 时 prompt 与流程要注意什么(Plan 生成、AI Deadline Defender)。
+这份文件对应目前的 UI mockup(Mockup 2 — Next.js App)。前半部分说明前端要收集哪些资料(Create、Team),后半部分说明接 AI 时 prompt 与流程要注意什么(Plan 生成、AI Deadline Defender)。
+
+当前实现状态:
+- `/api/upload` 已实现 PDF/DOCX 上传与文字提取(pdf-parse + mammoth)
+- `/api/pipeline/run` 已实现完整 6-agent pipeline(使用 mock LLM 层)
+- `/api/pipeline/rescue` 已实现 rescue agent(调用 `rescue-engine.ts`)
+- `src/lib/agents/external-llm.ts` 已实现真实 LLM API 调用
+- `src/lib/agents/cloud-llm.ts` 已实现 WorkBuddy cloud.llm 集成(待激活)
+- `src/lib/logic/scheduler.ts` 已实现资源受限排程
+- `src/lib/logic/rescue-engine.ts` 已实现 3 轮验证循环
+- `getProjectTK()` / `getProjectGT()` 已实现 per-project 任务和甘特数据推导(从 PGP)
+- 所有任务计数(徽章、进度条、Defender 统计)已动态化,运行时从 `getProjectTK()` 计算
 
 ---
 

@@ -1,11 +1,11 @@
 # TaskFlow AI — 现有功能、剩余工作与业务逻辑
 
 这份文件分三部分:
-1. 现在 mockup 里有什么(哪些真的能点、哪些只是画面)
+1. 现在应用里有什么(哪些真的能点、哪些只是画面)
 2. 还剩下什么没做
 3. 真正开发时要实现的逻辑(规则、公式、流程)
 
-先说清楚一件事:**现在的 `index.html` 是 UI mockup。** 所有画面上的数字(预测完成日、进度、任务、成员)都是写死的示范数据,按钮只会改变画面,不会重新计算。逻辑部分是给你开发用的规格。其中排程与风险计算,我在做 mockup 之前写过一个原型并在 node 里测试过,参考代码放在 `scheduler-reference.js`。
+当前状态:**Next.js App (Mockup 2) 已上线。** UI 包含 8 个完整画面(Project/Home, Create, Team, Review, AI Analysis, Overview, Tasks, Timeline, AI Deadline Defender),后端 6-agent pipeline + scheduler + rescue engine 已实现。部分数据仍使用 mock 数据;排程与风险计算已由真实逻辑模块 (`src/lib/logic/`) 实现。
 
 ---
 
@@ -15,16 +15,17 @@
 
 | 画面 | 画面里有的东西 | 真的会动的部分 | 仍是固定数据 / 不会动 |
 |---|---|---|---|
-| **Create** | 项目名称、描述、成员人数、作业文件、rubric、deadline | 名称字数计数和空白错误;人数 −/+ 与 2–10 范围错误;上传/贴文字切换;文件的四种状态(已上传、没文件、格式错误、解析失败)可点切换查看;勾选"已含 rubric"会显示或隐藏 rubric 上传区;清除表单 | 不会真的读取文件内容;日期用浏览器原生选择器,"不能选过去"只靠 `min` 属性 |
+| **Project (Home)** | Hero、4 步流程引导、项目卡片(At Risk / On Track / Completed)、"Create new project"按钮 | 点击项目卡片设置 activeProjectId 并跳转到该项目的 workspace;completed 项目显示"Generate Contribution"按钮(点击弹 toast);项目卡片的任务数/完成数动态计算(`getProjectTK()`) | 项目卡片数据来自 `PROJECTS` mock 数组,任务数动态推导 |
+| **Create** | 项目名称、描述、成员人数、作业文件(PDF/DOCX 上传或贴文字)、rubric、deadline | 名称字数计数和空白错误;人数 −/+ 与 2–10 范围错误;上传/贴文字切换;文件的四种状态;勾选"已含 rubric"会显示或隐藏 rubric 上传区;Back 按钮返回 Home | 不会真的读取文件内容;日期用浏览器原生选择器 |
 | **Team** | 成员列表(强项、弱项、每周小时)、右侧团队总览 | 加人、编辑、移除成员;人数与设定不符时的黄色提示和空位;技能覆盖统计 | 总览里"可能缺少的技能"是固定文字 |
 | **成员侧栏** | 名字、强项(带等级)、弱项、周一到周日开关与小时 | 强项和弱项必填验证;强弱项互斥;小时数 0–24 限制;"周一复制到工作日""周末关闭";总小时数自动更新;0 小时警告 | 建议技能来自固定清单 |
-| **Review** | 项目摘要、团队摘要 | 摘要里的人数、成员强弱项会跟着 Team 变;缺强弱项或人数不符时出现提示 | 项目名称、描述、deadline、文件名是固定文字,不会反映 Create 页的修改 |
-| **AI analysis** | 九步时间线 | 自动逐步前进,结束后跳到 Overview;可以跳过 | 纯动画,没有真的读文件 |
-| **Overview** | 预测完成线、整体进度、Team progress | Team progress 随 Create 的人数(2–10)改变行数;点成员展开任务;排序(默认、进度最低);全部展开 | 预测完成日 "Fri 6 Nov"、"晚 7 天"是固定;任务和进度是示范数据 |
-| **Tasks** | 列表、看板、任务详情 | 列表与看板切换;任务详情;leader 点 Edit task 进入编辑,保存时弹确认窗;锁定按钮;强制标记完成的确认窗;member 视角下 Accept / Reject(Reject 需选原因) | **搜索、状态/优先级/成员筛选不会过滤**;编辑后任务内容不会真的改变;确认窗里的"+1 天"是固定文字 |
-| **Timeline** | 甘特图 | — | 完全静态,14 条任务条是写死的位置 |
-| **AI Defender** | 风险警示、原因选择、agent 执行画面、提案、批准/拒绝、Before vs After | 必须先选原因才能 Run;选"成员不能做/超载"要再选成员;执行日志逐条出现(含第一轮失败、第二轮通过);批准或拒绝会切换结果横幅("Rescue validated""Risk unresolved")和对比表 | 提案内容固定,**选不同原因提案不会不同**;"Apply plan"只弹提示,不会改项目数据 |
-| **UI states** | 20 种状态卡片 | — | 静态展示 |
+| **Review** | 项目摘要、团队摘要 | 摘要里的人数、成员强弱项会跟着 Team 变;缺强弱项或人数不符时出现提示 | 项目名称、描述、deadline、文件名是固定文字 |
+| **AI analysis** | 九步时间线 | 自动逐步前进,调用真实 `/api/pipeline/run` API;结束后跳到 Overview;可以跳过 | 纯动画展示,数据来自 mock LLM 层 |
+| **Overview** | 预测完成线、整体进度、Team progress | **Per-project**:根据 activeProjectId 过滤成员和任务;Team progress 随项目成员改变行数;点成员展开任务;排序;全部展开;completed 项目显示完成 alert(任务总数动态计算);at-risk 项目显示 AI Defender 按钮 | 预测完成日和任务进度来自 mock 数据 |
+| **Tasks** | 列表、看板、任务详情 | 列表与看板切换;任务详情 drawer;leader 点 Edit task 进入编辑;锁定按钮;member 视角下 Accept/Reject;**Per-project**:SRS 用 TK 数组,其他项目用 `getProjectTK()` 从 PGP 推导 | **搜索、筛选不会过滤**;编辑后任务内容不会真的改变 |
+| **Timeline** | 甘特图 | **Per-project**:SRS 用 GT 数组,其他项目用 `getProjectGT()` 从 PGP 推导;预测完成线在 On Track 时显示蓝色实线,At Risk 时显示红色虚线 | 任务条位置为 mock 数据 |
+| **AI Defender** | 风险警示、原因选择、agent 执行画面、提案、批准/拒绝、Before vs After | 必须先选原因才能 Run;选"成员不能做/超载"要再选成员;执行日志逐条出现(含真实 `/api/pipeline/rescue` API 调用);批准或拒绝会切换结果横幅;Before/After 对比表显示真实 API 返回数据;**Per-project**:任务总数/可完成数/分数动态从 `getProjectTK()` 计算 | 提案内容来自 API 返回,但不同原因的提案差异取决于 API |
+| **Overlays** | Member drawer、Task drawer、Reject modal、Save modal、Override modal、Edit modal、Toast | 全部可弹出和关闭;Task drawer 有 view/edit 切换 | 表单不会真的保存到后端 |
 | **其他** | Leader / Member 视角切换、Toast 提示 | 切换后隐藏 leader 才有的按钮 | Member 视角固定是 Bob |
 
 ### 1.2 已经按你的要求拿掉的东西
@@ -37,15 +38,15 @@ Rubric 页签与 rubric coverage、Activity 页、Timeline 里的团队工作量
 
 ### 2.1 必须做,才算"真的能用"(P0)
 
-1. **后端与资料存储。** 项目、成员、任务、分配、状态的保存与读取。Hackathon 版可以用简单的数据库或本地存储。
-2. **PDF 上传与解析。** 把 PDF 变成文字;失败时回报错误,让用户改贴文字。
-3. **Plan 生成(接 AI)。** 把表单与成员资料送给模型,拿回任务、优先级、估时、依赖、分配(规格见 `AI_AGENT_SPEC.md`)。
-4. **真正的排程与风险计算。** 见第 3.3、3.4 节。这是整个产品的核心,mockup 里所有日期都依赖它。
-5. **把画面接到真实资料。** Overview、Tasks、Timeline、Team progress 全部改成从资料计算,不再写死。
-6. **Defender 接真 AI + 验证循环。** 见第 3.9 节。
-7. **套用 Rescue 的逻辑。** 批准的变更真的写进任务,重新排程,更新风险状态。
+1. **~~后端与资料存储。** 项目、成员、任务、分配、状态的保存与读取。~~ → API routes 已实现;资料存储仍用 mock 数据
+2. **~~PDF 上传与解析。**~~ → `/api/upload` 已实现(pdf-parse + mammoth)
+3. **~~Plan 生成(接 AI)。**~~ → `/api/pipeline/run` 已实现,使用 mock LLM 层
+4. **~~真正的排程与风险计算。**~~ → `src/lib/logic/scheduler.ts` + `critical-path.ts` 已实现
+5. **把画面接到真实资料。** Overview、Tasks、Timeline、Team progress 部分仍用 mock 数据,需要改成从 API 结果计算
+6. **~~Defender 接真 AI + 验证循环。**~~ → `/api/pipeline/rescue` + `rescue-engine.ts` 已实现
+7. **套用 Rescue 的逻辑。** 批准的变更真的写进任务,重新排程,更新风险状态 — UI 层尚未连接
 
-### 2.2 mockup 里有画面,但还没有逻辑(P1)
+### 2.2 已有画面,但还没有完整逻辑(P1)
 
 1. Tasks 的**搜索与三个筛选**。
 2. **Edit task 真的保存**,并重新算排程,确认窗里显示真实的"前后差异"。
@@ -270,21 +271,26 @@ ChangeLog { time, actor(AI/Leader/Member), what, before, after }   // 即使没�
 
 ---
 
-## 4. 建议的开发顺序(10 小时 hackathon)
+## 4. 建议的开发顺序(剩余工作)
 
-1. **(1–2 小时)** 资料模型与存储,先用示范项目的资料。
-2. **(2–3 小时)** 排程与风险计算(可直接参考 `scheduler-reference.js`),让 Overview、Timeline 显示真实结果。
-3. **(1–2 小时)** Plan 生成接 AI(含 schema 验证与重试)。
-4. **(2–3 小时)** Defender:选原因 → 验证循环 → 提案 → 批准/拒绝 → Before vs After → 套用。**这是最重要的展示点,不要压缩。**
-5. **(1 小时)** Tasks 的编辑、状态、接受与拒绝接到真实资料。
-6. **剩余时间** 筛选、Review 页真实内容、边界情况与错误状态。
+1. **(优先)** 把 Overview、Tasks、Timeline 的数据从 mock 切换到真实 API 返回的 pipeline 数据
+2. **(优先)** Tasks 的搜索与筛选实现真正的过滤
+3. **(优先)** Edit task 保存并触发重新排程
+4. **(重要)** Defender Apply 按钮真正更新任务数据
+5. **(重要)** Reject 后的重新分配建议 UI
+6. **(后续)** Review 页反映 Create 页真实填写的内容
+7. **(后续)** 手机宽度验证、无障碍检查
 
-先做第 2 步再接 AI。排程没有算对,后面所有画面都会错。
+先做第 1 步:画面数据从 mock 切到真实 API 结果。排程已由 `scheduler.ts` 实现,不需要重写。
 
 ---
 
 ## 5. 已知限制
 
-- `scheduler-reference.js` 是参考原型,**没有包含弱项惩罚**,也没有接口层;匹配评分请按第 3.8 节补上。
-- 排程把"天"当最小单位:前一个任务结束的隔天,后一个任务才开始。这样偏保守,真实产品可以做到半天。
-- 示范数据的"今天"固定为 2026 年 10 月 12 日(星期一),真正开发时要用真实日期。
+- `scheduler.ts` 已实现资源受限排程,但 UI 画面仍使用 mock 数据显示,尚未完全连接
+- 排程把"天"当最小单位:前一个任务结束的隔天,后一个任务才开始。这样偏保守,真实产品可以做到半天
+- 示范数据的"今天"固定为 2026 年 10 月 11 日(星期日),真正开发时要用真实日期
+- 所有任务计数(徽章、开放任务数、进度条、Defender 统计)已动态化,从 `getProjectTK()` 运行时计算,不再使用硬编码值
+- `getProjectTK(projectId)` 对 SRS 返回 TK 数组,对其他项目从 PGP 成员数据推导 TK 格式任务
+- `getProjectGT(projectId)` 对 SRS 返回 GT 数组,对其他项目从 PGP 成员数据推导 GT 格式甘特数据
+- Mockup 1 (`TaskFlowMockup.tsx`) 仍保留在代码库中作为参考,但 `page.tsx` 已切换到 Mockup 2 (`TaskFlowMockup2.tsx`)
