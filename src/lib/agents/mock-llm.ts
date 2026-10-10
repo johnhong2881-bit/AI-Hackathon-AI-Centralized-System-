@@ -17,7 +17,7 @@
 
 import type { LLMCallParams, LLMCallResult } from './types';
 import { mockRubric, mockPlanResult, mockSkillMatch, mockRiskAssessment, mockRescuePlan } from '../mock';
-import { isCloudConfigured } from '../cloud/config';
+import { isCloudConfigured, isSovernStackConfigured, getLLMMode as getConfigLLMMode } from '../cloud/config';
 import type {
   RubricResult,
   PlanResult,
@@ -84,17 +84,25 @@ function mockLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallRes
   });
 }
 
-// ===== Router: automatically uses real cloud LLM when configured =====
+// ===== Router: automatically uses real LLM when configured =====
 
 /**
- * Routes to realLLMCall (cloud-llm.ts) when cloud is configured,
- * otherwise falls back to mockLLMCall.
+ * Routes to the appropriate LLM backend:
+ *   1. WorkBuddy Cloud SDK (if endpoint + publishableKey set)
+ *   2. SovernStack API (if API key set, via external-llm.ts — TODO)
+ *   3. Mock LLM (fallback)
  */
 async function routeLLMCall(params: LLMCallParams, agentId: string): Promise<LLMCallResult> {
   if (isCloudConfigured()) {
     // Dynamic import avoids loading the SDK when not needed
     const { realLLMCall } = await import('./cloud-llm');
     return realLLMCall(params);
+  }
+  if (isSovernStackConfigured()) {
+    // TODO: implement external-llm.ts for SovernStack API calls
+    // const { sovernStackCall } = await import('./external-llm');
+    // return sovernStackCall(params);
+    console.warn('[llm] SovernStack configured but external-llm.ts not yet implemented — falling back to mock');
   }
   return mockLLMCall(params, agentId);
 }
@@ -166,7 +174,7 @@ export async function callRescueAgent(
   return { result, data: result.parsed as RescuePlan };
 }
 
-// Export status helper for UI display
-export function getLLMMode(): 'mock' | 'cloud' {
-  return isCloudConfigured() ? 'cloud' : 'mock';
+// Export status helper for UI display — delegates to config.ts which reads .env
+export function getLLMMode(): 'mock' | 'cloud' | 'sovern' {
+  return getConfigLLMMode();
 }

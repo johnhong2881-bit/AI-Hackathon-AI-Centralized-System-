@@ -1,17 +1,11 @@
 // ============================================================
-// WorkBuddy Cloud Service Configuration
+// Cloud Service Configuration — reads from .env
 // ============================================================
-// These values come from the `workbuddy_cloud_service` activation
-// result's `publicConfig` field. After activation, copy the
-// `endpoint` and `publishableKey` values here.
+// Environment variables are loaded automatically by Next.js.
+// Copy .env.example as .env and fill in your values.
 //
-// `publishableKey` is safe to ship in front-end code (carries no
-// permissions; the server enforces an exact Origin match).
-// `endpoint` is the cloud service base URL.
-//
-// To activate: ask the AI assistant to run
-//   workbuddy_cloud_service with action="activate"
-// Then paste the returned publicConfig values below.
+// WorkBuddy Cloud: fill after running cloud-service activation
+// SovernStack: fill with your API key from the playground
 // ============================================================
 
 export interface CloudPublicConfig {
@@ -20,14 +14,41 @@ export interface CloudPublicConfig {
   oauthRelayBaseUrl?: string;
 }
 
-// === Fill these after running cloud-service activation ===
+// === WorkBuddy Cloud config (from .env) ===
+// These are safe for client-side (publishableKey carries no permissions)
 export const CLOUD_CONFIG: CloudPublicConfig = {
-  endpoint: '',        // e.g. 'https://xxx.cloud.weixin.qq.com'
-  publishableKey: '',  // e.g. 'wbpk_xxxxxxxxxxxxxx'
+  endpoint: process.env.WORKBUDDY_CLOUD_ENDPOINT ?? '',
+  publishableKey: process.env.WORKBUDDY_CLOUD_PUBLISHABLE_KEY ?? '',
   // oauthRelayBaseUrl: '',  // only needed for WeChat QR login
 };
 
-/** True when cloud config has been filled in and real LLM calls can be made. */
+// === SovernStack API config (from .env, server-side only) ===
+export const SOVERNSTACK_CONFIG = {
+  apiKey: process.env.SOVERNSTACK_API_KEY ?? '',
+  baseUrl: process.env.SOVERNSTACK_BASE_URL ?? 'https://api.sovernstack.com/v1',
+  model: process.env.SOVERNSTACK_MODEL ?? 'gpt-oss-120b',
+};
+
+/** True when WorkBuddy Cloud is configured */
 export function isCloudConfigured(): boolean {
   return !!(CLOUD_CONFIG.endpoint && CLOUD_CONFIG.publishableKey);
+}
+
+/** True when SovernStack API key is set */
+export function isSovernStackConfigured(): boolean {
+  return !!SOVERNSTACK_CONFIG.apiKey;
+}
+
+/**
+ * Returns the current LLM mode:
+ *   "mock"   — using mock data (no API calls)
+ *   "cloud"  — using WorkBuddy Cloud SDK
+ *   "sovern" — using SovernStack API (GPT-OSS 120B)
+ *
+ * Priority: cloud > sovern > mock
+ */
+export function getLLMMode(): 'mock' | 'cloud' | 'sovern' {
+  if (isCloudConfigured()) return 'cloud';
+  if (isSovernStackConfigured()) return 'sovern';
+  return 'mock';
 }
