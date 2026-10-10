@@ -22,6 +22,7 @@ export const mockMembers: Member[] = [
     },
     availability: 15,
     role: 'Developer',
+    isLeader: false,
     currentTaskIds: ['task-005', 'task-006'],
   },
   {
@@ -41,6 +42,7 @@ export const mockMembers: Member[] = [
     },
     availability: 12,
     role: 'Designer',
+    isLeader: false,
     currentTaskIds: ['task-003', 'task-004'],
   },
   {
@@ -60,6 +62,7 @@ export const mockMembers: Member[] = [
     },
     availability: 14,
     role: 'Researcher',
+    isLeader: false,
     currentTaskIds: ['task-001', 'task-002'],
   },
   {
@@ -79,6 +82,7 @@ export const mockMembers: Member[] = [
     },
     availability: 10,
     role: 'Team Lead',
+    isLeader: true,
     currentTaskIds: ['task-007', 'task-008'],
   },
 ];

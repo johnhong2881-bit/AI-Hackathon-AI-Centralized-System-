@@ -1341,4 +1341,96 @@ print('PASS: projectDuration = max earlyFinish')
 
 ---
 
+## 14. 产品设计决策 (已确认)
+
+本节记录 6 个已确认的产品设计决策及其代码影响。
+
+### 决策 1: Assignment 和 Rubric 输入方式
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | MVP 支持 Text Paste 和 PDF 上传，图片 OCR 留到以后 |
+| **当前状态** | Text Paste 已实现 (`AssignmentInputForm` 的 `rubricText` textarea) |
+| **PDF 上传** | 规划中。需要: file input + PDF.js 文本提取 + 填入 rubricText |
+| **图片 OCR** | 不做。用户可以自己用其他工具提取文本后 paste |
+| **代码位置** | `AssignmentInputForm.tsx` rubricText 字段 |
+| **类型** | `Assignment.rubricText?: string` (可选，因为可能未来有其他输入方式) |
+
+### 决策 2: 团队成员数量
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | MVP 支持 2-10 人 |
+| **校验位置** | `/api/pipeline/run` API 路由 (服务端校验) |
+| **前端** | `AssignmentInputForm` 的 teamSize input: `min={2} max={10}` |
+| **错误响应** | `400 { error: "At least 2 team members required (MVP supports 2-10)" }` |
+| **错误响应** | `400 { error: "Maximum 10 team members supported (MVP supports 2-10)" }` |
+| **代码位置** | `src/app/api/pipeline/run/route.ts` |
+
+### 决策 3: AI 分配任务后成员可修改
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | AI 建议 (suggest) 分配 → Leader 有最终决定权 (approve/reject/modify) |
+| **数据模型** | `Member.isLeader: boolean` — 标记谁是 Leader |
+| **数据模型** | `Task.confirmed: boolean` — 标记任务是否已被 Leader 确认 |
+| **工作流** | 1. Skill Agent 生成分配建议 → 2. Leader 审查 → 3. Leader 确认/修改 → 4. `task.confirmed = true` |
+| **Mock 数据** | task-001/002/003: `confirmed: true` (已开始, 已确认) |
+| **Mock 数据** | task-004~011: `confirmed: false` (待确认) |
+| **Mock 数据** | David Zhang: `isLeader: true` |
+| **代码位置** | `types.ts` (Task.confirmed, Member.isLeader), `mockTasks.ts`, `mockMembers.ts` |
+
+### 决策 4: Rubric Marks 计算方式
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | 区分 "Planned Coverage" (计划覆盖) 和实际成绩，不能直接当成预测分数 |
+| **核心区别** | Planned Coverage = 任务计划是否覆盖了 rubric 的所有标准 (是/否) |
+| **核心区别** | Actual Grade = 实际执行质量决定的分数 (需要人工评分) |
+| **数据模型** | `PlanResult.rubricCoverage: RubricCoverage` |
+| **RubricCoverage** | `coveredRubricIds[]` — 至少有 1 个任务覆盖的 rubric 标准 |
+| **RubricCoverage** | `uncoveredRubricIds[]` — 没有任何任务覆盖的标准 (需要补任务) |
+| **RubricCoverage** | `coveragePercent` — 覆盖率 (覆盖的 marks / 总 marks × 100) |
+| **Mock 数据** | 6/6 标准全覆盖, coveragePercent: 100% |
+| **重要说明** | 100% coverage ≠ 100 分。只是说"计划里考虑到了所有评分项"，不代表能拿满分 |
+| **代码位置** | `types.ts` (RubricCoverage interface), `mockTasks.ts` |
+
+### 决策 5: Deadline Rescue 自动修改规则
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | 未开始且未确认的任务可自动调整；影响已确认任务时先请求批准 |
+| **规则** | `task.confirmed === false && task.status === 'todo'` → Rescue Agent 可自动修改 |
+| **规则** | `task.confirmed === true` 或 `task.status !== 'todo'` → 需请求 Leader 批准 |
+| **数据模型** | `Task.confirmed: boolean` (同决策 3) |
+| **Rescue 行动** | `actionType: 'reassign'` — 如果 task 未确认, 直接执行 |
+| **Rescue 行动** | `actionType: 'reassign'` — 如果 task 已确认, 标记为 `priority: 'high'` + 需批准 |
+| **Rescue 行动** | `actionType: 'split'` / `actionType: 'reorder'` — 同上逻辑 |
+| **代码位置** | `types.ts` (Task.confirmed), `mockTasks.ts`, `prompts.ts` (Rescue Agent system prompt 可添加此规则) |
+
+### 决策 6: 团队成员如何更新进度
+
+| 项目 | 内容 |
+|------|------|
+| **决策** | MVP 使用同一 Workspace 手动更新，不开发完整邀请与登录系统 |
+| **原因** | Hackathon 时间有限 + 导师建议 "不要做 login screen" |
+| **数据模型** | `ProjectProgress.taskProgress[]` — 每个任务的手动进度更新 |
+| **工作流** | 成员在同一页面手动修改 `completionPercent` 和 `hoursSpent` |
+| **不做** | 用户注册/登录、邀请成员、权限管理、多用户实时同步 |
+| **未来扩展** | 切换到 WorkBuddy cloud-service 的 Auth 模块时再实现 |
+| **代码位置** | `types.ts` (ProjectProgress), `helpers.ts` (calculateDeadline) |
+
+### 决策影响汇总
+
+| 决策 | 新增类型 | 新增字段 | 影响文件 |
+|------|---------|---------|---------|
+| 1. 输入方式 | 无 | 无 (已有 rubricText) | AssignmentInputForm.tsx (UI 注释) |
+| 2. 成员数量 | 无 | 无 | run/route.ts (校验), AssignmentInputForm.tsx (max=10) |
+| 3. Leader 决定权 | 无 | `Member.isLeader`, `Task.confirmed` | types.ts, mockMembers.ts, mockTasks.ts |
+| 4. Rubric Coverage | `RubricCoverage` | `PlanResult.rubricCoverage` | types.ts, mockTasks.ts |
+| 5. Rescue 自动规则 | 无 | (复用 `Task.confirmed`) | types.ts (已有), prompts.ts (可增强) |
+| 6. 手动进度 | 无 | 无 (已有 ProjectProgress) | 无 (仅文档记录) |
+
+---
+
 *文档版本: 2026-10-10 | 项目: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*

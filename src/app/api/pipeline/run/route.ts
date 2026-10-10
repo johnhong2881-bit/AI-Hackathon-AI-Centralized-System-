@@ -34,6 +34,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Design Decision #2: MVP supports 2-10 team members
+    if (members.length < 2) {
+      return NextResponse.json(
+        { error: 'At least 2 team members required (MVP supports 2-10)' },
+        { status: 400 }
+      );
+    }
+    if (members.length > 10) {
+      return NextResponse.json(
+        { error: 'Maximum 10 team members supported (MVP supports 2-10)' },
+        { status: 400 }
+      );
+    }
+
     // runPipeline expects a progress callback. For a single HTTP
     // request/response cycle we use a no-op callback — the final
     // PipelineState is returned when all steps complete.

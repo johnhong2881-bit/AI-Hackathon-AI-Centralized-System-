@@ -67,6 +67,7 @@ export interface Task {
   relatedRubricIds: string[];      // which RubricItem.id this satisfies
   status: TaskStatus;
   assignedTo: string | null;       // member ID, null if unassigned
+  confirmed: boolean;              // Design Decision #3/#5: Leader confirms task; unconfirmed tasks can be auto-modified by Rescue
   order: number;                   // for display ordering
   createdAt: string;
   updatedAt: string;
@@ -81,7 +82,22 @@ export interface PlanResult {
   tasks: Task[];
   criticalPath: string[];         // ordered task IDs on the critical path
   totalEstimatedHours: number;
+  rubricCoverage: RubricCoverage; // Design Decision #4: Planned coverage, NOT predicted grades
   generatedAt: string;
+}
+
+/**
+ * Rubric coverage analysis.
+ * Design Decision #4: This shows which rubric criteria are addressed by the task plan.
+ * This is "planned coverage" — NOT a prediction of actual grades.
+ * Actual grades depend on execution quality, not just task completion.
+ */
+export interface RubricCoverage {
+  coveredRubricIds: string[];     // rubric item IDs that have at least 1 task
+  uncoveredRubricIds: string[];   // rubric item IDs with NO task
+  totalMarks: number;             // sum of marks for covered criteria
+  maxMarks: number;               // total possible marks
+  coveragePercent: number;        // totalMarks / maxMarks * 100
 }
 
 // ===== FR-003: Skill Matching (LLM: Tasks × Members → Assignments) =====
@@ -97,6 +113,7 @@ export interface Member {
   skillProficiency: Record<Skill, number>; // 1-5 scale per skill
   availability: number;           // hours available per week
   role: string;                   // e.g. "Team Lead", "Developer"
+  isLeader: boolean;              // Design Decision #3: Leader has final say on task assignments
   currentTaskIds: string[];       // task IDs currently assigned
 }
 

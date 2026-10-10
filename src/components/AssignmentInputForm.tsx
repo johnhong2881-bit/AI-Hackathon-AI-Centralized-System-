@@ -229,12 +229,13 @@ export default function AssignmentInputForm() {
               id="teamSize"
               type="number"
               min={2}
-              max={8}
+              max={10}
               required
               value={form.teamSize}
               onChange={(e) => update('teamSize', Number(e.target.value))}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
             />
+            <p className="mt-1 text-xs text-slate-400">MVP supports 2-10 members</p>
           </div>
 
           {/* Deliverables */}
@@ -265,8 +266,11 @@ export default function AssignmentInputForm() {
               value={form.rubricText}
               onChange={(e) => update('rubricText', e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Paste your rubric here..."
+              placeholder="Paste your rubric text here..."
             />
+            <p className="mt-1 text-xs text-slate-400">
+              Text paste (MVP) — PDF upload planned for future. Image OCR not supported yet.
+            </p>
           </div>
 
           {/* Description */}
