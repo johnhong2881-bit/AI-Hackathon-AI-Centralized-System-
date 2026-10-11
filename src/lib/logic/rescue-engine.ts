@@ -106,6 +106,21 @@ function convertOpToAction(
         assignedTo: task?.assignedTo ?? null,
       };
     }
+    case 'assign': {
+      const toName = toMember?.name ?? op.to ?? 'unknown';
+      const hours = op.hours ?? 0;
+      return {
+        id,
+        taskId: op.taskId,
+        actionType: 'reassign',
+        description: `Assign ${toName} to "${taskTitle}" (${hours}h) — task was previously unassigned`,
+        priority,
+        estimatedImpact: saved > 0
+          ? `Unblocks critical path, predicted end ${before} → ${after} days (saves ${saved}d)`
+          : `Assigns ${toName} to unblock this task`,
+        assignedTo: op.to ?? null,
+      };
+    }
     default:
       return {
         id,
@@ -242,8 +257,10 @@ export function runRescueWorkflow(params: {
   const beforeTasksAtRisk = baseAssessment.delayedTaskIds.length;
   const afterTasksAtRisk = afterAssessment.delayedTaskIds.length;
 
-  const beforeBuffer = Math.round((baseAssessment.deadlineDay - baseAssessment.predictedCompletionDay) * 8 * 10) / 10;
-  const afterBuffer = Math.round((afterAssessment.deadlineDay - afterAssessment.predictedCompletionDay) * 8 * 10) / 10;
+  // Clamp to 0 — negative buffer means "over deadline", display as 0h buffer (not -7936h)
+  // The risk level (At Risk / Overdue) already conveys the negative situation
+  const beforeBuffer = Math.max(0, Math.round((baseAssessment.deadlineDay - baseAssessment.predictedCompletionDay) * 8 * 10) / 10);
+  const afterBuffer = Math.max(0, Math.round((afterAssessment.deadlineDay - afterAssessment.predictedCompletionDay) * 8 * 10) / 10);
 
   const comparisonResult: RescueComparisonResult = {
     beforeHours: Math.round(beforeHours * 10) / 10,
@@ -257,7 +274,9 @@ export function runRescueWorkflow(params: {
     afterDeadlineBuffer: afterBuffer,
     improvementSummary: bestRound.valid
       ? `Rescue plan resolves deadline risk in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (deadline: Day ${deadlineDay}).`
-      : `Rescue plan partially improves timeline in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline). Consider manual intervention.`,
+      : bestRound.predictedEnd >= 999
+        ? `Rescue plan in Round ${bestRound.n}: ${bestRound.label}. Some tasks remain blocked (unassigned) — consider manual assignment or scope reduction.`
+        : `Rescue plan partially improves timeline in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline). Consider manual intervention.`,
   };
 
   // --- Determine approval needs ---
@@ -269,7 +288,7 @@ export function runRescueWorkflow(params: {
     {
       step: 'detect', round: 1, timestamp: now,
       description: 'Ran scheduler to check if rescue is needed',
-      result: `Base risk: ${baseAssessment.riskStatus} (predicted day ${baseAssessment.predictedCompletionDay}, deadline day ${baseAssessment.deadlineDay}, ${baseAssessment.delayDays}d delay)`,
+      result: `Base risk: ${baseAssessment.riskStatus} (predicted day ${baseAssessment.predictedCompletionDay >= 999 ? 'Blocked' : baseAssessment.predictedCompletionDay}, deadline day ${baseAssessment.deadlineDay}, ${baseAssessment.delayDays >= 999 ? 'blocked' : baseAssessment.delayDays + 'd delay'})`,
     },
     {
       step: 'analyze', round: 1, timestamp: now,
@@ -279,14 +298,16 @@ export function runRescueWorkflow(params: {
     {
       step: 'optimize', round: bestRound.n, timestamp: now,
       description: `Ran 3-round rescue search — best result: Round ${bestRound.n}`,
-      result: `${bestRound.label}: ${bestRound.ops.length} operations, predicted end Day ${bestRound.predictedEnd} (${bestRound.valid ? 'VALID' : 'PARTIAL'})`,
+      result: `${bestRound.label}: ${bestRound.ops.length} operations, predicted end ${bestRound.predictedEnd >= 999 ? 'Blocked' : 'Day ' + bestRound.predictedEnd} (${bestRound.valid ? 'VALID' : 'PARTIAL'})`,
     },
     {
       step: 'validate', round: bestRound.n, timestamp: now,
       description: 'Re-ran scheduler to validate rescue plan',
       result: bestRound.valid
         ? `✅ Plan meets deadline (Day ${bestRound.predictedEnd} ≤ Day ${deadlineDay})`
-        : `⚠️ Plan does not fully meet deadline (Day ${bestRound.predictedEnd} > Day ${deadlineDay}), but improves timeline`,
+        : bestRound.predictedEnd >= 999
+          ? `⚠️ Some tasks remain blocked after rescue — manual assignment needed`
+          : `⚠️ Plan does not fully meet deadline (Day ${bestRound.predictedEnd} > Day ${deadlineDay}), but improves timeline`,
     },
     {
       step: 'apply', round: bestRound.n, timestamp: now,
@@ -312,7 +333,9 @@ export function runRescueWorkflow(params: {
   // --- Projected recovery ---
   const projectedRecovery = bestRound.valid
     ? `On track for deadline with ~${Math.max(0, afterBuffer / 8).toFixed(0)} day buffer`
-    : `Improved but still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline — consider manual intervention`;
+    : bestRound.predictedEnd >= 999
+      ? `Some tasks remain blocked — manual assignment needed for unassigned tasks`
+      : `Improved but still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline — consider manual intervention`;
 
   // --- Confidence based on validation ---
   const confidence = bestRound.valid ? 0.9 : 0.5;

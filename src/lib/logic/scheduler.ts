@@ -488,7 +488,7 @@ export function calculateCriticalPathWithSchedule(
 
 // ===== Rescue support: apply an operation to a cloned task set =====
 
-export type RescueOpType = 'move' | 'relax' | 'reduce';
+export type RescueOpType = 'move' | 'relax' | 'reduce' | 'assign';
 
 export interface RescueOp {
   type: RescueOpType;
@@ -559,6 +559,23 @@ export function applyRescueOp(tasks: Task[], op: RescueOp): void {
       a.remainingHours = Math.max(0, rem - cut);
       left -= cut;
     }
+  } else if (op.type === 'assign') {
+    // Assign a member to an unassigned task (or add a second member)
+    if (!task.memberAssignments) task.memberAssignments = [];
+    const hours = op.hours ?? task.estimatedHours ?? 4;
+    task.memberAssignments.push({
+      memberId: op.to!,
+      estimatedHours: hours,
+      remainingHours: hours,
+      matchScore: 0,
+      role: 'Assigned by rescue',
+      invitationStatus: 'pending',
+      assignmentStatus: 'todo',
+    });
+    // Also update assignedTo if it was null
+    if (!task.assignedTo) {
+      task.assignedTo = op.to!;
+    }
   }
 }
 
@@ -580,6 +597,31 @@ export function generateRescueCandidates(
     if (assessment.schedule[t.id]?.done) continue;  // never touch done work
 
     const assignments = toSchedAssignments(t);
+
+    // --- NEW: If task has no valid assignments (blocked), try to assign a member ---
+    if (assignments.length === 0 || assessment.schedule[t.id]?.blocked) {
+      for (const m of members) {
+        // Check skill fit
+        const hasSkill = t.requiredSkills.some(s => (m.skillProficiency[s] ?? 0) > 0);
+        if (!hasSkill) continue;
+
+        // Check spare capacity
+        const load = perMember.get(m.id);
+        if (!load || Math.max(0, load.availableHours - load.remainingWorkHours) < 1) continue;
+
+        // Generate assign op
+        out.push({
+          type: 'assign',
+          taskId: t.id,
+          to: m.id,
+          hours: t.estimatedHours,
+          approval: false,
+        });
+      }
+      // Continue to next task — can't move work that doesn't exist
+      continue;
+    }
+
     for (const a of assignments) {
       if (a.rem < 1 || a.st === 'done') continue;
 
@@ -765,16 +807,22 @@ export function planRescueSearch(
       if (candidates.length === 0) break;
 
       let best: { op: RescueOp; assessment: RiskAssessmentData } | null = null;
-      let bestScore: number[] = [999, 999, 999, 999, 999, 999];
+      // 7 elements: predictedEnd, blockedCount, moveType, approval, skillFit, overloadedCount, hours
+      let bestScore: number[] = [999, 999, 999, 999, 999, 999, 999];
 
       for (const c of candidates) {
         const testTasks = cloneTasks(workingTasks);
         applyRescueOp(testTasks, c);
         const testAssessment = assessRisk(testTasks, members, deadlineDay, startDayOfWeek);
 
-        // Score: [predictedEnd, moveType(0) vs other(1), approval(0/1), negativeSkillFit, overloadedCount, hours]
+        // Score: [predictedEnd, blockedCount, moveType(0) vs other(1), approval(0/1), negativeSkillFit, overloadedCount, hours]
+        // blockedCount is crucial: when tasks are blocked (e=999), predictedEnd stays at 999
+        // even after unblocking one task in a chain. Tracking blocked count ensures progress
+        // is recognized when unblocking tasks one at a time.
+        const blockedCount = Object.values(testAssessment.schedule).filter(n => n.blocked).length;
         const score = [
           testAssessment.predictedCompletionDay,
+          blockedCount,
           c.type === 'move' ? 0 : 1,
           c.approval ? 1 : 0,
           0,  // skill fit (simplified)
@@ -788,8 +836,12 @@ export function planRescueSearch(
         }
       }
 
+      // Improvement check: consider predictedCompletionDay, blocked count, AND overloaded count
       const currentOverload = cur.memberLoads.filter(p => p.isOverloaded).length;
+      const currentBlocked = Object.values(cur.schedule).filter(n => n.blocked).length;
+      const bestBlocked = best ? Object.values(best.assessment.schedule).filter(n => n.blocked).length : currentBlocked;
       if (!best || (best.assessment.predictedCompletionDay >= cur.predictedCompletionDay
+        && bestBlocked >= currentBlocked
         && best.assessment.memberLoads.filter(p => p.isOverloaded).length >= currentOverload)) {
         break;  // No improvement
       }

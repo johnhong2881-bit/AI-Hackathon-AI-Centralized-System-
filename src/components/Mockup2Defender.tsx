@@ -407,13 +407,20 @@ function ResultPhase() {
   const confidence = rescuePlan ? Math.round(rescuePlan.confidence * 100) : 0;
 
   // Predicted completion from scheduler
+  // Handle 999 (blocked) gracefully — don't show "Day 999"
+  const beforeDay = criticalPath?.predictedCompletionDay ?? 0;
+  const isBlocked = beforeDay >= 999;
   const beforePredicted = criticalPath
-    ? `Day ${criticalPath.predictedCompletionDay}${criticalPath.delayDays > 0 ? ` (${criticalPath.delayDays}d late)` : ''}`
+    ? isBlocked
+      ? `Blocked (${criticalPath.delayDays > 0 ? `${criticalPath.delayDays}d` : 'tasks unassigned'})`
+      : `Day ${beforeDay}${criticalPath.delayDays > 0 ? ` (${criticalPath.delayDays}d late)` : ''}`
     : 'Unknown';
   const afterPredicted = cmp
-    ? cmp.afterDeadlineBuffer >= 0
+    ? cmp.afterDeadlineBuffer > 0
       ? `On track (${cmp.afterDeadlineBuffer}h buffer)`
-      : `Still ${Math.abs(cmp.afterDeadlineBuffer)}h behind`
+      : cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low'
+        ? `On track (0h buffer)`
+        : `Still behind (0h buffer)`
     : projectedRecovery;
 
   const bannerMap: Record<string, [string, string, string, string]> = {
