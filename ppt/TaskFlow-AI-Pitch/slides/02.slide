@@ -1,46 +1,84 @@
-<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
-  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
-    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>Group Assignments Are Broken</Text>
+<Slide style={{ width: '1280px', height: '720px', background: '#F8FAFC', padding: '20px 60px 20px 60px', display: 'flex', flexDirection: 'column' }}>
+
+  {/* A — Title Block */}
+  <Box style={{ height: 80, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+    <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600', letterSpacing: '2px' }}>SLIDE 02 — PROBLEM STATEMENT</Text>
+    <Text style={{ fontSize: 36, color: '#0F172A', fontWeight: 'bold', lineHeight: 1.2 }}>Four Problems We Keep Facing</Text>
   </Box>
-  <Box style={{ flex: 1, flexDirection: 'row', gap: 32 }}>
-    <Box style={{ width: '60%', flexDirection: 'column', gap: 20, justifyContent: 'center' }}>
-      <Box style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start', padding: 24, background: '#F8FAFC', borderRadius: 12, borderLeft: '4px solid #3B82F6' }}>
-        <FAIcon name='file-text' style={{ fill: '#3B82F6', width: 36, height: 36 }} />
-        <Box style={{ flex: 1, flexDirection: 'column', gap: 6 }}>
-          <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0F172A' }}>Rubrics Are Vague</Text>
-          <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.5 }}>Students guess what matters. "Participation" could mean 10% or 40% with no clear breakdown.</Text>
-        </Box>
+
+  {/* B — Content Area (4 problem rows) */}
+  <Box style={{ height: 530, display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+
+    {/* Problem 1 — Complex Requirements */}
+    <Box style={{ height: 120, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 28, padding: '0 24px', background: '#FFFFFF', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.05)', borderLeft: '6px solid #3B82F6' }}>
+      {/* Giant number */}
+      <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#3B82F6', lineHeight: 1.0, width: 64, textAlign: 'center' }}>1</Text>
+      {/* Content */}
+      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0F172A' }}>Complex Assignment Requirements</Text>
+        <Text style={{ fontSize: 14, color: '#475569', lineHeight: 1.4 }}>
+          Students spend excessive time understanding requirements and marking rubric.
+          <span style={{ color: '#3B82F6', fontWeight: '600' }}> Hard to grasp key deliverables</span> and grading criteria quickly.
+        </Text>
       </Box>
-      <Box style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start', padding: 24, background: '#F8FAFC', borderRadius: 12, borderLeft: '4px solid #06B6D4' }}>
-        <FAIcon name='users' style={{ fill: '#06B6D4', width: 36, height: 36 }} />
-        <Box style={{ flex: 1, flexDirection: 'column', gap: 6 }}>
-          <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0F172A' }}>Work Distribution Is Unfair</Text>
-          <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.5 }}>One person ends up doing everything. No skill-based matching exists in current tools.</Text>
-        </Box>
-      </Box>
-      <Box style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start', padding: 24, background: '#F8FAFC', borderRadius: 12, borderLeft: '4px solid #EF4444' }}>
-        <FAIcon name='clock' style={{ fill: '#EF4444', width: 36, height: 36 }} />
-        <Box style={{ flex: 1, flexDirection: 'column', gap: 6 }}>
-          <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0F172A' }}>Deadlines Sneak Up</Text>
-          <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.5 }}>No early warning for at-risk tasks. Teams discover they're behind only days before submission.</Text>
-        </Box>
-      </Box>
+      {/* Icon */}
+      <FAIcon name='file-alt' style={{ fill: '#3B82F6', width: 36, height: 36, opacity: 0.3 }} />
     </Box>
-    <Box style={{ width: '40%', flexDirection: 'column', gap: 24, justifyContent: 'center', padding: 32, background: 'linear-gradient(160deg, #3B82F6 0%, #06B6D4 100%)', borderRadius: 16 }}>
-      <Text style={{ fontSize: 18, fontWeight: '600', color: '#FFFFFF', opacity: 0.8 }}>THE IMPACT</Text>
-      <Box style={{ flexDirection: 'column', gap: 8 }}>
-        <Text style={{ fontSize: 64, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1 }}>73%</Text>
-        <Text style={{ fontSize: 18, color: '#FFFFFF', opacity: 0.9, lineHeight: 1.4 }}>of students report uneven task distribution in group projects</Text>
+
+    {/* Problem 2 — Unfair Distribution */}
+    <Box style={{ height: 120, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 28, padding: '0 24px', background: '#FFFFFF', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.05)', borderLeft: '6px solid #EF4444' }}>
+      {/* Giant number */}
+      <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#EF4444', lineHeight: 1.0, width: 64, textAlign: 'center' }}>2</Text>
+      {/* Content */}
+      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0F172A' }}>Unfair Task Distribution</Text>
+        <Text style={{ fontSize: 14, color: '#475569', lineHeight: 1.4 }}>
+          Uneven workload and unclear responsibilities among members.
+          <span style={{ color: '#EF4444', fontWeight: '600' }}> No objective basis</span> for assignment — hurts team collaboration and morale.
+        </Text>
       </Box>
-      <Box style={{ width: '100%', height: 1, background: '#FFFFFF', opacity: 0.2 }} />
-      <Box style={{ flexDirection: 'column', gap: 8 }}>
-        <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1 }}>12%</Text>
-        <Text style={{ fontSize: 18, color: '#FFFFFF', opacity: 0.9, lineHeight: 1.4 }}>of student groups use any project management tool at all</Text>
-      </Box>
+      {/* Icon */}
+      <FAIcon name='users' style={{ fill: '#EF4444', width: 36, height: 36, opacity: 0.3 }} />
     </Box>
+
+    {/* Problem 3 — No Rescue for Unexpected Situations */}
+    <Box style={{ height: 120, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 28, padding: '0 24px', background: '#FFFFFF', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.05)', borderLeft: '6px solid #8B5CF6' }}>
+      {/* Giant number */}
+      <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#8B5CF6', lineHeight: 1.0, width: 64, textAlign: 'center' }}>3</Text>
+      {/* Content */}
+      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0F172A' }}>No Rescue for Emergencies</Text>
+        <Text style={{ fontSize: 14, color: '#475569', lineHeight: 1.4 }}>
+          When members are absent, drop out, or the deadline looms —
+          <span style={{ color: '#8B5CF6', fontWeight: '600' }}> teams can't reassign work in time</span>. Last-minute panic, missed criteria.
+        </Text>
+      </Box>
+      {/* Icon */}
+      <FAIcon name='exclamation-triangle' style={{ fill: '#8B5CF6', width: 36, height: 36, opacity: 0.3 }} />
+    </Box>
+
+    {/* Problem 4 — Invisible Contribution */}
+    <Box style={{ height: 120, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 28, padding: '0 24px', background: '#FFFFFF', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.05)', borderLeft: '6px solid #F59E0B' }}>
+      {/* Giant number */}
+      <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#F59E0B', lineHeight: 1.0, width: 64, textAlign: 'center' }}>4</Text>
+      {/* Content */}
+      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0F172A' }}>Invisible Contribution</Text>
+        <Text style={{ fontSize: 14, color: '#475569', lineHeight: 1.4 }}>
+          No objective record of who did what.
+          <span style={{ color: '#F59E0B', fontWeight: '600' }}> Contribution Form disputes</span>, free-rider resentment, no data to back claims.
+        </Text>
+      </Box>
+      {/* Icon */}
+      <FAIcon name='question-circle' style={{ fill: '#F59E0B', width: 36, height: 36, opacity: 0.3 }} />
+    </Box>
+
   </Box>
-  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
-    <Text style={{ fontSize: 14, color: '#94A3B8' }}>02 / 10</Text>
+
+  {/* C — Footer */}
+  <Box style={{ height: 50, display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8', fontWeight: '500' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8' }}>02 / 05</Text>
   </Box>
+
 </Slide>

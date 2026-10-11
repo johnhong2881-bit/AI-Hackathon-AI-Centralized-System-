@@ -1,108 +1,149 @@
-<Slide style={{ width: '1280px', height: '720px', padding: '20px 80px', background: '#FFFFFF', flexDirection: 'column' }}>
-  <Box style={{ height: 100, flexDirection: 'column', justifyContent: 'center' }}>
-    <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#0F172A' }}>One Prompt. Full Analysis.</Text>
+<Slide style={{ width: '1280px', height: '720px', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', padding: '0', display: 'flex', flexDirection: 'column' }}>
+
+  {/* Decorative gradient orbs */}
+  <Box style={{ position: 'absolute', top: -60, right: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)' }} />
+  <Box style={{ position: 'absolute', bottom: -40, left: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)' }} />
+
+  {/* A — Title Block (on dark) */}
+  <Box style={{ height: 120, padding: '24px 60px 0 60px', display: 'flex', flexDirection: 'column', gap: 6, position: 'relative', zIndex: 1 }}>
+    <Text style={{ fontSize: 14, color: '#06B6D4', fontWeight: '600', letterSpacing: '2px' }}>SLIDE 03 — AI SOLUTION</Text>
+    <Text style={{ fontSize: 42, color: '#F1F5F9', fontWeight: 'bold', lineHeight: 1.2 }}>
+      One Prompt <span style={{ background: 'linear-gradient(135deg, #3B82F6, #06B6D4)', fontWeight: 'bold' }}>→</span> Full Execution
+    </Text>
   </Box>
-  <Box style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
-    <Box style={{ width: '55%', justifyContent: 'center', alignItems: 'center' }}>
-      <svg width={580} height={460} viewBox="0 0 600 460">
+
+  {/* B — Content: 6-Agent Pipeline Diagram */}
+  <Box style={{ flex: 1, padding: '0 60px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 24, position: 'relative', zIndex: 1 }}>
+
+    {/* Pipeline SVG */}
+    <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <svg width={1160} height={340} viewBox="0 0 1160 340">
         <defs>
-          <linearGradient id="inputGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#3B82F6" />
             <stop offset="100%" stopColor="#06B6D4" />
           </linearGradient>
-          <linearGradient id="outputGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10B981" />
+          <linearGradient id="nodeGradAlt" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06B6D4" />
+            <stop offset="100%" stopColor="#8B5CF6" />
+          </linearGradient>
+          <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3B82F6" />
             <stop offset="100%" stopColor="#06B6D4" />
           </linearGradient>
         </defs>
-        <rect x="50" y="0" width="500" height="70" rx="12" fill="url(#inputGrad)" />
-        <text x="300" y="30" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold">INPUT</text>
-        <text x="300" y="52" textAnchor="middle" fill="#FFFFFF" fontSize="16">Assignment Brief + Rubric + Team Info</text>
-        <path d="M 300 70 L 300 110" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 292 100 L 300 110 L 308 100" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="20" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
-          <text x="60" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Rubric</text>
-          <text x="60" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
-        </g>
-        <path d="M 100 150 L 120 150" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 113 145 L 120 150 L 113 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="120" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
-          <text x="160" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Task</text>
-          <text x="160" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
-        </g>
-        <path d="M 200 150 L 220 150" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 213 145 L 220 150 L 213 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="220" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
-          <text x="260" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Skill</text>
-          <text x="260" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
-        </g>
-        <path d="M 300 150 L 320 150" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 313 145 L 320 150 L 313 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="320" y="120" width="80" height="60" rx="8" fill="#F0FDF4" stroke="#10B981" strokeWidth="2" />
-          <text x="360" y="145" textAnchor="middle" fill="#10B981" fontSize="11" fontWeight="bold">CPM</text>
-          <text x="360" y="160" textAnchor="middle" fill="#64748B" fontSize="9">Det.</text>
-        </g>
-        <path d="M 400 150 L 420 150" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 413 145 L 420 150 L 413 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="420" y="120" width="80" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" strokeWidth="2" />
-          <text x="460" y="145" textAnchor="middle" fill="#3B82F6" fontSize="11" fontWeight="bold">Risk</text>
-          <text x="460" y="160" textAnchor="middle" fill="#64748B" fontSize="9">LLM</text>
-        </g>
-        <path d="M 500 150 L 520 150" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 513 145 L 520 150 L 513 155" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <g>
-          <rect x="520" y="120" width="60" height="60" rx="8" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="2" />
-          <text x="550" y="145" textAnchor="middle" fill="#F59E0B" fontSize="11" fontWeight="bold">Rescue</text>
-          <text x="550" y="160" textAnchor="middle" fill="#64748B" fontSize="9">Hybrid</text>
-        </g>
-        <path d="M 300 180 L 300 220" stroke="#94A3B8" strokeWidth="2" />
-        <path d="M 292 210 L 300 220 L 308 210" fill="none" stroke="#94A3B8" strokeWidth="2" />
-        <rect x="50" y="220" width="500" height="70" rx="12" fill="url(#outputGrad)" />
-        <text x="300" y="250" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold">OUTPUT</text>
-        <text x="300" y="272" textAnchor="middle" fill="#FFFFFF" fontSize="16">Complete Plan + Risk Rescue + Deadline Defense</text>
-        <rect x="50" y="320" width="500" height="120" rx="12" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="1" />
-        <text x="300" y="345" textAnchor="middle" fill="#64748B" fontSize="12">AUTONOMOUS DECISION CHAIN</text>
-        <text x="80" y="375" fill="#3B82F6" fontSize="13">1. Parse rubric into structured criteria</text>
-        <text x="80" y="395" fill="#3B82F6" fontSize="13">2. Decompose criteria into actionable tasks</text>
-        <text x="80" y="415" fill="#10B981" fontSize="13">3. Calculate critical path + detect risks + rescue</text>
+
+        {/* Row 1: Agents 1-3 */}
+        {/* Node 1: Rubric Intelligence */}
+        <rect x="20" y="30" width="170" height="80" rx="12" fill="url(#nodeGrad)" opacity="0.95" />
+        <text x="105" y="62" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 01</text>
+        <text x="105" y="84" textAnchor="middle" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Rubric Intelligence</text>
+
+        {/* Arrow 1→2 */}
+        <line x1="190" y1="70" x2="220" y2="70" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeDasharray="6 4" />
+        <polygon points="220,65 230,70 220,75" fill="#06B6D4" />
+
+        {/* Node 2: Task Decomposition */}
+        <rect x="230" y="30" width="170" height="80" rx="12" fill="url(#nodeGrad)" opacity="0.95" />
+        <text x="315" y="62" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 02</text>
+        <text x="315" y="84" textAnchor="middle" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Task Decomposition</text>
+
+        {/* Arrow 2→3 */}
+        <line x1="400" y1="70" x2="430" y2="70" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeDasharray="6 4" />
+        <polygon points="430,65 440,70 430,75" fill="#06B6D4" />
+
+        {/* Node 3: Skill Matching */}
+        <rect x="440" y="30" width="170" height="80" rx="12" fill="url(#nodeGrad)" opacity="0.95" />
+        <text x="525" y="62" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 03</text>
+        <text x="525" y="84" textAnchor="middle" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Skill Matching</text>
+
+        {/* Arrow 3→4 (down + right) */}
+        <path d="M 525 110 L 525 160 L 610 160 L 610 190" fill="none" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeDasharray="6 4" />
+        <polygon points="605,185 610,195 615,185" fill="#06B6D4" />
+
+        {/* Row 2: Agents 4-6 (right to left) */}
+        {/* Node 4: Critical Path */}
+        <rect x="525" y="200" width="170" height="80" rx="12" fill="url(#nodeGradAlt)" opacity="0.95" />
+        <text x="610" y="232" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 04</text>
+        <text x="610" y="254" textAnchor="middle" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Critical Path</text>
+
+        {/* Arrow 4→5 (left) */}
+        <line x1="525" y1="240" x2="495" y2="240" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeDasharray="6 4" />
+        <polygon points="495,235 485,240 495,245" fill="#8B5CF6" />
+
+        {/* Node 5: Risk Detection */}
+        <rect x="315" y="200" width="170" height="80" rx="12" fill="url(#nodeGradAlt)" opacity="0.95" />
+        <text x="400" y="232" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 05</text>
+        <text x="400" y="254" textAnchor="middle" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Risk Detection</text>
+
+        {/* Arrow 5→6 (left) */}
+        <line x1="315" y1="240" x2="285" y2="240" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeDasharray="6 4" />
+        <polygon points="285,235 275,240 285,245" fill="#8B5CF6" />
+
+        {/* Node 6: AI Deadline Defender (highlighted) */}
+        <rect x="105" y="200" width="170" height="80" rx="12" fill="url(#nodeGradAlt)" opacity="1" stroke="#8B5CF6" strokeWidth="2" />
+        <text x="190" y="232" textAnchor="middle" fontSize="14" fill="#FFFFFF" fontWeight="bold" fontFamily="JetBrains Mono, monospace">AGENT 06</text>
+        <text x="190" y="254" textAnchor="middle" fontSize="13" fill="#F3E8FF" fontFamily="Inter, sans-serif">Deadline Defender</text>
+
+        {/* Glow around Agent 6 */}
+        <rect x="100" y="195" width="180" height="90" rx="14" fill="none" stroke="#8B5CF6" strokeWidth="1" opacity="0.4" />
+
+        {/* Input label — left side */}
+        <rect x="20" y="310" width="200" height="24" rx="12" fill="rgba(59,130,246,0.15)" />
+        <text x="120" y="326" textAnchor="middle" fontSize="11" fill="#3B82F6" fontWeight="600" fontFamily="Inter, sans-serif">INPUT: Assignment + Rubric + Team</text>
+
+        {/* Output label — right side */}
+        <rect x="525" y="310" width="230" height="24" rx="12" fill="rgba(139,92,246,0.15)" />
+        <text x="640" y="326" textAnchor="middle" fontSize="11" fill="#8B5CF6" fontWeight="600" fontFamily="Inter, sans-serif">OUTPUT: Full Plan + Risk + Export</text>
+
+        {/* Right side — features */}
+        <rect x="740" y="30" width="400" height="260" rx="12" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+        <text x="760" y="60" fontSize="13" fill="#94A3B8" fontWeight="600" fontFamily="Inter, sans-serif">KEY CAPABILITIES</text>
+
+        <circle cx="765" cy="88" r="4" fill="#3B82F6" />
+        <text x="778" y="92" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Rubric Good / Average / Poor levels</text>
+
+        <circle cx="765" cy="114" r="4" fill="#3B82F6" />
+        <text x="778" y="118" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Multi-member tasks + personalized hours</text>
+
+        <circle cx="765" cy="140" r="4" fill="#06B6D4" />
+        <text x="778" y="144" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Skill strengths / weaknesses matching</text>
+
+        <circle cx="765" cy="166" r="4" fill="#06B6D4" />
+        <text x="778" y="170" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Resource-constrained scheduler + CPM</text>
+
+        <circle cx="765" cy="192" r="4" fill="#8B5CF6" />
+        <text x="778" y="196" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">7 risk types auto-detected</text>
+
+        <circle cx="765" cy="218" r="4" fill="#8B5CF6" />
+        <text x="778" y="222" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Maximize marks when time runs short</text>
+
+        <circle cx="765" cy="244" r="4" fill="#8B5CF6" />
+        <text x="778" y="248" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Before / After comparison metrics</text>
+
+        <circle cx="765" cy="270" r="4" fill="#3B82F6" />
+        <text x="778" y="274" fontSize="13" fill="#E0F2FE" fontFamily="Inter, sans-serif">Accept / reject + leader approval flow</text>
+
+        <circle cx="765" cy="296" r="4" fill="#F59E0B" />
+        <text x="778" y="300" fontSize="13" fill="#FCD34D" fontFamily="Inter, sans-serif">Export plan as TXT / PDF deliverable</text>
       </svg>
     </Box>
-    <Box style={{ width: '45%', flexDirection: 'column', gap: 28, justifyContent: 'center' }}>
-      <Text style={{ fontSize: 22, color: '#0F172A', lineHeight: 1.5 }}>
-        TaskFlow AI takes a <span style={{ fontWeight: 'bold', color: '#3B82F6' }}>single assignment prompt</span> and produces a complete, rubric-aligned project plan with task assignments, deadline risk flags, and autonomous rescue recommendations.
-      </Text>
-      <Box style={{ flexDirection: 'column', gap: 16, padding: 24, background: '#F8FAFC', borderRadius: 12, borderLeft: '4px solid #06B6D4' }}>
-        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
-          <Box style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Input</Text>
-            <Text style={{ fontSize: 16, color: '#64748B' }}>One prompt: assignment brief + rubric + team members</Text>
-            </Box>
-        </Box>
-        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
-          <Box style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Process</Text>
-            <Text style={{ fontSize: 16, color: '#64748B' }}>6 agents: analyze, decompose, match, calculate, assess, rescue</Text>
-            </Box>
-        </Box>
-        <Box style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          <FAIcon name='arrow-right' style={{ fill: '#06B6D4', width: 20, height: 20 }} />
-          <Box style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0F172A' }}>Output</Text>
-            <Text style={{ fontSize: 16, color: '#64748B' }}>Complete plan + risk assessment + rescue strategies</Text>
-            </Box>
-        </Box>
+
+    {/* Tagline */}
+    <Box style={{ display: 'flex', justifyContent: 'center' }}>
+      <Box style={{ padding: '12px 32px', background: 'rgba(59,130,246,0.12)', borderRadius: 30, border: '1px solid rgba(59,130,246,0.3)' }}>
+        <Text style={{ fontSize: 20, color: '#F1F5F9', fontWeight: '600' }}>
+          <span style={{ color: '#06B6D4' }}>6 Agents</span> · <span style={{ color: '#3B82F6' }}>1 Pipeline</span> · <span style={{ color: '#8B5CF6' }}>End-to-End Execution</span>
+        </Text>
       </Box>
     </Box>
+
   </Box>
-  <Box style={{ height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14, color: '#94A3B8' }}>TaskFlow AI</Text>
-    <Text style={{ fontSize: 14, color: '#94A3B8' }}>03 / 10</Text>
+
+  {/* C — Footer (on dark) */}
+  <Box style={{ height: 50, padding: '0 60px', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+    <Text style={{ fontSize: 14, color: '#475569', fontWeight: '500' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#475569' }}>03 / 05</Text>
   </Box>
+
 </Slide>
