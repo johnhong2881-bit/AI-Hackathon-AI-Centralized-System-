@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
-import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS, PROJECTS, PGP, AVC, RUBRIC_MARKS, RUBRIC_TOTAL } from '@/lib/mock/mockTaskflow2';
-import type { Task, Member, Skill, TaskStatus, Priority } from '@/types/types';
+import { SUGG, LVN, DN, RJ_OPTS, TK, PROJECT_MEMBERS, PROJECTS, PGP, AVC, RUBRIC_MARKS, RUBRIC_TOTAL, RUBRIC_SECTIONS } from '@/lib/mock/mockTaskflow2';
+import type { Task, Member, Skill, TaskStatus, Priority, Complexity, InvitationStatus } from '@/types/types';
 
 // ===== Overlay Wrapper =====
 export function Mockup2Overlays() {
@@ -21,13 +21,14 @@ export function Mockup2Overlays() {
           <div className="ov" onClick={closeOverlay} />
           {overlay === 'drMember' && <MemberDrawer />}
           {overlay === 'drTask' && <TaskDrawer />}
-          {(overlay === 'mdReject' || overlay === 'mdOverride' || overlay === 'mdEdit' || overlay === 'mdSave' || overlay === 'mdContrib') && (
+          {(overlay === 'mdReject' || overlay === 'mdOverride' || overlay === 'mdEdit' || overlay === 'mdSave' || overlay === 'mdContrib' || overlay === 'mdPlan') && (
             <div className="mdl" onClick={e => e.stopPropagation()}>
               {overlay === 'mdReject' && <RejectModal />}
               {overlay === 'mdSave' && <SaveModal />}
               {overlay === 'mdOverride' && <OverrideModal />}
               {overlay === 'mdEdit' && <EditModal />}
               {overlay === 'mdContrib' && <ContributionModal />}
+              {overlay === 'mdPlan' && <ProjectPlanModal />}
             </div>
           )}
         </>
@@ -1158,6 +1159,455 @@ function ContributionModal() {
         <button className="btn" onClick={closeOverlay}>Cancel</button>
         <button className="btn btn-p" onClick={handleGenerate}>
           <i className="ti ti-file-export" /> {allDone ? 'Generate report' : 'Generate anyway'}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ===== Project Plan Modal =====
+function ProjectPlanModal() {
+  const closeOverlay = useMockupStore2(s => s.closeOverlay);
+  const addToast = useMockupStore2(s => s.addToast);
+  const activeProjectId = useMockupStore2(s => s.activeProjectId);
+  const taskOverrides = useMockupStore2(s => s.taskOverrides);
+
+  // Real pipeline data
+  const assignment = useTaskStore(s => s.assignment);
+  const rubric = useTaskStore(s => s.rubric);
+  const plan = useTaskStore(s => s.plan);
+  const members = useTaskStore(s => s.members);
+  const skillMatch = useTaskStore(s => s.skillMatch);
+  const criticalPath = useTaskStore(s => s.criticalPath);
+  const riskAssessment = useTaskStore(s => s.riskAssessment);
+  const deadline = useTaskStore(s => s.deadline);
+
+  const project = PROJECTS.find(p => p.id === activeProjectId) || PROJECTS[0];
+  const [generating, setGenerating] = useState(false);
+  const [report, setReport] = useState<string | null>(null);
+  const [htmlReport, setHtmlReport] = useState<string | null>(null);
+
+  // Determine data source: real pipeline data for SRS, mock for others
+  const useRealData = activeProjectId === 'srs' && plan && plan.tasks.length > 0 && members.length > 0;
+
+  // Build task list (real or mock)
+  const tasks: any[] = useRealData && plan ? plan.tasks : TK.map(tk => ({
+    id: String(tk[0]),
+    title: tk[1],
+    description: '',
+    relatedRubricIds: [],
+    estimatedHours: tk[4],
+    dependencies: [],
+    requiredSkills: [],
+    memberAssignments: [],
+    assignedTo: null,
+    status: tk[8],
+    priority: 'medium',
+    complexity: 'medium',
+    confirmed: false,
+    locked: false,
+    mandatory: false,
+    invitationStatus: 'pending',
+    order: tk[0],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
+
+  // Build member list
+  const teamMembers = useRealData && members.length > 0 ? members : PROJECT_MEMBERS[activeProjectId]?.map(key => {
+    const pgp = PGP.find(m => m[0] === key);
+    return pgp ? { id: pgp[0], name: pgp[1], skills: pgp[2].split(', ').map(s => s as Skill), avatar: pgp[0] } : null;
+  }).filter(Boolean) || [];
+
+  // Get effective task status (returns mock TaskStatus which includes 'prog')
+  const getEffectiveStatus = (taskId: string): string => {
+    const override = taskOverrides[taskId];
+    if (override) return override.status === 'done' ? 'done' : override.status === 'in-progress' ? 'prog' : 'todo';
+    const tk = TK.find(t => String(t[0]) === taskId);
+    return tk ? tk[8] : 'todo';
+  };
+
+  // Marks by section
+  const sectionData = RUBRIC_SECTIONS.map(([name, icon, taskIds, desc]) => {
+    let earned = 0, potential = 0, total = 0;
+    taskIds.forEach(id => {
+      const status = getEffectiveStatus(String(id));
+      const mk = RUBRIC_MARKS[id] ?? 0;
+      total += mk;
+      if (status === 'done') { earned += mk; potential += mk; }
+      else if (status === 'prog') { potential += mk; }
+    });
+    return { name, icon, desc, earned, potential, total, taskIds };
+  });
+
+  const marksEarned = sectionData.reduce((s, sec) => s + sec.earned, 0);
+  const marksPotential = sectionData.reduce((s, sec) => s + sec.potential, 0);
+  const marksRemaining = RUBRIC_TOTAL - marksPotential;
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    setTimeout(() => {
+      const lines: string[] = [];
+      const now = new Date().toLocaleString();
+
+      lines.push('╔════════════════════════════════════════════════════════════╗');
+      lines.push('║          PROJECT PLAN — Generated by TaskFlow AI           ║');
+      lines.push('╚════════════════════════════════════════════════════════════╝');
+      lines.push('');
+      lines.push(`Generated: ${now}`);
+      lines.push(`Project:  ${project.name}`);
+      lines.push(`Status:   ${project.statusLabel}`);
+      lines.push(`Due:      ${project.due}`);
+      lines.push('');
+
+      // Team
+      lines.push('═══════════════════════════════════');
+      lines.push('  TEAM MEMBERS');
+      lines.push('═══════════════════════════════════');
+      if (useRealData && teamMembers.length > 0) {
+        teamMembers.forEach((m: any) => {
+          lines.push(`  ${m.name || m.id}`);
+          lines.push(`    Skills: ${Array.isArray(m.skills) ? m.skills.join(', ') : m.skills}`);
+          lines.push('');
+        });
+      } else {
+        const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+        memberKeys.forEach(key => {
+          const pgp = PGP.find(m => m[0] === key);
+          if (pgp) {
+            lines.push(`  ${pgp[1]} (${pgp[0]})`);
+            lines.push(`    Skills: ${pgp[2]}`);
+            lines.push(`    Total hours: ${pgp[3]}${pgp[4] ? ' [Overloaded]' : ''}`);
+            lines.push('');
+          }
+        });
+      }
+
+      // Rubric
+      lines.push('═══════════════════════════════════');
+      lines.push('  RUBRIC CRITERIA');
+      lines.push('═══════════════════════════════════');
+      if (rubric && rubric.items) {
+        rubric.items.forEach(item => {
+          lines.push(`  [${item.mandatory ? 'M' : ' '}] ${item.criteria} (${item.marks} marks)`);
+          if (item.description) lines.push(`      ${item.description}`);
+        });
+        lines.push(`  Total: ${rubric.totalMarks} marks`);
+      } else {
+        lines.push('  (Run AI analysis to extract rubric criteria)');
+      }
+      lines.push('');
+
+      // Tasks
+      lines.push('═══════════════════════════════════');
+      lines.push('  TASK BREAKDOWN');
+      lines.push('═══════════════════════════════════');
+      if (useRealData && plan) {
+        plan.tasks.forEach((t, i) => {
+          const status = getEffectiveStatus(t.id) || t.status;
+          const statusIcon = status === 'done' ? '[x]' : status === 'in-progress' || status === 'prog' ? '[~]' : '[ ]';
+          const assignee = members.find(m => m.id === t.assignedTo);
+          const marks = RUBRIC_MARKS[Number(t.id)] || (t.relatedRubricIds?.length || 0);
+          lines.push(`  ${i + 1}. ${statusIcon} ${t.title}`);
+          lines.push(`     Hours: ${t.estimatedHours}h | Priority: ${t.priority} | Marks: ${marks}`);
+          if (assignee) lines.push(`     Assigned: ${assignee.name}`);
+          if (t.dependencies && t.dependencies.length > 0) lines.push(`     Depends on: ${t.dependencies.join(', ')}`);
+          if (t.requiredSkills && t.requiredSkills.length > 0) lines.push(`     Skills: ${t.requiredSkills.join(', ')}`);
+          lines.push('');
+        });
+        lines.push(`  Total estimated hours: ${plan.totalEstimatedHours}h`);
+      } else {
+        TK.forEach(tk => {
+          const status = getEffectiveStatus(String(tk[0]));
+          const statusIcon = status === 'done' ? '[x]' : status === 'prog' ? '[~]' : '[ ]';
+          const marks = RUBRIC_MARKS[tk[0]] || 0;
+          lines.push(`  ${tk[0]}. ${statusIcon} ${tk[1]}`);
+          lines.push(`     Hours: ${tk[4]}h | Assignees: ${(tk[5] || []).join(', ')} | Marks: ${marks}`);
+          lines.push('');
+        });
+      }
+
+      // Timeline
+      lines.push('═══════════════════════════════════');
+      lines.push('  TIMELINE & SCHEDULE');
+      lines.push('═══════════════════════════════════');
+      if (criticalPath) {
+        lines.push(`  Predicted completion: Day ${criticalPath.predictedCompletionDay}`);
+        lines.push(`  Deadline: Day ${criticalPath.deadlineDay}`);
+        if (criticalPath.delayDays > 0) {
+          lines.push(`  ⚠ ${criticalPath.delayDays} days late!`);
+        } else {
+          lines.push(`  ✓ On track`);
+        }
+        lines.push(`  Risk status: ${criticalPath.riskStatus}`);
+        if (criticalPath.criticalPath && criticalPath.criticalPath.length > 0) {
+          lines.push(`  Critical path: ${criticalPath.criticalPath.join(' → ')}`);
+        }
+      } else if (deadline) {
+        lines.push(`  Deadline: ${deadline.deadline || 'N/A'}`);
+        lines.push(`  Days remaining: ${deadline.daysRemaining}`);
+      }
+      lines.push('');
+
+      // Workload
+      lines.push('═══════════════════════════════════');
+      lines.push('  WORKLOAD DISTRIBUTION');
+      lines.push('═══════════════════════════════════');
+      if (criticalPath && criticalPath.memberLoads) {
+        criticalPath.memberLoads.forEach(ml => {
+          const pct = ml.availableHours > 0 ? Math.round(ml.remainingWorkHours / ml.availableHours * 100) : 0;
+          lines.push(`  ${ml.memberName}: ${ml.remainingWorkHours}h / ${ml.availableHours}h (${pct}%)${ml.isOverloaded ? ' [OVERLOADED]' : ''}`);
+        });
+      } else {
+        const memberKeys = PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs'];
+        memberKeys.forEach(key => {
+          const pgp = PGP.find(m => m[0] === key);
+          if (pgp) {
+            lines.push(`  ${pgp[1]}: ${pgp[3]}h${pgp[4] ? ' [OVERLOADED]' : ''}`);
+          }
+        });
+      }
+      lines.push('');
+
+      // Risk
+      lines.push('═══════════════════════════════════');
+      lines.push('  RISK ASSESSMENT');
+      lines.push('═══════════════════════════════════');
+      if (riskAssessment) {
+        lines.push(`  Overall risk: ${riskAssessment.overallRiskLevel || 'Unknown'}`);
+        if (riskAssessment.flags) {
+          riskAssessment.flags.forEach(flag => {
+            lines.push(`  [${flag.riskLevel || '!'}] ${flag.riskType}: ${flag.description}`);
+            if (flag.recommendation) lines.push(`      → ${flag.recommendation}`);
+          });
+        }
+      } else {
+        lines.push('  (Run AI analysis for risk assessment)');
+      }
+      lines.push('');
+
+      // Marks
+      lines.push('═══════════════════════════════════');
+      lines.push('  ESTIMATED MARKS BY RUBRIC SECTION');
+      lines.push('═══════════════════════════════════');
+      sectionData.forEach(sec => {
+        lines.push(`  ${sec.name}: ${sec.earned}/${sec.total} marks earned${sec.potential > sec.earned ? ` (${sec.potential - sec.earned} in progress)` : ''}`);
+      });
+      lines.push(`  ────────────────────────────────`);
+      lines.push(`  TOTAL: ${marksEarned}/${RUBRIC_TOTAL} marks earned`);
+      if (marksPotential > marksEarned) lines.push(`         ${marksPotential}/${RUBRIC_TOTAL} achievable (in progress)`);
+      if (marksRemaining > 0) lines.push(`         ${marksRemaining} marks not yet started`);
+      lines.push('');
+
+      // AI Summary
+      lines.push('═══════════════════════════════════');
+      lines.push('  AI ANALYSIS SUMMARY');
+      lines.push('═══════════════════════════════════');
+      if (useRealData && plan) {
+        lines.push(`  Tasks generated: ${plan.tasks.length}`);
+        lines.push(`  Total hours: ${plan.totalEstimatedHours}h`);
+        if (skillMatch) {
+          lines.push(`  Tasks matched: ${skillMatch.assignments?.length || 0}/${plan.tasks.length}`);
+          if (skillMatch.unmatchedTaskIds?.length > 0) {
+            lines.push(`  Unmatched tasks: ${skillMatch.unmatchedTaskIds.length}`);
+          }
+        }
+        if (criticalPath) {
+          lines.push(`  Confidence: ${criticalPath.delayDays > 0 ? 'LOW — deadline at risk' : 'HIGH — on track'}`);
+        }
+      } else {
+        lines.push('  (Run AI pipeline analysis for full summary)');
+      }
+      lines.push('');
+      lines.push('═══════════════════════════════════');
+      lines.push('  END OF PROJECT PLAN');
+      lines.push('═══════════════════════════════════');
+
+      const textReport = lines.join('\n');
+      setReport(textReport);
+
+      // Also build an HTML version for printing
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Project Plan — ${project.name}</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:40px auto;padding:0 24px;color:#1e293b;line-height:1.6}
+h1{text-align:center;color:#3b82f6;border-bottom:3px solid #3b82f6;padding-bottom:12px}
+h2{color:#1e293b;border-left:4px solid #3b82f6;padding-left:12px;margin-top:32px}
+table{width:100%;border-collapse:collapse;margin:12px 0}
+th{background:#f1f5f9;padding:8px 12px;text-align:left;font-size:13px}
+td{padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:13px}
+.stat{display:inline-block;padding:4px 12px;border-radius:6px;font-weight:600;font-size:13px}
+.stat-ok{background:#dcfce7;color:#166534}
+.stat-dg{background:#fee2e2;color:#991b1b}
+.bar{height:24px;border-radius:4px;background:#e2e8f0;overflow:hidden}
+.bar-fill{height:100%;background:#3b82f6}
+.bar-potential{height:100%;background:#93c5fd;position:absolute}
+.section{margin:16px 0;padding:16px;background:#f8fafc;border-radius:8px}
+.task{margin:8px 0;padding:8px 12px;border-left:3px solid #cbd5e1}
+.task-done{border-left-color:#22c55e}
+.task-prog{border-left-color:#3b82f6}
+.meta{color:#64748b;font-size:12px}
+</style></head><body>
+<h1>Project Plan — ${project.name}</h1>
+<div style="text-align:center;color:#64748b;margin-bottom:32px">
+  <span class="stat ${project.status === 'dg' ? 'stat-dg' : 'stat-ok'}">${project.statusLabel}</span>
+  &nbsp;Due: ${project.due} &nbsp;|&nbsp; ${project.members} members
+  <br><span class="meta">Generated by TaskFlow AI on ${now}</span>
+</div>
+
+<h2>Team Members</h2>
+${(useRealData ? teamMembers.map((m: any) => `<div class="task"><b>${m.name || m.id}</b><br><span class="meta">Skills: ${Array.isArray(m.skills) ? m.skills.join(', ') : m.skills}</span></div>`).join('') : (PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs']).map(key => { const pgp = PGP.find(m => m[0] === key); return pgp ? `<div class="task"><b>${pgp[1]}</b><br><span class="meta">Skills: ${pgp[2]} | ${pgp[3]}h total${pgp[4] ? ' | OVERLOADED' : ''}</span></div>` : ''; }).join(''))}
+
+<h2>Rubric Criteria</h2>
+${rubric && rubric.items ? `<table><thead><tr><th>Mandatory</th><th>Criteria</th><th>Marks</th></tr></thead><tbody>${rubric.items.map(i => `<tr><td>${i.mandatory ? '✓' : ''}</td><td>${i.criteria}</td><td>${i.marks}</td></tr>`).join('')}</tbody></table><p><b>Total: ${rubric.totalMarks} marks</b></p>` : '<p class="meta">Run AI analysis to extract rubric criteria</p>'}
+
+<h2>Task Breakdown</h2>
+${useRealData && plan ? plan.tasks.map((t, i) => { const st = getEffectiveStatus(t.id) || t.status; const a = members.find(m => m.id === t.assignedTo); return `<div class="task ${st === 'done' ? 'task-done' : st === 'prog' || st === 'in-progress' ? 'task-prog' : ''}"><b>${i + 1}. ${t.title}</b><br><span class="meta">${t.estimatedHours}h | Priority: ${t.priority}${a ? ' | Assigned: ' + a.name : ''}</span></div>`; }).join('') : TK.map(tk => { const st = getEffectiveStatus(String(tk[0])); return `<div class="task ${st === 'done' ? 'task-done' : st === 'prog' ? 'task-prog' : ''}"><b>${tk[0]}. ${tk[1]}</b><br><span class="meta">${tk[4]}h | Assignees: ${(tk[5] || []).join(', ')}</span></div>`; }).join('')}
+
+<h2>Timeline & Schedule</h2>
+<div class="section">
+${criticalPath ? `<p>Predicted completion: <b>Day ${criticalPath.predictedCompletionDay}</b><br>Deadline: Day ${criticalPath.deadlineDay}<br>${criticalPath.delayDays > 0 ? `<span class="stat stat-dg">⚠ ${criticalPath.delayDays} days late</span>` : '<span class="stat stat-ok">✓ On track</span>'}<br>Risk: ${criticalPath.riskStatus}</p>` : deadline ? `<p>Deadline: ${deadline.deadline}<br>Days remaining: ${deadline.daysRemaining}</p>` : '<p class="meta">Run AI analysis</p>'}
+</div>
+
+<h2>Workload Distribution</h2>
+${criticalPath && criticalPath.memberLoads ? criticalPath.memberLoads.map(ml => `<div class="task"><b>${ml.memberName}</b><br><div class="bar"><div class="bar-fill" style="width:${ml.availableHours > 0 ? Math.round(ml.remainingWorkHours / ml.availableHours * 100) : 0}%"></div></div><span class="meta">${ml.remainingWorkHours}h / ${ml.availableHours}h${ml.isOverloaded ? ' | OVERLOADED' : ''}</span></div>`).join('') : (PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs']).map(key => { const pgp = PGP.find(m => m[0] === key); return pgp ? `<div class="task"><b>${pgp[1]}</b><br><span class="meta">${pgp[3]}h${pgp[4] ? ' | OVERLOADED' : ''}</span></div>` : ''; }).join('')}
+
+<h2>Estimated Marks by Section</h2>
+<table><thead><tr><th>Section</th><th>Earned</th><th>Total</th><th>Progress</th></tr></thead><tbody>
+${sectionData.map(sec => `<tr><td>${sec.name}</td><td>${sec.earned}</td><td>${sec.total}</td><td><div class="bar" style="width:120px"><div class="bar-fill" style="width:${sec.total > 0 ? Math.round(sec.earned / sec.total * 100) : 0}%"></div></div></td></tr>`).join('')}
+</tbody></table>
+<p><b>Total: ${marksEarned}/${RUBRIC_TOTAL} marks earned${marksPotential > marksEarned ? ` | ${marksPotential} achievable` : ''}</b></p>
+
+<h2>AI Analysis Summary</h2>
+<div class="section">
+${useRealData && plan ? `<p>Tasks generated: <b>${plan.tasks.length}</b><br>Total hours: <b>${plan.totalEstimatedHours}h</b>${skillMatch ? `<br>Tasks matched: <b>${skillMatch.assignments?.length || 0}/${plan.tasks.length}</b>` : ''}${criticalPath ? `<br>Confidence: <b>${criticalPath.delayDays > 0 ? 'LOW — deadline at risk' : 'HIGH — on track'}</b>` : ''}</p>` : '<p class="meta">Run AI pipeline analysis for full summary</p>'}
+</div>
+
+<p style="text-align:center;color:#94a3b8;margin-top:48px">Generated by TaskFlow AI — One Prompt, One Goal, End-to-End Execution</p>
+</body></html>`;
+      setHtmlReport(html);
+
+      setGenerating(false);
+    }, 800);
+  };
+
+  // Download as text
+  const handleDownloadTxt = () => {
+    if (!report) return;
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `project-plan-${project.name.toLowerCase().replace(/\s+/g, '-')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Project plan downloaded (TXT)', 'ti-download');
+  };
+
+  // Open printable HTML (for Save as PDF)
+  const handlePrintPdf = () => {
+    if (!htmlReport) return;
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(htmlReport);
+      w.document.close();
+      setTimeout(() => { w.print(); }, 500);
+      addToast('Opening print view — use "Save as PDF"', 'ti-printer');
+    } else {
+      addToast('Please allow popups to print', 'ti-alert-circle');
+    }
+  };
+
+  if (report) {
+    return (
+      <>
+        <div className="bd">
+          <div className="row mb12">
+            <i className="ti ti-file-text" style={{ fontSize: 24, color: 'var(--blue)' }} />
+            <div className="h2">Project plan generated</div>
+          </div>
+          <div className="row g8 mb12 wrap">
+            <span className="badge b-blue"><i className="ti ti-list-check" /> {useRealData && plan ? plan.tasks.length : TK.length} tasks</span>
+            <span className="badge b-ok"><i className="ti ti-award" /> {marksEarned}/{RUBRIC_TOTAL} marks</span>
+            {criticalPath && (criticalPath.delayDays > 0
+              ? <span className="badge b-wn"><i className="ti ti-alert-triangle" /> {criticalPath.delayDays}d late</span>
+              : <span className="badge b-ok"><i className="ti ti-check" /> On track</span>
+            )}
+          </div>
+          <div className="card flat" style={{ padding: 14, maxHeight: 360, overflowY: 'auto' }}>
+            <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: 0, color: 'var(--ink2)', lineHeight: 1.5 }}>{report}</pre>
+          </div>
+        </div>
+        <div className="ft">
+          <button className="btn" onClick={closeOverlay}>Close</button>
+          <div className="row g8">
+            <button className="btn" onClick={handleDownloadTxt}><i className="ti ti-download" /> TXT</button>
+            <button className="btn btn-p" onClick={handlePrintPdf}><i className="ti ti-printer" /> Save as PDF</button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (generating) {
+    return (
+      <div className="bd" style={{ textAlign: 'center', padding: 40 }}>
+        <div className="spin" style={{ margin: '0 auto 12px' }} />
+        <div className="sm mut">Generating project plan...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="bd">
+        <div className="row mb12">
+          <i className="ti ti-file-text" style={{ fontSize: 24, color: 'var(--blue)' }} />
+          <div className="h2">Export project plan</div>
+        </div>
+        <p className="sm mut mb12">
+          Generates a complete project plan document with team, tasks, timeline, workload, risk assessment, and marks estimation.
+        </p>
+
+        {/* Summary preview */}
+        <div className="card flat mb12" style={{ padding: 14 }}>
+          <div className="eyebrow mb8">Plan summary</div>
+          <div className="row g16 wrap sm">
+            <span><i className="ti ti-users" style={{ color: 'var(--blue)' }} /> {useRealData && members.length > 0 ? members.length : (PROJECT_MEMBERS[activeProjectId] || PROJECT_MEMBERS['srs']).length} members</span>
+            <span><i className="ti ti-list-check" style={{ color: 'var(--blue)' }} /> {useRealData && plan ? plan.tasks.length : TK.length} tasks</span>
+            <span><i className="ti ti-award" style={{ color: 'var(--blue)' }} /> {marksEarned}/{RUBRIC_TOTAL} marks earned</span>
+            {criticalPath && criticalPath.delayDays > 0
+              ? <span style={{ color: 'var(--wn)' }}><i className="ti ti-alert-triangle" /> {criticalPath.delayDays}d late</span>
+              : <span style={{ color: '#18a67a' }}><i className="ti ti-check" /> On track</span>
+            }
+          </div>
+        </div>
+
+        {/* Sections included */}
+        <div className="sec">
+          <div className="eyebrow mb8">Includes</div>
+          <div className="row g12 wrap xs mut">
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Project overview</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Team members & skills</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Rubric criteria</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Task breakdown</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Timeline & schedule</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Workload distribution</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Risk assessment</span>
+            <span><i className="ti ti-check" style={{ color: '#18a67a' }} /> Marks estimation</span>
+          </div>
+        </div>
+
+        {!useRealData && (
+          <div className="alert al-blue sm mt12">
+            <i className="ti ti-info-circle" />
+            <div>Using sample data. Run AI analysis on the SRS project for real pipeline data.</div>
+          </div>
+        )}
+      </div>
+      <div className="ft">
+        <button className="btn" onClick={closeOverlay}>Cancel</button>
+        <button className="btn btn-p" onClick={handleGenerate}>
+          <i className="ti ti-file-text" /> Generate plan
         </button>
       </div>
     </>

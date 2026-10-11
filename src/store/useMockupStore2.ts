@@ -6,7 +6,7 @@ export type ScreenId =
 
 export type OverlayId =
   | null | 'drMember' | 'drTask'
-  | 'mdReject' | 'mdOverride' | 'mdEdit' | 'mdSave' | 'mdContrib';
+  | 'mdReject' | 'mdOverride' | 'mdEdit' | 'mdSave' | 'mdContrib' | 'mdPlan';
 
 export type RoleMode = 'lead' | 'mem';
 export type FileState = 'ok' | 'empty' | 'type' | 'parse';

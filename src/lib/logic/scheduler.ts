@@ -393,9 +393,13 @@ export function findCriticalPath(
  * Returns negative if deadline has already passed.
  */
 export function calculateDeadlineDay(deadline: DeadlineInfo | null): number {
-  if (!deadline || !deadline.deadline) return 0;
+  if (!deadline) return 0;
+  // Accept either deadline.deadline (ISO) or deadline.date (ISO/date string)
+  const dlStr = deadline.deadline ?? (deadline as unknown as Record<string, unknown>).date as string | undefined;
+  if (!dlStr) return 0;
   const now = new Date();
-  const dl = new Date(deadline.deadline);
+  const dl = new Date(dlStr);
+  if (isNaN(dl.getTime())) return 0;
   const diffMs = dl.getTime() - now.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
@@ -670,7 +674,17 @@ export function planRescueSearch(
   let reasonAdjustedTasks = tasks;
   if (leaderReason) {
     reasonAdjustedTasks = cloneTasks(tasks);
-    switch (leaderReason.type) {
+    // Normalize leader reason type — UI sends full labels, switch uses short keys
+    const rtype = leaderReason.type ?? '';
+    const reasonKey =
+      rtype.includes('unavailable') || rtype.includes('Unavailable') ? 'unavailable'
+      : rtype.includes('overload') || rtype.includes('Overload') ? 'overloaded'
+      : rtype.includes('mismatch') || rtype.includes('Skills don') ? 'mismatch'
+      : rtype.includes('earlier') || rtype.includes('Deadline moved') ? 'earlier'
+      : rtype.includes('slow') ? 'slow'
+      : rtype.includes('not enough time') || rtype.includes('Not enough') ? 'not_enough_time'
+      : rtype;
+    switch (reasonKey) {
       case 'unavailable':
         // Remove all remaining work from this member
         if (leaderReason.memberId) {
@@ -710,6 +724,21 @@ export function planRescueSearch(
           for (const a of t.memberAssignments) {
             if (a.invitationStatus === 'accepted' && (a.remainingHours ?? 0) > 0) {
               a.remainingHours = (a.remainingHours ?? a.estimatedHours) * 1.25;
+            }
+          }
+        }
+        break;
+      case 'not_enough_time':
+        // Not enough time — mark low-priority non-mandatory tasks as rejected
+        // so the scheduler focuses on high-value work first
+        for (const t of reasonAdjustedTasks) {
+          if (t.priority === 'low' && !t.mandatory && t.status === 'todo') {
+            if (!t.memberAssignments) continue;
+            for (const a of t.memberAssignments) {
+              if (a.invitationStatus !== 'rejected') {
+                a.invitationStatus = 'rejected';
+                a.rejectReason = 'Dropped: not enough time, low priority';
+              }
             }
           }
         }

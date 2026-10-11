@@ -137,6 +137,33 @@ function cloneTasks(tasks: Task[]): Task[] {
   return JSON.parse(JSON.stringify(tasks));
 }
 
+// ===== Normalize tasks: ensure all required fields exist =====
+// Tasks coming from the API may be missing optional fields like
+// requiredSkills, dependencies, memberAssignments, etc. — the scheduler
+// assumes these are always present, so we fill defaults here.
+
+function normalizeTasks(tasks: Task[]): Task[] {
+  return tasks.map(t => ({
+    ...t,
+    requiredSkills: t.requiredSkills ?? [],
+    dependencies: t.dependencies ?? [],
+    relatedRubricIds: t.relatedRubricIds ?? [],
+    memberAssignments: t.memberAssignments ?? [],
+    confirmed: t.confirmed ?? false,
+    locked: t.locked ?? false,
+    mandatory: t.mandatory ?? false,
+    invitationStatus: t.invitationStatus ?? 'pending',
+    complexity: t.complexity ?? 'medium',
+    priority: t.priority ?? 'medium',
+    status: t.status ?? 'todo',
+    assignedTo: t.assignedTo ?? null,
+    estimatedHours: t.estimatedHours ?? 0,
+    order: t.order ?? 0,
+    createdAt: t.createdAt ?? new Date().toISOString(),
+    updatedAt: t.updatedAt ?? new Date().toISOString(),
+  }));
+}
+
 // ===== Main rescue workflow =====
 
 export function runRescueWorkflow(params: {
@@ -149,12 +176,15 @@ export function runRescueWorkflow(params: {
   const { riskAssessment, tasks, members, deadline, leaderReason } = params;
   const now = new Date().toISOString();
 
+  // --- Normalize tasks to ensure all required fields exist ---
+  const normalizedTasks = normalizeTasks(tasks);
+
   // --- Run scheduler-based rescue search (3 rounds) ---
-  const searchResult = planRescueSearch(tasks, members, deadline, leaderReason);
+  const searchResult = planRescueSearch(normalizedTasks, members, deadline, leaderReason);
 
   // --- Case 1: Rescue not needed (project is on track or complete) ---
   if (!searchResult.needed) {
-    const totalHours = tasks.reduce((s, t) => s + t.estimatedHours, 0);
+    const totalHours = normalizedTasks.reduce((s, t) => s + t.estimatedHours, 0);
     return {
       assignmentId: riskAssessment.assignmentId,
       actions: [],
@@ -183,7 +213,7 @@ export function runRescueWorkflow(params: {
   const baseAssessment = searchResult.baseAssessment;
 
   // --- Compute after-state by applying ops to a clone ---
-  const afterTasks = cloneTasks(tasks);
+  const afterTasks = cloneTasks(normalizedTasks);
   for (const op of bestRound.ops) {
     applyRescueOp(afterTasks, op);
   }
@@ -192,7 +222,7 @@ export function runRescueWorkflow(params: {
 
   // --- Convert RescueOps to RescueActions ---
   const memberMap = new Map(members.map(m => [m.id, m]));
-  const taskMap = new Map(tasks.map(t => [t.id, t]));
+  const taskMap = new Map(normalizedTasks.map(t => [t.id, t]));
 
   const actions: RescueAction[] = bestRound.ops.map((op, i) => {
     const task = taskMap.get(op.taskId);

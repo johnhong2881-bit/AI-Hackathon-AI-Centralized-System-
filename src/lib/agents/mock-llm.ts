@@ -169,7 +169,7 @@ export async function callRescueAgent(
   leaderReason?: { type: string; memberId?: string; note?: string }
 ): Promise<{ result: LLMCallResult; data: RescuePlan }> {
   const { buildRescueAgentCall } = await import('./prompts');
-  const params = buildRescueAgentCall(riskAssessment, tasks, members, leaderReason);
+  const params = buildRescueAgentCall(riskAssessment, tasks, members, null, leaderReason);
   const result = await routeLLMCall(params, 'rescue-agent');
   return { result, data: result.parsed as RescuePlan };
 }

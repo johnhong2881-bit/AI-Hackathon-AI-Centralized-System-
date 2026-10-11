@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type Key as ReactKey } from 'react';import
 import { useTaskStore } from '@/store/useTaskStore';
 import {
   AVC, MEM, LVN, DN, TABS,
-  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers, RUBRIC_MARKS, RUBRIC_TOTAL,
+  STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers, RUBRIC_MARKS, RUBRIC_TOTAL, RUBRIC_SECTIONS,
   getProjectTK, getProjectGT,
   type TaskStatus, type PgpMember,
 } from '@/lib/mock/mockTaskflow2';
@@ -93,6 +93,7 @@ function WorkspaceHeader({ tab }: { tab: string }) {
         <span className="sp" />
         <div className="row g8">
           <button className="btn btn-ai" onClick={() => openOverlay('mdContrib')}><i className="ti ti-file-export" /> Generate Contribution</button>
+          <button className="btn btn-p" onClick={() => openOverlay('mdPlan')}><i className="ti ti-file-text" /> Export Project Plan</button>
           <button className="btn" onClick={() => openOverlay('mdEdit')}><i className="ti ti-pencil" /> Edit project</button>
         </div>
       </div>
@@ -895,6 +896,34 @@ function OverviewScreen() {
   const clampedDeadlinePct = Math.min(deadlinePct, 95);
   const clampedPredictedPct = Math.min(predictedPct, 98);
 
+  // ===== Rubric marks by section =====
+  const getEffectiveTkStatus = (tkId: number): TaskStatus => {
+    const override = taskOverrides[String(tkId)];
+    if (override) return override.status === 'done' ? 'done' : override.status === 'in-progress' ? 'prog' : 'todo';
+    const task = TK.find(t => t[0] === tkId);
+    return task ? task[8] : 'todo';
+  };
+
+  const sectionData = RUBRIC_SECTIONS.map(([name, icon, taskIds, desc]) => {
+    let earned = 0, potential = 0, total = 0;
+    const taskDetails = taskIds.map(id => {
+      const tk = TK.find(t => t[0] === id);
+      const status = getEffectiveTkStatus(id);
+      const mk = RUBRIC_MARKS[id] ?? 0;
+      total += mk;
+      if (status === 'done') { earned += mk; potential += mk; }
+      else if (status === 'prog') { potential += mk; }
+      return { id, title: tk?.[1] || `Task ${id}`, hours: tk?.[4] || 0, assignees: tk?.[5] || [], status, marks: mk };
+    });
+    return { name, icon, desc, taskIds, earned, potential, total, tasks: taskDetails };
+  });
+
+  const marksEarned = sectionData.reduce((s, sec) => s + sec.earned, 0);
+  const marksPotential = sectionData.reduce((s, sec) => s + sec.potential, 0);
+  const marksRemaining = RUBRIC_TOTAL - marksPotential;
+  const marksEarnedPct = Math.round(marksEarned / RUBRIC_TOTAL * 100);
+  const marksPotentialPct = Math.round(marksPotential / RUBRIC_TOTAL * 100);
+
   return (
     <section className="scr page wide on" id="s-overview">
       <WorkspaceHeader tab="overview" />
@@ -943,6 +972,107 @@ function OverviewScreen() {
           </div>
         </div>
       )}
+      {/* Estimated marks by rubric section */}
+      <div className="card mb16">
+        <div className="row wrap g16 mb12">
+          <div>
+            <div className="h3">Estimated marks <span className="badge b-blue mono">{marksEarned} / {RUBRIC_TOTAL}</span></div>
+            <div className="sm mut mt4">Rubric marks broken down by section — track where your team is scoring.</div>
+          </div>
+          <span className="sp" />
+          <div className="row g12">
+            <span className="badge b-ok mono"><i className="ti ti-circle-check" /> {marksEarned} earned</span>
+            <span className="badge b-wn mono"><i className="ti ti-progress" /> {marksPotential - marksEarned} in progress</span>
+            <span className="badge mono"><i className="ti ti-circle" /> {marksRemaining} not started</span>
+          </div>
+        </div>
+        {/* Stacked progress bar */}
+        <div style={{ height: 20, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', display: 'flex' }}>
+          <div style={{ width: `${marksEarnedPct}%`, background: 'var(--blue)', transition: 'width .5s' }} />
+          <div style={{ width: `${marksPotentialPct - marksEarnedPct}%`, background: 'var(--blue)', opacity: 0.35, transition: 'width .5s' }} />
+        </div>
+        <div className="row g16 xs mut mt8">
+          <span><i className="ti ti-square-filled" style={{ color: 'var(--blue)' }} /> Earned ({marksEarnedPct}%)</span>
+          <span><i className="ti ti-square-filled" style={{ color: 'var(--blue)', opacity: 0.35 }} /> In progress ({marksPotentialPct - marksEarnedPct}%)</span>
+          <span><i className="ti ti-square-filled" style={{ color: 'var(--line2)' }} /> Not started ({100 - marksPotentialPct}%)</span>
+        </div>
+
+        {/* Section breakdown */}
+        <div className="col mt16" style={{ gap: 12 }}>
+          {sectionData.map((sec, si) => {
+            const secEarnedPct = sec.total > 0 ? Math.round(sec.earned / sec.total * 100) : 0;
+            const secPotentialPct = sec.total > 0 ? Math.round(sec.potential / sec.total * 100) : 0;
+            const secAllDone = sec.earned === sec.total && sec.total > 0;
+            const secInProgress = sec.potential > sec.earned;
+
+            return (
+              <div key={si} className="card flat" style={{ padding: 14, borderColor: 'var(--line)' }}>
+                <div className="row mb8">
+                  <div className="row g10">
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--blue1)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                      <i className={`ti ${sec.icon}`} />
+                    </div>
+                    <div>
+                      <div className="b sm">{sec.name}</div>
+                      <div className="xs mut" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{sec.desc}</div>
+                    </div>
+                  </div>
+                  <span className="sp" />
+                  <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>
+                    <span style={{ color: secAllDone ? 'var(--ok)' : 'var(--ink)' }}>{sec.earned}</span>
+                    <span className="mut" style={{ fontWeight: 400 }}> / {sec.total} mk</span>
+                  </span>
+                  {secAllDone && <span className="badge b-ok"><i className="ti ti-circle-check" /> Done</span>}
+                  {!secAllDone && secInProgress && <span className="badge b-wn"><i className="ti ti-progress" /> In progress</span>}
+                  {!secAllDone && !secInProgress && <span className="badge"><i className="ti ti-circle" /> Not started</span>}
+                </div>
+                {/* Mini progress bar */}
+                <div style={{ height: 8, background: 'var(--line)', borderRadius: 5, overflow: 'hidden', display: 'flex', marginBottom: 10 }}>
+                  <div style={{ width: `${secEarnedPct}%`, background: 'var(--blue)', transition: 'width .5s' }} />
+                  <div style={{ width: `${secPotentialPct - secEarnedPct}%`, background: 'var(--blue)', opacity: 0.35, transition: 'width .5s' }} />
+                </div>
+                {/* Task chips */}
+                <div className="row wrap g8">
+                  {sec.tasks.map(t => {
+                    const stColor = t.status === 'done' ? 'var(--ok)' : t.status === 'prog' ? 'var(--blue)' : 'var(--ink3)';
+                    const stIcon = t.status === 'done' ? 'ti-circle-check' : t.status === 'prog' ? 'ti-progress' : 'ti-circle';
+                    return (
+                      <div key={t.id} className="row g6" style={{
+                        padding: '4px 10px', borderRadius: 8, background: 'var(--soft)', border: '1px solid var(--line)',
+                        cursor: 'pointer', ...(t.status === 'done' ? { opacity: 0.7 } : {}),
+                      }} onClick={() => {
+                        const realTask = useRealData && plan ? plan.tasks.find(pt => parseInt(pt.id.replace(/\D/g, '')) === t.id) : null;
+                        useMockupStore2.getState().setSelectedTaskId(realTask?.id || String(t.id));
+                        openOverlay('drTask');
+                      }}>
+                        <i className={`ti ${stIcon}`} style={{ color: stColor, fontSize: 13 }} />
+                        <span className="xs" style={{ fontWeight: 500, ...(t.status === 'done' ? { textDecoration: 'line-through', color: 'var(--ink3)' } : {}) }}>{t.title}</span>
+                        <span className="mono xs b" style={{ color: stColor }}>{t.marks}mk</span>
+                        <span className="xs mut3">{t.hours}h</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* At-risk tip */}
+        {isAtRisk && marksPotential < RUBRIC_TOTAL && (
+          <div className="alert al-wn sm mt12">
+            <i className="ti ti-bulb" />
+            <div className="row wrap" style={{ flex: 1 }}>
+              <div>
+                <b>{marksPotential} of {RUBRIC_TOTAL} marks achievable right now.</b>
+                <div className="sm mut mt4">{marksRemaining} marks are in unfinished tasks. Open Project Rescue to prioritize by effort-to-score ratio.</div>
+              </div>
+              <span className="sp" />
+              <button className="btn btn-ai btn-sm" onClick={() => go('defender')}><i className="ti ti-trophy" /> Maximize marks</button>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="card">
         <div className="row wrap g16 mb12">
           <div><div className="h3">Team progress <span className="badge">{rows.length} members</span></div><div className="sm mut">Select a member to see their tasks.</div></div>

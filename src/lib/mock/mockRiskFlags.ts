@@ -206,9 +206,9 @@ export const mockProgress: ProjectProgress = {
  */
 export const mockDeadline: DeadlineInfo = {
   assignmentId: 'asg-001',
-  deadline: '2026-11-15T23:59:00+08:00',
-  daysRemaining: 36,
-  hoursRemaining: 864,
+  deadline: '2026-10-18T23:59:00+08:00',
+  daysRemaining: 7,
+  hoursRemaining: 168,
   isOverdue: false,
   isUrgent: false,
 };

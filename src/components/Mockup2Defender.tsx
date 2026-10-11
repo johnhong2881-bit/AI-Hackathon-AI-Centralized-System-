@@ -197,6 +197,7 @@ function RunPhase() {
 
       if (!riskAssessment || !plan || !members.length) {
         setError('Pipeline data not found. Please run AI analysis first.');
+        setActiveStage(-1);
         return;
       }
 
@@ -276,6 +277,7 @@ function RunPhase() {
       } catch (err) {
         clearInterval(stageTimer);
         if (cancelled) return;
+        setActiveStage(-1);
         const errMsg = err instanceof Error ? err.message : String(err);
         setError(errMsg);
         addToast(`Optimization failed: ${errMsg}`, 'ti-alert-circle');
@@ -313,7 +315,7 @@ function RunPhase() {
       <div className="g2r" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.5fr)' }}>
         <div className="card">
           {DST.map((s, i) => {
-            const c = i < activeStage ? 'dn' : i === activeStage ? 'run' : 'pend';
+            const c = error ? 'pend' : i < activeStage ? 'dn' : i === activeStage ? 'run' : 'pend';
             return (
               <div key={i} className={`stg ${c}`}>
                 <div className="dot"><i className={`ti ${stageIcon(c)}`} /></div>

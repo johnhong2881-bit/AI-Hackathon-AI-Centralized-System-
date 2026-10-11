@@ -96,6 +96,31 @@ export const RUBRIC_MARKS: Record<number, number> = {
   11: 1,  // Compile SRS document
   15: 1,  // Final review and submission check
 };
+// Rubric sections: groups tasks into rubric areas for mark analysis
+// Each section: [name, icon, taskIds[], description]
+export const RUBRIC_SECTIONS: [string, string, number[], string][] = [
+  ['Requirements', 'ti-clipboard-list', [2, 3], 'Stakeholder needs and functional analysis'],
+  ['System Design', 'ti-sitemap', [5, 6, 7, 8], 'UML diagrams, architecture, and UI prototype'],
+  ['Testing', 'ti-bug', [9], 'Test plan and cases mapped to requirements'],
+  ['Documentation & Submission', 'ti-file-text', [4, 11, 15], 'Introduction, compilation, and final review'],
+];
+
+// Helper: get section marks for a set of task IDs
+export function getSectionMarks(taskIds: number[]): { total: number; earned: number; potential: number } {
+  let total = 0, earned = 0, potential = 0;
+  for (const id of taskIds) {
+    const mk = RUBRIC_MARKS[id] ?? 0;
+    total += mk;
+    // Find the task status
+    const task = TK.find(t => t[0] === id);
+    if (task) {
+      if (task[8] === 'done') { earned += mk; potential += mk; }
+      else if (task[8] === 'prog') { potential += mk; }
+    }
+  }
+  return { total, earned, potential };
+}
+
 export const RUBRIC_TOTAL = 30;
 
 // Per-member progress: [key, name, skills, totalHours, critical, tasks[]]
