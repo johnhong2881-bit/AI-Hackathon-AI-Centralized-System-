@@ -1,54 +1,54 @@
-# Assignment 分析(Plan 生成)完整规格
+# Assignment Analysis (Plan Generation) Full Specification
 
-> 实现状态: `/api/pipeline/run` 已实现完整 9 步 pipeline。排程由 `src/lib/logic/scheduler.ts` 实现。Plan 验证由 `src/lib/logic/plan-validator.ts` 实现。LLM 层使用 mock-llm(可切换到 external-llm 或 cloud-llm)。Per-project 任务/甘特数据通过 `getProjectTK()`/`getProjectGT()` 从 PGP 推导。所有任务计数已动态化。
+> Implementation status: `/api/pipeline/run` has implemented the full 9-step pipeline. Scheduling is implemented in `src/lib/logic/scheduler.ts`. Plan validation is implemented in `src/lib/logic/plan-validator.ts`. The LLM layer uses mock-llm (switchable to external-llm or cloud-llm). Per-project task/Gantt data is derived from PGP via `getProjectTK()`/`getProjectGT()`. All task counts have been dynamized.
 
-## 0. 先回答:需要 agent 吗?
+## 0. First Question: Do We Need an Agent?
 
-**不需要自主 agent,需要的是"流水线(pipeline)+ 修复循环"。**
+**We don't need an autonomous agent; we need a "pipeline + repair loop."**
 
-| 做法 | 说明 | 适合吗 |
+| Approach | Description | Suitable? |
 |---|---|---|
-| 一次大调用 | 把所有资料丢给模型,一次要它输出整份计划 | 最快做出来,但任务容易漏、小时数和分配对不上,出错时不知道错在哪 |
-| **流水线(推荐)** | 固定顺序的几个步骤。每一步有明确的输入、输出和检查。需要精确的步骤交给程序,需要理解文字的步骤交给模型 | 结果可预测、好测试、便宜、速度快,画面上的 9 个阶段也能对应真实发生的事 |
-| 自主 agent | 模型自己决定下一步做什么、调用什么工具 | Plan 生成的路径是固定的,不需要。**这一套留给 AI Deadline Defender**,因为救援每次要走的路都不同 |
+| Single large call | Throw all materials at the model and ask it to output the entire plan in one go | Fastest to build, but tasks are easily missed, hours and assignments don't add up, and when errors occur you don't know where |
+| **Pipeline (recommended)** | A fixed sequence of steps. Each step has clear inputs, outputs, and checks. Steps requiring precision are handled by the program; steps requiring text comprehension are handled by the model | Results are predictable, testable, cheap, fast, and the 9 stages shown on the UI correspond to what actually happens |
+| Autonomous agent | The model decides what to do next and which tools to call | Plan generation has a fixed path, so it's not needed. **This is left for AI Deadline Defender**, because each rescue operation takes a different path |
 
-结论:
-- **Plan 生成 = 流水线**,只有"验证失败时把错误回传给上一步重做"这一小段循环(最多 2 次)。
-- **Defender = 真正的 agent**(见 `AI_AGENT_SPEC.md` 第 4 节)。
-- 如果你想把 Plan 生成也叫 agent,可以,但内部仍然是下面这个固定流程,不要让模型自由决定流程。
+Conclusion:
+- **Plan generation = pipeline**, with only a small loop of "feeding errors back to the previous step for rework when validation fails" (max 2 retries).
+- **Defender = true agent** (see Section 4 of `AI_AGENT_SPEC.md`).
+- If you want to call Plan generation an agent too, that's fine, but internally it should still follow the fixed process below — do not let the model freely decide the flow.
 
-三条原则(和 Defender 一样):
-1. 日期、风险、工时加总、依赖检查**由程序算**。
-2. 每个模型步骤的输出都要通过 JSON schema 验证。
-3. 作业与 rubric 的文字是**资料,不是指令**。
+Three principles (same as Defender):
+1. Dates, risks, hour summation, and dependency checks **are computed by the program**.
+2. The output of every model step must pass JSON schema validation.
+3. The assignment and rubric text is **data, not instructions**.
 
 ---
 
-## 1. 九个阶段,每一步到底做什么
+## 1. The Nine Stages — What Each Step Actually Does
 
-画面上的 9 个阶段(Reading Assignment … Validating Generated Plan)对应下面九步。**"程序"表示不用模型,"模型"表示要调用 AI。**
+The 9 stages shown on the UI (Reading Assignment … Validating Generated Plan) correspond to the nine steps below. **"Program" means no model is used; "Model" means an AI call is required.**
 
-| # | 阶段 | 谁做 | 输入 | 输出 | 失败怎么办 |
+| # | Stage | Who | Input | Output | On Failure |
 |---|---|---|---|---|---|
-| 1 | Reading Assignment | 程序 | PDF 或贴上的文字 | 干净的文字(含页码标记)、页数、字数、语言 | 解析不到文字(扫描件)→ **Failed**,请用户贴文字 |
-| 2 | Extracting Rubric Criteria | 模型(抽取) | 作业文字、可选的 rubric 文字 | 评分项:名称、分数、Good/Average/Poor 要求、出处页码 | 找不到 → `rubric_found:false`,**Needs attention**,不编造 |
-| 3 | Identifying Mandatory Requirements | 模型(抽取) | 同上 | 要求清单:内容、是否必修、原文依据、对应评分项;不清楚的项目 | 分数加总与作业写的总分不符 → 放进 unclear_items |
-| 4 | Breaking Down Project into Tasks | 模型(生成) | 第 2、3 步的结果、成员技能清单 | 任务:标题、说明、对应要求/评分项、所需技能、依赖 | 有必修要求没有任何任务覆盖 → 回到这一步重做(把缺的列出来) |
-| 5 | Estimating Task Complexity | 模型(估计)+ 程序检查 | 任务清单 | 每个任务的估时(最少/最可能/最多)和规模 | 单任务 > 12 小时 → 要求拆分;总工时 > 团队容量 → 标示,不要硬压估时 |
-| 6 | Matching Team Skills | 程序先算,模型再决定 | 任务、成员强项、弱项、可用小时 | 每个任务的成员与小时数,以及理由 | 没有合适成员 → 标"无人匹配",**Needs attention** |
-| 7 | Building Project Timeline | 程序 | 分配、依赖、每人每天可用小时 | 每个任务的开始/结束日、关键路径 | 依赖循环 → 回到第 4 步 |
-| 8 | Checking Deadline Risks | 程序(+ 模型只负责写说明) | 排程结果、deadline | 状态(On Track / At Risk / Overdue)、延误天数、风险因素 | — |
-| 9 | Validating Generated Plan | 程序 | 整份计划 | 通过或错误清单 | 有错 → 把错误回传到对应步骤,最多重试 2 次 |
+| 1 | Reading Assignment | Program | PDF or pasted text | Clean text (with page markers), page count, word count, language | If no text can be parsed (scanned document) → **Failed**, ask user to paste text |
+| 2 | Extracting Rubric Criteria | Model (extraction) | Assignment text, optional rubric text | Scoring criteria: name, marks, Good/Average/Poor requirements, source page number | If not found → `rubric_found:false`, **Needs attention**, do not fabricate |
+| 3 | Identifying Mandatory Requirements | Model (extraction) | Same as above | Requirements list: content, whether mandatory, original evidence, corresponding scoring criterion; unclear items | If marks don't sum to the stated total → put into unclear_items |
+| 4 | Breaking Down Project into Tasks | Model (generation) | Results from steps 2 and 3, member skill list | Tasks: title, description, corresponding requirement/scoring criterion, required skills, dependencies | If any mandatory requirement has no task covering it → go back to this step and redo (list the missing ones) |
+| 5 | Estimating Task Complexity | Model (estimation) + Program check | Task list | Estimated hours for each task (min/most likely/max) and size | Single task > 12 hours → require splitting; total hours > team capacity → flag, don't force-compress estimates |
+| 6 | Matching Team Skills | Program calculates first, model decides | Tasks, member strengths, weaknesses, available hours | Members and hours for each task, along with reasoning | If no suitable member → mark "no match", **Needs attention** |
+| 7 | Building Project Timeline | Program | Assignments, dependencies, each person's daily available hours | Start/end dates for each task, critical path | If dependency cycle → go back to step 4 |
+| 8 | Checking Deadline Risks | Program (+ model only writes the explanation) | Scheduling result, deadline | Status (On Track / At Risk / Overdue), delay days, risk factors | — |
+| 9 | Validating Generated Plan | Program | The entire plan | Pass or error list | If errors → feed errors back to the corresponding step, max 2 retries |
 
-**优先级**放在第 4 到第 6 步之间由程序算,见第 3 节。
+**Prioritization** is computed by the program between steps 4 and 6, see Section 3.
 
 ---
 
-## 2. 每个模型步骤的输出与 Prompt
+## 2. Output and Prompts for Each Model Step
 
-### 2.1 第 2、3 步:抽取 rubric 与要求(可合并成一次调用)
+### 2.1 Steps 2 and 3: Extracting Rubric and Requirements (can be merged into one call)
 
-输出:
+Output:
 
 ```json
 {
@@ -64,12 +64,12 @@
         "average": ["Most functional requirements listed"],
         "poor": ["Vague or incomplete requirements"]
       },
-      "source": { "page": 4, "quote": "…原文…" }
+      "source": { "page": 4, "quote": "…original text…" }
     }
   ],
   "requirements": [
     { "id": "R1", "text": "Submit a 10-minute presentation", "mandatory": true,
-      "evidence": "…原文…", "criterion_id": "C7" }
+      "evidence": "…original text…", "criterion_id": "C7" }
   ],
   "unclear_items": ["Late penalty is not stated"]
 }
@@ -86,11 +86,11 @@ If no rubric exists, set rubric_found=false and return an empty criteria list. D
 If something is ambiguous or missing (marks, penalties, word limits), put it in unclear_items instead of guessing.
 ```
 
-要注意:
-- **要求原文引用 + 页码**。这样用户可以核对,也大幅减少编造。
-- 抽取完要由程序检查:各评分项分数之和 = 作业写的总分?不符就放进 `unclear_items`。
+Key points:
+- **Require original text quotes + page numbers**. This allows users to verify and greatly reduces fabrication.
+- After extraction, the program checks: do the marks of all scoring criteria sum to the stated total? If not, put it into `unclear_items`.
 
-### 2.2 第 4、5 步:拆任务并估时(可合并成一次调用)
+### 2.2 Steps 4 and 5: Breaking Down Tasks and Estimating Hours (can be merged into one call)
 
 ```json
 {
@@ -125,11 +125,11 @@ Rules:
 Return only JSON matching the schema.
 ```
 
-程序随后检查:每条必修要求都有任务?依赖无循环?单任务不超过 12 小时?不合格就把具体错误回传重做。
+The program then checks: is every mandatory requirement covered by a task? Are there dependency cycles? Is any single task over 12 hours? If any check fails, send the specific error back for rework.
 
-### 2.3 第 6 步:分配成员
+### 2.3 Step 6: Assigning Members
 
-**先由程序算候选分数**(见 `FEATURES_AND_LOGIC.md` 第 3.8 节),再让模型在候选里决定怎么分:
+**The program first computes candidate scores** (see Section 3.8 of `FEATURES_AND_LOGIC.md`), then the model decides how to distribute within the candidates:
 
 ```
 Given tasks and, for each task, a ranked list of candidate members (with skill level, weaknesses flagged,
@@ -142,11 +142,11 @@ and spare hours), decide who does what.
 - Each assignment needs a short reason that cites real numbers (skill level, spare hours).
 ```
 
-输出:每个任务的 `assignments:[{member_id, hours, why}]`。程序检查小时总和、容量、成员是否存在。
+Output: `assignments:[{member_id, hours, why}]` for each task. The program checks hour sums, capacity, and whether members exist.
 
-### 2.4 第 8 步:风险说明(可选)
+### 2.4 Step 8: Risk Explanation (optional)
 
-**风险本身不由模型判断。** 程序算出事实(预测完成日、延误天数、关键路径、哪些任务晚于 deadline、每人负载),模型只负责把这些事实写成一两句人话:
+**Risk itself is not judged by the model.** The program computes the facts (predicted completion date, delay days, critical path, which tasks are late relative to deadline, per-person workload), and the model only turns those facts into one or two plain-language sentences:
 
 ```
 Write a short, plain-language explanation of the deadline risk using ONLY the facts provided.
@@ -155,47 +155,47 @@ Do not add numbers or causes that are not in the facts.
 
 ---
 
-## 3. 优先级怎么定(建议:程序算分数,模型只提供判断)
+## 3. How Priorities Are Determined (Recommendation: Program Computes the Score, Model Only Provides Judgment)
 
-这比"让模型直接给 High/Medium/Low"更稳定,也能解释。
+This is more stable than "letting the model directly assign High/Medium/Low" and is also explainable.
 
 ```
-分数 = 40% × 评分项分数占比(该任务对应的评分项分数 ÷ 总分,取最大者)
-     + 30% × 被依赖程度(有多少任务直接或间接依赖它 ÷ 任务总数)
-     + 20% × 紧迫度(越接近 deadline 或在关键路径上越高)
-     + 10% × 必修要求(是必修 = 1,否则 0)
+Score = 40% × scoring criterion weight (marks of the criterion the task maps to ÷ total marks, taking the maximum)
+     + 30% × dependency degree (how many tasks directly or indirectly depend on it ÷ total task count)
+     + 20% × urgency (higher when closer to deadline or on the critical path)
+     + 10% × mandatory requirement (mandatory = 1, otherwise 0)
 
-分数 ≥ 0.6  → High
-分数 ≥ 0.3  → Medium
-否则        → Low
+Score ≥ 0.6  → High
+Score ≥ 0.3  → Medium
+Otherwise    → Low
 ```
 
-权重与门槛可调。**任务详情里的 "Why this priority" 直接显示算出来的数字**,例如"占 30 分里的 4 分、3 个任务依赖它、2 天后到期"。
+Weights and thresholds are adjustable. **The "Why this priority" in the task details directly displays the computed numbers**, e.g. "accounts for 4 out of 30 marks, 3 tasks depend on it, due in 2 days."
 
-> 这个做法比 `AI_AGENT_SPEC.md` 里"由 AI 提出优先级"更稳,建议以这份为准。
+> This approach is more stable than "AI proposes priority" in `AI_AGENT_SPEC.md`; this document should take precedence.
 
 ---
 
-## 4. 第 9 步:验证清单(程序)
+## 4. Step 9: Validation Checklist (Program)
 
-通过全部检查才算计划完成:
+The plan is considered complete only when all checks pass:
 
-- [ ] 输出符合 JSON schema
-- [ ] 依赖没有循环,依赖的任务存在
-- [ ] 每条必修要求至少被一个任务覆盖
-- [ ] 每个任务的分配小时总和 = 估时(误差 ≤ 0.5 小时)
-- [ ] 每个成员的分配小时没有超过他的可用小时(只提示,不阻止,超过则让风险显示)
-- [ ] 每个任务至少有一位成员,或明确标记"无人匹配"
-- [ ] 任务数、单任务小时在合理范围
-- [ ] 弱项成员被分到相关任务时,理由里有说明
+- [ ] Output conforms to JSON schema
+- [ ] No dependency cycles, all dependency targets exist
+- [ ] Every mandatory requirement is covered by at least one task
+- [ ] Allocated hours for each task sum to the estimated hours (tolerance ≤ 0.5 hours)
+- [ ] No member's allocated hours exceed their available hours (flag only, don't block; if exceeded, let the risk show)
+- [ ] Every task has at least one member, or is explicitly marked "no match"
+- [ ] Task count and per-task hours are within reasonable ranges
+- [ ] When a member with a weakness is assigned to a related task, the reason includes an explanation
 
-验证失败:把"具体哪一条失败"回传给相关步骤,最多重试 2 次。仍失败 → 画面显示 **Failed / Needs attention**,保留用户已填的资料并提供重试。
+Validation failure: feed "which specific check failed" back to the relevant step, max 2 retries. If still failing → the UI shows **Failed / Needs attention**, preserving user-entered data and offering a retry.
 
 ---
 
-## 5. 画面如何显示真实进度
+## 5. How the UI Displays Real Progress
 
-把每一步变成事件,前端收到就更新那一行:
+Turn each step into an event; the frontend updates that row upon receiving it:
 
 ```json
 { "stage": 4, "name": "Breaking Down Project into Tasks", "status": "running" }
@@ -204,36 +204,36 @@ Do not add numbers or causes that are not in the facts.
 { "stage": 2, "status": "failed", "detail": "Could not read the rubric table", "next": ["retry", "paste_text"] }
 ```
 
-- 用 Server-Sent Events 或轮询都行。
-- **画面上显示的"完成了什么"必须是真实结果**(真的建立了几个任务、真的读了几页),不要提前写死。
-- 现在 mockup 里的数字(6 pages、7 criteria、15 tasks、96 hours 等)都是示范,接上后要换成真实数据。
+- Server-Sent Events or polling both work.
+- **What the UI shows as "completed" must be real results** (how many tasks were actually created, how many pages were actually read), not hardcoded in advance.
+- The numbers in the current mockup (6 pages, 7 criteria, 15 tasks, 96 hours, etc.) are examples; once connected, they should be replaced with real data.
 
 ---
 
-## 6. Hackathon 版本(时间有限时)
+## 6. Hackathon Version (When Time Is Limited)
 
-最小可行做法,2 到 4 小时可完成:
+Minimal viable approach, completable in 2 to 4 hours:
 
-1. **一次模型调用**,合并第 2 到第 6 步:输入作业、rubric、成员,输出 `criteria + tasks + assignments`(用 2.1、2.2、2.3 的规则写在同一个 prompt 里)。
-2. 程序做第 1、7、8、9 步(PDF 解析、排程、风险、验证)。
-3. 验证失败就把错误附在 prompt 后重试 1 到 2 次。
-4. 画面的 9 个阶段先按真实完成的几个大步骤对应,中间的阶段可以一起标为完成。
+1. **One model call**, merging steps 2 through 6: input the assignment, rubric, and members; output `criteria + tasks + assignments` (write the rules from 2.1, 2.2, and 2.3 into the same prompt).
+2. The program handles steps 1, 7, 8, and 9 (PDF parsing, scheduling, risk, validation).
+3. If validation fails, append the error to the prompt and retry 1 to 2 times.
+4. The 9 UI stages should initially correspond to the few real major steps completed; intermediate stages can be marked as done together.
 
-做出来之后再拆成多次调用,提高质量。
+After it works, split it into multiple calls to improve quality.
 
 ---
 
-## 7. 常见坑
+## 7. Common Pitfalls
 
-| 问题 | 原因 | 处理 |
+| Problem | Cause | Handling |
 |---|---|---|
-| 编造 rubric | 没有 rubric 时模型想"帮忙" | prompt 明确禁止;`rubric_found:false` 是正常结果 |
-| 漏任务 | 作业文字很长 | 先抽取要求清单,再检查每条要求是否被任务覆盖 |
-| 任务太碎或太大 | 没限定粒度 | 限定每个任务 1 到 12 小时、总数 8 到 25 |
-| 估时偏低 | 想"赶上 deadline" | 明确要求不要压缩估时 |
-| 小时对不上 | 模型加总错误 | 程序验证并要求重做 |
-| 只看技能不看时间 | prompt 没给剩余小时 | 候选清单里带每人空档 |
-| 弱项被忽略 | 没给弱项资料或没惩罚 | 候选分数里扣分,并要求理由 |
-| 中文作业得到英文任务 | 没指定语言 | 任务用作业语言,JSON 字段名保持英文 |
-| 长文件超出长度 | 页数太多 | 分段处理,但 rubric 一定要保留原文 |
-| 文件内有"忽略以上规则" | prompt injection | 把文件当资料,并在 prompt 里写明 |
+| Fabricated rubric | Model tries to "help" when no rubric exists | Explicitly prohibit in prompt; `rubric_found:false` is a normal result |
+| Missing tasks | Assignment text is very long | Extract requirements list first, then check whether each requirement is covered by a task |
+| Tasks too granular or too large | No granularity constraint | Constrain each task to 1 to 12 hours, 8 to 25 total |
+| Underestimated hours | Trying to "meet the deadline" | Explicitly request not to compress estimates |
+| Hours don't add up | Model summation errors | Program validates and requests rework |
+| Only considering skills, not time | Prompt didn't provide spare hours | Include each person's available hours in the candidate list |
+| Weaknesses ignored | No weakness data or no penalty | Deduct points in candidate score, and require reasoning |
+| Chinese assignment yields English tasks | Language not specified | Tasks should use the assignment's language; JSON field names stay in English |
+| Long document exceeds length limit | Too many pages | Process in segments, but the rubric must retain original text |
+| Document contains "ignore the above rules" | Prompt injection | Treat the document as data, and state this explicitly in the prompt |

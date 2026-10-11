@@ -1,40 +1,40 @@
-# TaskFlow AI — 接 AI Agent 的规格与 Prompt 注意事项
+# TaskFlow AI — AI Agent Specification and Prompt Guidelines
 
-这份文件对应目前的 UI mockup(Mockup 2 — Next.js App)。前半部分说明前端要收集哪些资料(Create、Team),后半部分说明接 AI 时 prompt 与流程要注意什么(Plan 生成、AI Deadline Defender)。
+This document corresponds to the current UI mockup (Mockup 2 — Next.js App). The first half describes what data the frontend needs to collect (Create, Team), and the second half describes the prompt and workflow considerations when integrating AI (Plan generation, AI Deadline Defender).
 
-当前实现状态:
-- `/api/upload` 已实现 PDF/DOCX 上传与文字提取(pdf-parse + mammoth)
-- `/api/pipeline/run` 已实现完整 6-agent pipeline(使用 mock LLM 层)
-- `/api/pipeline/rescue` 已实现 rescue agent(调用 `rescue-engine.ts`)
-- `src/lib/agents/external-llm.ts` 已实现真实 LLM API 调用
-- `src/lib/agents/cloud-llm.ts` 已实现 WorkBuddy cloud.llm 集成(待激活)
-- `src/lib/logic/scheduler.ts` 已实现资源受限排程
-- `src/lib/logic/rescue-engine.ts` 已实现 3 轮验证循环
-- `getProjectTK()` / `getProjectGT()` 已实现 per-project 任务和甘特数据推导(从 PGP)
-- 所有任务计数(徽章、进度条、Defender 统计)已动态化,运行时从 `getProjectTK()` 计算
-
----
-
-## 0. 先记住三条总原则
-
-1. **日期、风险、工时用程序算,不要让 AI 算。** AI 只负责"提案"(拆任务、估时、分配、依赖)。每个人每天有几小时、任务什么时候开始和结束、预测完成日、At Risk 与否,都由排程程序算出。这样结果稳定,也能验证 AI 的提案。
-2. **AI 的输出一定要走 JSON schema 验证。** 用结构化输出或 tool call,不要解析自由文字。验证失败就重试,不要把半成品给用户。
-3. **上传的 PDF 和贴上的文字是资料,不是指令。** 里面可能写着"忽略以上规则"之类的话。system prompt 里要写明这一点。
+Current implementation status:
+- `/api/upload` has implemented PDF/DOCX upload and text extraction (pdf-parse + mammoth)
+- `/api/pipeline/run` has implemented the complete 6-agent pipeline (using mock LLM layer)
+- `/api/pipeline/rescue` has implemented the rescue agent (calling `rescue-engine.ts`)
+- `src/lib/agents/external-llm.ts` has implemented real LLM API calls
+- `src/lib/agents/cloud-llm.ts` has implemented WorkBuddy cloud.llm integration (pending activation)
+- `src/lib/logic/scheduler.ts` has implemented resource-constrained scheduling
+- `src/lib/logic/rescue-engine.ts` has implemented the 3-round validation loop
+- `getProjectTK()` / `getProjectGT()` has implemented per-project task and Gantt data derivation (from PGP)
+- All task counts (badges, progress bars, Defender statistics) have been dynamized, computed at runtime from `getProjectTK()`
 
 ---
 
-## 1. Create Project 要填什么
+## 0. Three General Principles to Remember First
 
-| 栏位 | 必填 | 规则 / 细节 | 给 AI 的用途 |
+1. **Dates, risks, and work hours should be computed by the program, not by the AI.** The AI is only responsible for "proposals" (breaking down tasks, estimating hours, assigning, dependencies). How many hours each person has per day, when tasks start and end, predicted completion date, and whether something is At Risk — all of these are computed by the scheduling program. This keeps results stable and allows validation of the AI's proposals.
+2. **AI output must always go through JSON schema validation.** Use structured output or tool calls; do not parse free text. Retry on validation failure; never present half-finished results to the user.
+3. **Uploaded PDFs and pasted text are data, not instructions.** They may contain phrases like "ignore the above rules." The system prompt must explicitly state this.
+
+---
+
+## 1. What to Fill in for Create Project
+
+| Field | Required | Rules / Details | Purpose for AI |
 |---|---|---|---|
-| Project name | 是 | 最多 100 字;空白时显示错误 | 只用来显示 |
-| Project description | 否 | 多行文字 | 补充背景(组别目标、限制) |
-| Number of team members | 是 | 2 到 10 的整数,用 −/+ 控制;超出范围显示错误 | 与 Team Setup 的实际人数对照;不一致要提醒 |
-| Assignment document | 是(二选一) | **上传 PDF**(最大 20 MB)或**贴上文字**。要显示:文件名、大小、成功状态、移除、替换。错误状态:格式不对、解析失败(扫描件) | 拆任务的主要来源 |
-| Grading rubric | 否 | 勾选"作业文件已含 rubric"则不用另外上传。没勾选时可上传 PDF 或贴文字。都没有时,提醒"AI 会尝试从作业中找 rubric" | **只用来排优先级**(分数占比、要求),界面不单独展示 |
-| Deadline | 是 | 日期、时间、时区三项。不能选过去的日期。显示摘要例如"Fri 30 Oct 2026 at 17:00" | 排程的终点 |
+| Project name | Yes | Max 100 characters; shows error when blank | Display only |
+| Project description | No | Multi-line text | Provides background (team goals, constraints) |
+| Number of team members | Yes | Integer from 2 to 10, controlled with −/+; shows error when out of range | Cross-referenced with actual headcount in Team Setup; warn if inconsistent |
+| Assignment document | Yes (one of two options) | **Upload PDF** (max 20 MB) or **paste text**. Must display: file name, size, success status, remove, replace. Error states: wrong format, parsing failure (scanned document) | Primary source for task breakdown |
+| Grading rubric | No | If "assignment file already contains rubric" is checked, no separate upload needed. If unchecked, can upload PDF or paste text. If neither is provided, warn "AI will attempt to find rubric from the assignment" | **Used only for prioritization** (score weights, requirements); not displayed separately in the UI |
+| Deadline | Yes | Date, time, and timezone. Cannot select past dates. Display summary e.g. "Fri 30 Oct 2026 at 17:00" | The endpoint for scheduling |
 
-送给后端的资料结构:
+Data structure sent to the backend:
 
 ```json
 {
@@ -45,35 +45,35 @@
     "deadline": "2026-10-30T17:00:00+08:00",
     "timezone": "Asia/Kuala_Lumpur"
   },
-  "assignment": { "source": "pdf | text", "file_name": "…", "text": "<已解析的文字>" },
+  "assignment": { "source": "pdf | text", "file_name": "...", "text": "<parsed text>" },
   "rubric": { "source": "included_in_assignment | separate_pdf | pasted | none", "text": "…" }
 }
 ```
 
-要注意:
-- PDF 要先在后端解析成文字,再交给模型。解析失败(例如扫描件)就回报错误,让用户贴文字,不要硬猜。
-- `rubric.source = none` 时,模型不能编造 rubric。只能从作业文字里找,找不到就回报 `rubric_found: false`,优先级改用"依赖关系 + 截止时间 + 作业里明写的要求"判断。
-- 时间要带时区存储,否则预测完成日会差一天。
+Note:
+- PDFs must be parsed into text on the backend before being sent to the model. If parsing fails (e.g. scanned document), report the error and let the user paste text; do not guess.
+- When `rubric.source = none`, the model must not fabricate a rubric. It can only search within the assignment text; if not found, report `rubric_found: false`, and prioritization should use "dependencies + deadline + explicitly stated requirements in the assignment."
+- Times must be stored with timezone; otherwise the predicted completion date may be off by a day.
 
 ---
 
-## 2. Team Setup 有什么
+## 2. What's in Team Setup
 
-每位成员:
+For each member:
 
-| 栏位 | 必填 | 规则 |
+| Field | Required | Rules |
 |---|---|---|
-| Name | 是 | 不能重复(忽略大小写) |
-| **Strengths(强项)** | **是,至少 1 项** | 每项各自有等级:Beginner / Intermediate / Advanced |
-| **Weaknesses(弱项)** | **是,至少 1 项** | 只有技能名称,没有等级 |
-| Weekly availability | 是 | 周一到周日,每天一个开关 + 小时数(0–24)。**一周总和必须大于 0** |
-| Leader | 否 | 一个项目一位 leader,只有 leader 能改任务、锁定、批准 AI 变更 |
+| Name | Yes | No duplicates (case-insensitive) |
+| **Strengths** | **Yes, at least 1** | Each item has its own level: Beginner / Intermediate / Advanced |
+| **Weaknesses** | **Yes, at least 1** | Skill name only, no level |
+| Weekly availability | Yes | Monday to Sunday, each day has a toggle + hours (0–24). **Weekly total must be greater than 0** |
+| Leader | No | One leader per project; only the leader can modify tasks, lock them, and approve AI changes |
 
-规则:
-- 同一个技能不能同时出现在强项和弱项。
-- 建议技能清单:Research、Academic Writing、Programming、UI/UX Design、Data Analysis、Documentation、Testing、Presentation,也允许自订技能。
-- 快捷操作:周一复制到所有工作日、周末全部关闭。
-- 团队总览:成员数、每周总可用小时、团队技能覆盖、可能缺少的技能。
+Rules:
+- The same skill cannot appear in both strengths and weaknesses.
+- Suggested skill list: Research, Academic Writing, Programming, UI/UX Design, Data Analysis, Documentation, Testing, Presentation; custom skills are also allowed.
+- Quick actions: Copy Monday to all weekdays, turn off all weekends.
+- Team overview: member count, total weekly available hours, team skill coverage, potentially missing skills.
 
 ```json
 {
@@ -90,16 +90,16 @@
 }
 ```
 
-要注意:
-- **弱项是"尽量不分配",不是"绝对不能分配"。** 在 prompt 里写清楚:没有更合适的人时可以分配,但要在理由里说明,并考虑给更多时间或让强项成员协助。
-- 技能名称要正规化(大小写、"UI/UX" 与 "UX design")。不然匹配会漏掉。
-- 人数与 `team_size_declared` 不符时,界面提醒用户,不要自动改。
+Note:
+- **Weaknesses mean "avoid assigning if possible," not "absolutely cannot be assigned."** Make this clear in the prompt: when no more suitable person is available, assignment is allowed, but the reason must be explained, and consider giving more time or having a strength member assist.
+- Skill names should be normalized (case, "UI/UX" vs "UX design"). Otherwise matching will miss entries.
+- When the headcount does not match `team_size_declared`, the UI should warn the user; do not auto-correct.
 
 ---
 
-## 3. Plan 生成(Create 之后的 AI 分析)
+## 3. Plan Generation (AI Analysis After Create)
 
-### 3.1 AI 要产出什么
+### 3.1 What the AI Should Produce
 
 ```json
 {
@@ -126,13 +126,13 @@
 }
 ```
 
-产出之后由程序做的事(不是 AI):
-1. 验证 JSON schema、依赖没有循环、每个任务的 `allocated_hours` 总和等于 `estimated_hours`。
-2. 排程:逐日按每人可用小时排进去,得出每个任务的开始和结束日。
-3. 算出预测完成日、每人负载、风险状态(On Track / At Risk / Overdue)。
-4. 如果验证失败,把错误原因回传给模型,最多重试 2 到 3 次。
+What the program does after the output is produced (not the AI):
+1. Validate the JSON schema, ensure no circular dependencies, and that the sum of each task's `allocated_hours` equals its `estimated_hours`.
+2. Schedule: slot tasks day by day according to each person's available hours, deriving the start and end dates for each task.
+3. Compute the predicted completion date, each person's workload, and risk status (On Track / At Risk / Overdue).
+4. If validation fails, send the error reason back to the model; retry up to 2 to 3 times.
 
-### 3.2 System prompt 范本(英文,模型效果较稳)
+### 3.2 System Prompt Template (English; models perform more stably in English)
 
 ```
 You are the planning engine of TaskFlow AI, which helps university students plan group assignments.
@@ -160,39 +160,39 @@ Your job:
 Return only JSON that matches the provided schema.
 ```
 
-### 3.3 常见坑
+### 3.3 Common Pitfalls
 
-- **不要让 AI 估日期。** 模型很容易说"可以在期限前完成",但实际排下去会晚。
-- **任务太碎或太大。** 在 prompt 里限定粒度(例如单个任务不超过约 12 小时),也限定任务总数(例如 8 到 25 个)。
-- **总工时远大于团队总可用小时。** 程序先算团队容量。超过就直接在结果里标示,不要让模型"压缩"估时去迁就。
-- **分配只看技能,不看时间。** 把"每人剩余可用小时"也放进 prompt。
-- **长文件。** 超过上下文就先分段摘要,但要保留 rubric 的原文。
-- **语言。** 作业若是中文,任务名称与说明也用中文,JSON 的字段名保持英文。
+- **Do not let the AI estimate dates.** The model may easily say "it can be finished before the deadline," but actual scheduling may show it's late.
+- **Tasks too granular or too large.** Constrain the granularity in the prompt (e.g. no single task exceeding approximately 12 hours), and also constrain the total number of tasks (e.g. 8 to 25).
+- **Total work hours far exceed the team's total available hours.** The program should compute team capacity first. If exceeded, flag it directly in the results; do not let the model "compress" estimates to fit.
+- **Assignment based only on skills, not on availability.** Include "each person's remaining available hours" in the prompt as well.
+- **Long documents.** If exceeding the context limit, summarize in segments first, but preserve the original rubric text.
+- **Language.** If the assignment is in Chinese, task names and descriptions should also be in Chinese; JSON field names remain in English.
 
 ---
 
-## 4. AI Deadline Defender 要注意什么
+## 4. AI Deadline Defender Considerations
 
-### 4.1 触发条件与界面流程
+### 4.1 Trigger Conditions and UI Workflow
 
-1. 只有排程程序算出 **At Risk 或 Overdue** 才显示风险警示;On Track 时显示"没有风险"。
-2. **Leader 必须先选原因,才能按 Run AI Rescue。** 没选时显示"请先选原因"。原因选项:
-   - 任务比预期慢
-   - 某位成员不能做(要选是谁)
-   - 某位成员超载(要选是谁)
-   - 技能与任务不符
-   - Deadline 提前
-   - 其他(可简述)
-3. 按下后才开始,**不能因为检测到风险就自动开始**。
-4. 完成后给出提案,leader 批准或拒绝,再比较 Before vs After,最后才套用到项目。
+1. Risk warnings are only displayed when the scheduling program computes **At Risk or Overdue**; when On Track, display "no risks."
+2. **The leader must first select a reason before pressing Run AI Rescue.** If no reason is selected, display "Please select a reason first." Reason options:
+   - Task is slower than expected
+   - A member is unavailable (must select who)
+   - A member is overloaded (must select who)
+   - Skills do not match the task
+   - Deadline moved earlier
+   - Other (can briefly describe)
+3. The process only starts after pressing the button — **it must not automatically start just because a risk is detected**.
+4. After completion, present proposals; the leader approves or rejects, then compare Before vs After, and only then apply to the project.
 
-### 4.2 给 Defender 的输入
+### 4.2 Input for the Defender
 
 ```json
 {
   "reason": { "type": "member_unavailable", "member_id": "m1", "note": "" },
-  "current_plan": "<完整的任务、分配、依赖、状态>",
-  "members": "<含强项、弱项、可用小时>",
+  "current_plan": "<complete tasks, assignments, dependencies, status>",
+  "members": "<including strengths, weaknesses, available hours>",
   "schedule": { "predicted_end": "2026-11-06", "deadline": "2026-10-30", "delay_days": 7, "critical_path": [3, 6, 11, 12, 15] },
   "locks": [5],
   "accepted_assignments": [["m1", 3]],
@@ -200,26 +200,26 @@ Return only JSON that matches the provided schema.
 }
 ```
 
-### 4.3 硬性规则(prompt 里要写,程序里也要强制检查)
+### 4.3 Hard Rules (must be written in the prompt and also enforced in code)
 
-1. **已完成的任务不能被修改。** 不是"不要改",而是程序层面拒绝。
-2. **三种情况的变更必须标为"需要 leader 批准"**:任务已锁定、成员已接受、工作已在进行中。其他(未接受、未锁定、没开始)才可标为"可自动套用"。
-3. **绝不自动移除高优先级任务。** 只有在其他方案都行不通时,才可建议"降低范围",而且只能动 Low 优先级任务(或降低质量目标),并且一定要 leader 批准。
-4. **每个提案要有理由**,并引用实际数字,例如"Chloe 还有 23 小时空档,有 UI/UX Design (Advanced)"。不要写"为了更均衡"这类空话。
-5. **每个提案的效果要由排程程序验证**,不是 AI 自己说"应该会提早 3 天"。
-6. **验证失败要换方法再试,不要硬报成功。** 建议最多尝试 3 轮:
-   - 第 1 轮:只动还没开始、没被接受的工作。
-   - 第 2 轮:允许动已接受的工作(需批准)、重新排依赖。
-   - 第 3 轮:建议降低非必要范围(需批准)。
-7. **结果只能是三种,而且要诚实**:
-   - Rescue Validated:验证后确实赶得上。
-   - Approval Required:有方案,但需要 leader 批准某些变更。
-   - Risk Unresolved:找不到可行方案,说明剩余的限制,不要说"应该可以"。
-8. **提案要尊重弱项。** 不要为了赶时间把任务丢给弱项成员,除非别无选择并明确标示。
-9. 如果原因是"某成员不能做",要把那位成员的剩余工作全部处理掉,不能留着。
-10. 没有合适成员可接手时,回报 `no_suitable_member`,界面给出下一步(例如增加成员、放宽技能要求),不要随便塞给不合适的人。
+1. **Completed tasks cannot be modified.** Not "don't change" — the program must reject it at the code level.
+2. **Changes in three situations must be marked as "needs leader approval"**: task is locked, member has accepted, or work is in progress. Everything else (not accepted, not locked, not started) can be marked as "auto-apply."
+3. **Never automatically remove high-priority tasks.** Only when all other approaches fail may you suggest "reducing scope," and only Low-priority tasks can be touched (or quality targets lowered), and it always requires leader approval.
+4. **Every proposal must have a reason**, citing actual numbers, e.g. "Chloe has 23 hours of spare time and UI/UX Design (Advanced)." Do not write vague statements like "for better balance."
+5. **The effect of each proposal must be verified by the scheduling program**, not by the AI claiming "it should be 3 days earlier."
+6. **On validation failure, try a different approach; do not falsely report success.** Up to 3 attempts recommended:
+   - Round 1: Only touch work that has not started and has not been accepted.
+   - Round 2: Allow touching accepted work (requires approval), reorder dependencies.
+   - Round 3: Suggest reducing non-essential scope (requires approval).
+7. **The result can only be one of three, and must be honest**:
+   - Rescue Validated: After verification, it genuinely meets the deadline.
+   - Approval Required: There is a plan, but the leader needs to approve certain changes.
+   - Risk Unresolved: No feasible plan found; explain the remaining constraints; do not say "should be possible."
+8. **Proposals must respect weaknesses.** Do not throw tasks to members with matching weaknesses just to save time, unless there is no other choice and it is explicitly flagged.
+9. If the reason is "a member is unavailable," all of that member's remaining work must be reassigned; none can be left behind.
+10. When no suitable member is available to take over, report `no_suitable_member`; the UI should present next steps (e.g. add members, relax skill requirements); do not randomly assign to an unsuitable person.
 
-### 4.4 输出格式
+### 4.4 Output Format
 
 ```json
 {
@@ -253,7 +253,7 @@ Return only JSON that matches the provided schema.
 }
 ```
 
-### 4.5 System prompt 范本
+### 4.5 System Prompt Template
 
 ```
 You are the AI Deadline Defender of TaskFlow AI. A project is at risk of missing its deadline.
@@ -279,26 +279,26 @@ Rules you must follow:
 Return only JSON that matches the provided schema.
 ```
 
-### 4.6 UI 与流程配合的重点
+### 4.6 Key Points for UI and Workflow Coordination
 
-- **Agent 执行画面显示的步骤和工具名,在接真的 AI 之前都是示范,要标明是模拟。** 接上之后只显示真实发生过的步骤,不要伪造日志。
-- **套用要原子化。** Leader 点 "Apply" 时一次性更新任务、重新排程、重新算风险,并写入变更记录。
-- **批准后要重新验证。** 在 leader 批准或拒绝期间,别人可能改了任务。套用前用最新资料再跑一次排程。
-- **拒绝提案后要重新计算结果**:可能变成 Risk Unresolved,界面要给出"降低范围"的选项(需批准)。
-- **只有 leader 能执行 Defender。** Member 视角只显示"仅限 leader"。
-- **成员拒绝任务(Reject)** 要先选原因(时间不够、技能不足、工作量太多、其他),再触发"重新分配建议"。这和 Defender 是两条路,但可以共用同一套匹配与验证逻辑。
+- **The steps and tool names shown in the agent execution screen are for demonstration only before connecting real AI; they must be labeled as simulated.** After connecting, only display steps that actually occurred; do not fabricate logs.
+- **Application must be atomic.** When the leader clicks "Apply," update tasks, re-schedule, re-compute risks, and write to the change log all at once.
+- **Re-validate after approval.** While the leader is approving or rejecting, someone else may have modified tasks. Before applying, run the schedule again with the latest data.
+- **After rejecting a proposal, recompute the result**: it may become Risk Unresolved; the UI should offer a "reduce scope" option (requires approval).
+- **Only the leader can run the Defender.** The member view only shows "leader only."
+- **When a member rejects a task (Reject)**, they must first select a reason (insufficient time, insufficient skills, too much workload, other), then trigger "reassignment suggestion." This is a separate path from the Defender, but can share the same matching and validation logic.
 
 ---
 
-## 5. 接 AI 时的工程检查清单
+## 5. Engineering Checklist for AI Integration
 
-- [ ] 所有 AI 输出都经过 schema 验证,失败会重试并有上限
-- [ ] 排程、预测完成日、风险状态由程序计算
-- [ ] 已完成任务在程序层面不可被修改
-- [ ] 需批准的变更与可自动套用的变更分开存放,没批准不会生效
-- [ ] 上传的文件和用户输入的文字作为资料处理,防止 prompt injection
-- [ ] PDF 解析失败、没有 rubric、没有合适成员、AI 失败,每种状态都有明确的下一步
-- [ ] 每次 AI 变更都写入变更记录(谁、什么、前后、结果)
-- [ ] 时间都带时区
-- [ ] 个人资料(姓名、可用时间)只传给模型完成任务所需的部分,不要写进日志
-- [ ] 模型调用失败或超时时,保留用户资料,让用户可以重试
+- [ ] All AI outputs go through schema validation; failures retry with a cap
+- [ ] Scheduling, predicted completion date, and risk status are computed by the program
+- [ ] Completed tasks cannot be modified at the code level
+- [ ] Changes requiring approval and changes that can be auto-applied are stored separately; unapproved changes do not take effect
+- [ ] Uploaded files and user-entered text are treated as data, preventing prompt injection
+- [ ] Each failure state (PDF parsing failure, no rubric, no suitable member, AI failure) has a clear next step
+- [ ] Every AI change is written to the change log (who, what, before/after, result)
+- [ ] All times include timezone
+- [ ] Personal data (name, availability) is only sent to the model as needed for task completion; not written to logs
+- [ ] When a model call fails or times out, user data is preserved, allowing the user to retry

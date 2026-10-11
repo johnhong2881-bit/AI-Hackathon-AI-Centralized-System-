@@ -1,91 +1,91 @@
-# TaskFlow AI — 功能逻辑文档
+# TaskFlow AI — Functional Logic Document
 
-> 本文档详细说明 TaskFlow AI 的完整功能逻辑：从用户输入到 6-Agent Pipeline 执行再到最终输出。  
-> 面向：Hackathon 评委、开发者、队友。
+> This document details the complete functional logic of TaskFlow AI: from user input through the 6-Agent Pipeline to final output.  
+> Audience: Hackathon judges, developers, teammates.
 
 ---
 
-## 目录
+## Table of Contents
 
-1. [系统总览](#1-系统总览)
-2. [完整数据流](#2-完整数据流)
-3. [数据契约 (types.ts)](#3-数据契约-typests)
-4. [6-Agent Pipeline 详解](#4-6-agent-pipeline-详解)
+1. [System Overview](#1-system-overview)
+2. [Complete Data Flow](#2-complete-data-flow)
+3. [Data Contract (types.ts)](#3-data-contract-typests)
+4. [6-Agent Pipeline Detailed Explanation](#4-6-agent-pipeline-detailed-explanation)
    - [Agent 1: Rubric Intelligence (FR-001)](#agent-1-rubric-intelligence-fr-001)
    - [Agent 2: Task Decomposition (FR-002)](#agent-2-task-decomposition-fr-002)
    - [Agent 3: Skill Matching (FR-003)](#agent-3-skill-matching-fr-003)
    - [Agent 4: Critical Path (FR-004)](#agent-4-critical-path-fr-004)
    - [Agent 5: Risk Detection (FR-006)](#agent-5-risk-detection-fr-006)
    - [Agent 6: Rescue Planner (FR-012)](#agent-6-rescue-planner-fr-012)
-5. [CPM 算法详解](#5-cpm-算法详解)
-6. [Mock LLM 层与真实 LLM 切换](#6-mock-llm-层与真实-llm-切换)
-7. [Orchestrator 编排逻辑](#7-orchestrator-编排逻辑)
-8. [API 端点参考](#8-api-端点参考)
-9. [组件与数据源映射](#9-组件与数据源映射)
-10. [错误处理机制](#10-错误处理机制)
-11. [Before/After 对比逻辑](#11-beforeafter-对比逻辑)
-12. [Track 2 评判标准覆盖](#12-track-2-评判标准覆盖)
+5. [CPM Algorithm Detailed Explanation](#5-cpm-algorithm-detailed-explanation)
+6. [Mock LLM Layer and Real LLM Switch](#6-mock-llm-layer-and-real-llm-switch)
+7. [Orchestrator Orchestration Logic](#7-orchestrator-orchestration-logic)
+8. [API Endpoint Reference](#8-api-endpoint-reference)
+9. [Component and Data Source Mapping](#9-component-and-data-source-mapping)
+10. [Error Handling Mechanism](#10-error-handling-mechanism)
+11. [Before/After Comparison Logic](#11-beforeafter-comparison-logic)
+12. [Track 2 Judging Criteria Coverage](#12-track-2-judging-criteria-coverage)
 
 ---
 
-## 1. 系统总览
+## 1. System Overview
 
-TaskFlow AI 是一个 6-Agent 自动化 Pipeline，输入一份作业要求 (Assignment)，输出一份完整的执行计划：任务分解、人员分配、关键路径、风险检测、救援方案。
+TaskFlow AI is a 6-Agent automated Pipeline. It takes an assignment requirement (Assignment) as input and outputs a complete execution plan: task decomposition, personnel allocation, critical path, risk detection, and rescue plan.
 
 ```
-用户输入 Assignment (标题 + Rubric 文本 + 截止日期 + 团队成员)
+User inputs Assignment (title + Rubric text + deadline + team members)
          │
          ▼
 ┌─────────────────────────────────────────────────────────┐
 │                   6-Agent Pipeline                        │
 │                                                           │
-│  Step 0: 计算截止日期 (确定性, 非Agent)                     │
+│  Step 0: Calculate deadline (deterministic, non-Agent)   │
 │     │                                                     │
 │     ▼                                                     │
 │  Step 1: Rubric Agent (LLM) ──→ RubricResult             │
-│     │  输入: assignment.rubricText                        │
-│     │  输出: 结构化评分标准 [{criteria, marks, ...}]       │
+│     │  Input: assignment.rubricText                        │
+│     │  Output: structured rubric criteria [{criteria, marks, ...}] │
 │     ▼                                                     │
 │  Step 2: Task Agent (LLM) ──→ PlanResult                 │
-│     │  输入: assignment + rubricResult                    │
-│     │  输出: 任务列表 [{title, skills, deps, hours}]       │
+│     │  Input: assignment + rubricResult                    │
+│     │  Output: task list [{title, skills, deps, hours}]   │
 │     ▼                                                     │
 │  Step 3: Skill Agent (LLM) ──→ SkillMatchResult          │
-│     │  输入: tasks + members                              │
-│     │  输出: 任务分配 [{taskId, memberId, matchScore}]     │
+│     │  Input: tasks + members                              │
+│     │  Output: task assignments [{taskId, memberId, matchScore}] │
 │     ▼                                                     │
-│  Step 4: Critical Path Agent (确定性) ──→ CriticalPathResult │
-│     │  输入: tasks (with dependencies + hours)            │
-│     │  输出: 关键路径 [{taskId, slack, isCritical}]        │
+│  Step 4: Critical Path Agent (deterministic) ──→ CriticalPathResult │
+│     │  Input: tasks (with dependencies + hours)            │
+│     │  Output: critical path [{taskId, slack, isCritical}] │
 │     ▼                                                     │
 │  Step 5: Risk Agent (LLM) ──→ RiskAssessment             │
-│     │  输入: tasks + members + deadline + progress       │
-│     │  输出: 风险标记 [{taskId, riskType, recommendation}] │
+│     │  Input: tasks + members + deadline + progress        │
+│     │  Output: risk flags [{taskId, riskType, recommendation}] │
 │     ▼                                                     │
-│  Step 6: Rescue Agent (混合) ──→ RescuePlan              │
-│        输入: riskAssessment + tasks + members             │
-│        输出: 救援行动 [{actionType, impact, assignedTo}]   │
+│  Step 6: Rescue Agent (hybrid) ──→ RescuePlan            │
+│        Input: riskAssessment + tasks + members             │
+│        Output: rescue actions [{actionType, impact, assignedTo}] │
 └─────────────────────────────────────────────────────────┘
          │
          ▼
-最终输出: PipelineState (包含全部 6 步结果)
+Final output: PipelineState (contains all 6 step results)
 ```
 
-### 核心设计原则
+### Core Design Principles
 
-- **链式传递**: 每一步的输出是下一步的输入，形成数据链条
-- **可见性**: 每一步都有运行状态 (pending → running → completed/error) + 日志
-- **可替换**: LLM 调用通过 mock-llm.ts 中间层，可一键切换真实 cloud.llm
-- **确定性 + LLM 混合**: 不是全部靠 LLM，关键路径用 CPM 确定性算法保证准确性
+- **Chain passing**: Each step's output is the next step's input, forming a data chain
+- **Visibility**: Each step has a running status (pending → running → completed/error) + logs
+- **Replaceable**: LLM calls go through the mock-llm.ts middleware layer, allowing one-click switch to real cloud.llm
+- **Deterministic + LLM hybrid**: Not everything relies on LLM; critical path uses the CPM deterministic algorithm to ensure accuracy
 
 ---
 
-## 2. 完整数据流
+## 2. Complete Data Flow
 
-### 2.1 输入阶段
+### 2.1 Input Phase
 
 ```
-用户在 AssignmentInputForm 填写:
+User fills in AssignmentInputForm:
   - title: "CS3041 HCI Group Project"
   - course: "CS3041"
   - description: "Design a UI for campus food ordering app"
@@ -96,75 +96,75 @@ TaskFlow AI 是一个 6-Agent 自动化 Pipeline，输入一份作业要求 (Ass
   - deliverables: ["Report", "Prototype", "Slides", "Reflection"]
          │
          ▼
-构造 Assignment 对象 + Member[] 数组
+Construct Assignment object + Member[] array
          │
          ▼
 POST /api/pipeline/run  (body: { assignment, members })
-  或
-客户端直接调用 runPipeline(assignment, members, onProgress)
+  or
+client directly calls runPipeline(assignment, members, onProgress)
 ```
 
-### 2.2 Pipeline 执行阶段
+### 2.2 Pipeline Execution Phase
 
-每一步的数据传递关系：
+Data passing relationship for each step:
 
 ```
 Step 0: calculateDeadline(assignment.deadline)
-  输入: assignment.deadline = "2026-11-15T23:59:00+08:00"
-  输出: DeadlineInfo { daysRemaining: 36, isUrgent: false, isOverdue: false }
+  Input: assignment.deadline = "2026-11-15T23:59:00+08:00"
+  Output: DeadlineInfo { daysRemaining: 36, isUrgent: false, isOverdue: false }
 
 Step 1: callRubricAgent(assignment)
-  输入: assignment.rubricText (原始文本)
-  输出: RubricResult {
+  Input: assignment.rubricText (raw text)
+  Output: RubricResult {
     items: [
       { id: "rub-001", criteria: "User Research & Analysis", marks: 25, mandatory: true },
       { id: "rub-002", criteria: "Design & Wireframing", marks: 20, mandatory: true },
-      ...共 6 个
+      ...total 6 items
     ],
     totalMarks: 100,
     rawExtractionConfidence: 0.92
   }
 
 Step 2: callTaskAgent(assignment, rubricResult)
-  输入: assignment + Step 1 的 rubricResult
-  输出: PlanResult {
+  Input: assignment + Step 1's rubricResult
+  Output: PlanResult {
     tasks: [
       { id: "task-001", title: "User Interview Planning", requiredSkills: ["research","management"],
         estimatedHours: 4, dependencies: [], relatedRubricIds: ["rub-001"], priority: "critical" },
       { id: "task-002", title: "Conduct User Interviews", requiredSkills: ["research","analysis","writing"],
         estimatedHours: 8, dependencies: ["task-001"], relatedRubricIds: ["rub-001"], priority: "critical" },
-      ...共 11 个任务, 总计 57h
+      ...total 11 tasks, 57h total
     ],
-    criticalPath: ["task-001","task-002",...],  // LLM 的初步估算
+    criticalPath: ["task-001","task-002",...],  // LLM's initial estimate
     totalEstimatedHours: 57
   }
 
 Step 3: callSkillAgent(tasks, members)
-  输入: Step 2 的 tasks + 团队成员 members
-  输出: SkillMatchResult {
+  Input: Step 2's tasks + team members
+  Output: SkillMatchResult {
     assignments: [
       { taskId: "task-001", memberId: "mem-003", matchScore: 0.95, matchReason: "Strong in research (5/5)" },
       { taskId: "task-003", memberId: "mem-002", matchScore: 0.97, matchReason: "Design proficiency 5/5" },
-      ...共 8 个分配
+      ...total 8 assignments
     ],
-    unmatchedTaskIds: ["task-008","task-009","task-011"]  // 3 个无法匹配
+    unmatchedTaskIds: ["task-008","task-009","task-011"]  // 3 unmatched
   }
 
 Step 4: calculateCriticalPath(tasks)
-  输入: Step 2 的 tasks (带 dependencies + estimatedHours)
-  输出: CriticalPathResult {
+  Input: Step 2's tasks (with dependencies + estimatedHours)
+  Output: CriticalPathResult {
     nodes: [
       { taskId: "task-001", earlyStart: 0, earlyFinish: 8, lateStart: 0, lateFinish: 8, slack: 0, isCritical: true },
       { taskId: "task-002", earlyStart: 8, earlyFinish: 16, lateStart: 8, lateFinish: 16, slack: 0, isCritical: true },
       ...
     ],
     criticalPath: ["task-001","task-002","task-003",...],
-    projectDuration: 57  // 小时
+    projectDuration: 57  // hours
   }
 
 Step 5: callRiskAgent(tasks, members, deadline, progress)
-  输入: Step 2 tasks + members + Step 0 deadline + 进度数据
-  输出: RiskAssessment {
+  Input: Step 2 tasks + members + Step 0 deadline + progress data
+  Output: RiskAssessment {
     flags: [
       { taskId: "task-009", riskLevel: "high", riskType: "skill_gap",
         description: "No member has writing+research+editing at high proficiency",
@@ -172,14 +172,14 @@ Step 5: callRiskAgent(tasks, members, deadline, progress)
       { taskId: "task-002", riskLevel: "medium", riskType: "deadline",
         description: "8h task on critical path with 36 days buffer",
         recommendation: "Start early to avoid blocking downstream" },
-      ...共 4 个风险
+      ...total 4 risks
     ],
     overallRiskLevel: "medium"
   }
 
 Step 6: callRescueAgent(riskAssessment, tasks, members)
-  输入: Step 5 的 riskAssessment + tasks + members
-  输出: RescuePlan {
+  Input: Step 5's riskAssessment + tasks + members
+  Output: RescuePlan {
     actions: [
       { id: "res-001", taskId: "task-009", actionType: "split",
         description: "Split report writing: Bob does draft, Carol adds research sections",
@@ -189,36 +189,36 @@ Step 6: callRescueAgent(riskAssessment, tasks, members)
         description: "Reduce individual reflection to 400 words instead of 500",
         priority: "low", estimatedImpact: "Saves ~1h per person",
         assignedTo: null },
-      ...共 4 个救援行动
+      ...total 4 rescue actions
     ],
     projectedRecovery: "On track for deadline with ~4h buffer after rescue actions",
     confidence: 0.82
   }
 ```
 
-### 2.3 输出阶段
+### 2.3 Output Phase
 
 ```
 PipelineState {
   isComplete: true,
-  steps: [6 个 PipelineStep, 全部 status: "completed"],
-  rubric: RubricResult,        // Step 1 输出
-  plan: PlanResult,            // Step 2 输出
-  skillMatch: SkillMatchResult, // Step 3 输出
-  criticalPath: CriticalPathResult, // Step 4 输出
-  riskAssessment: RiskAssessment,   // Step 5 输出
-  rescuePlan: RescuePlan,           // Step 6 输出
-  deadline: DeadlineInfo,           // Step 0 输出
+  steps: [6 PipelineSteps, all status: "completed"],
+  rubric: RubricResult,        // Step 1 output
+  plan: PlanResult,            // Step 2 output
+  skillMatch: SkillMatchResult, // Step 3 output
+  criticalPath: CriticalPathResult, // Step 4 output
+  riskAssessment: RiskAssessment,   // Step 5 output
+  rescuePlan: RescuePlan,           // Step 6 output
+  deadline: DeadlineInfo,           // Step 0 output
 }
 ```
 
 ---
 
-## 3. 数据契约 (types.ts)
+## 3. Data Contract (types.ts)
 
-`src/types/types.ts` 是前后端共享的唯一数据源。所有类型定义在此文件，不允许在其他文件中重复定义。
+`src/types/types.ts` is the single source of truth shared between frontend and backend. All type definitions reside in this file; redefining them elsewhere is not allowed.
 
-### 3.1 根输入
+### 3.1 Root Input
 
 ```typescript
 interface Assignment {
@@ -230,43 +230,43 @@ interface Assignment {
   assignmentType: 'research' | 'presentation' | 'software' | 'marketing' | 'mixed';
   teamSize: number;
   description: string;
-  rubricText?: string;          // 从 PDF/图片提取的原始文本
+  rubricText?: string;          // Raw text extracted from PDF/image
 }
 ```
 
-### 3.2 各 Agent 输出类型
+### 3.2 Each Agent's Output Type
 
-| Agent        | 输出类型                 | 关键字段                                                                                |
+| Agent        | Output Type           | Key Fields                                                                          |
 | ------------ | -------------------- | ----------------------------------------------------------------------------------- |
 | Rubric       | `RubricResult`       | items[].criteria, items[].marks, items[].mandatory                                  |
 | Task         | `PlanResult`         | tasks[].title, tasks[].requiredSkills, tasks[].dependencies, tasks[].estimatedHours |
 | Skill        | `SkillMatchResult`   | assignments[].matchScore (0-1), unmatchedTaskIds[]                                  |
 | CriticalPath | `CriticalPathResult` | nodes[].slack, nodes[].isCritical, projectDuration                                  |
-| Risk         | `RiskAssessment`     | flags[].riskType (5种), flags[].recommendation, overallRiskLevel                     |
-| Rescue       | `RescuePlan`         | actions[].actionType (6种), projectedRecovery, confidence                            |
+| Risk         | `RiskAssessment`     | flags[].riskType (5 types), flags[].recommendation, overallRiskLevel                     |
+| Rescue       | `RescuePlan`         | actions[].actionType (6 types), projectedRecovery, confidence                            |
 
-### 3.3 技能枚举
+### 3.3 Skill Enumeration
 
 ```typescript
 type Skill = 'writing' | 'research' | 'design' | 'coding' | 'presentation' | 'analysis' | 'editing' | 'management';
 ```
 
-每个 Member 对这 8 种技能都有 1-5 的 proficiency 评分：
+Each Member has a 1-5 proficiency score for each of these 8 skills:
 
 ```typescript
 interface Member {
-  skillProficiency: Record<Skill, number>;  // 如 { coding: 5, design: 4, ... }
-  availability: number;  // 每周可用小时数
+  skillProficiency: Record<Skill, number>;  // e.g. { coding: 5, design: 4, ... }
+  availability: number;  // Available hours per week
 }
 ```
 
-### 3.4 风险类型枚举
+### 3.4 Risk Type Enumeration
 
 ```typescript
 type RiskType = 'deadline' | 'dependency' | 'skill_gap' | 'overload' | 'quality';
 ```
 
-### 3.5 救援行动类型枚举
+### 3.5 Rescue Action Type Enumeration
 
 ```typescript
 type ActionType = 'reassign' | 'split' | 'escalate' | 'reduce_scope' | 'add_resource' | 'reorder';
@@ -274,35 +274,35 @@ type ActionType = 'reassign' | 'split' | 'escalate' | 'reduce_scope' | 'add_reso
 
 ---
 
-## 4. 6-Agent Pipeline 详解
+## 4. 6-Agent Pipeline Detailed Explanation
 
 ### Agent 1: Rubric Intelligence (FR-001)
 
-**角色**: RubricIntelligence — 学术评分标准解析专家
+**Role**: RubricIntelligence — Academic rubric parsing expert
 
-**类型**: LLM (大语言模型)
+**Type**: LLM (Large Language Model)
 
-**输入**:
+**Input**:
 
-- `assignment.rubricText`: 从 PDF/图片/文本提取的原始 rubric 文本
+- `assignment.rubricText`: Raw rubric text extracted from PDF/image/text
 
-**输出**: `RubricResult`
+**Output**: `RubricResult`
 
-- 6 个结构化评分标准 (RubricItem)
-- 每个标准包含: id, criteria, marks, weightage, mandatory, description
-- 总分 (totalMarks)
-- 提取置信度 (rawExtractionConfidence: 0-1)
-- 警告列表 (warnings[])
+- 6 structured rubric criteria (RubricItem)
+- Each criterion includes: id, criteria, marks, weightage, mandatory, description
+- Total marks (totalMarks)
+- Extraction confidence (rawExtractionConfidence: 0-1)
+- Warning list (warnings[])
 
-**Prompt 设计**:
+**Prompt Design**:
 
-System Prompt 关键规则:
+System Prompt key rules:
 
-1. 每个标准必须有 id (rub-001 格式)、名称、分数、权重、是否必修、描述
-2. 无法确定的字段用 null/"Unknown"，不猜测
-3. 返回纯 JSON，无 markdown
+1. Each criterion must have an id (rub-001 format), name, marks, weightage, mandatory flag, and description
+2. Uncertain fields should use null/"Unknown" — do not guess
+3. Return pure JSON, no markdown
 
-User Prompt 模板:
+User Prompt template:
 
 ```
 Parse the following assignment rubric into structured criteria.
@@ -312,239 +312,239 @@ Return JSON: { items: [...], totalMarks, parsedAt, rawExtractionConfidence, warn
 ```
 
 
-**Temperature**: 0.3 (低温度，保证结构化提取的稳定性)
+**Temperature**: 0.3 (low temperature for stable structured extraction)
 
-**Mock 行为**: 返回预定义的 6 个标准 (User Research 25 marks, Design 20 marks, Prototype 20 marks, Evaluation 15 marks, Presentation 10 marks, Report 10 marks)，模拟延迟 1.8s
+**Mock behavior**: Returns 6 predefined criteria (User Research 25 marks, Design 20 marks, Prototype 20 marks, Evaluation 15 marks, Presentation 10 marks, Report 10 marks), simulated latency 1.8s
 
-**真实 LLM 切换后**: 同样的 prompt 发给 cloud.llm，LLM 解析真实 rubric 文本并返回结构化 JSON
+**After switching to real LLM**: The same prompt is sent to cloud.llm; the LLM parses the real rubric text and returns structured JSON
 
 ---
 
 ### Agent 2: Task Decomposition (FR-002)
 
-**角色**: TaskDecomposer — 大学小组作业项目规划专家
+**Role**: TaskDecomposer — University group assignment project planning expert
 
-**类型**: LLM
+**Type**: LLM
 
-**输入**:
+**Input**:
 
-- `assignment`: 完整作业信息 (标题、类型、交付物、截止日期、团队规模、描述)
-- `rubric`: Step 1 的输出 (RubricResult)
+- `assignment`: Complete assignment info (title, type, deliverables, deadline, team size, description)
+- `rubric`: Step 1's output (RubricResult)
 
-**输出**: `PlanResult`
+**Output**: `PlanResult`
 
-- 11 个任务 (Task)
-- 每个任务包含: title, description, requiredSkills, estimatedHours, complexity, priority, dependencies, relatedRubricIds, status, assignedTo, order
-- criticalPath: LLM 的初步关键路径估算
+- 11 tasks (Task)
+- Each task includes: title, description, requiredSkills, estimatedHours, complexity, priority, dependencies, relatedRubricIds, status, assignedTo, order
+- criticalPath: LLM's initial critical path estimate
 - totalEstimatedHours: 57h
 
-**Prompt 设计关键规则**:
+**Prompt design key rules**:
 
-1. **每个任务必须映射到至少一个 rubric 标准** (relatedRubricIds)
-2. 任务必须有现实依赖关系 (dependencies 指向其他 task ID)
-3. 工时估算: low=2-4h, medium=4-8h, high=8-15h
-4. 优先级: critical (关键路径) > high (主要交付物) > medium (支持工作) > low (nice-to-have)
-5. requiredSkills 只能使用 8 种标准技能值
-6. 返回纯 JSON
+1. **Each task must map to at least one rubric criterion** (relatedRubricIds)
+2. Tasks must have realistic dependencies (dependencies point to other task IDs)
+3. Hour estimation: low=2-4h, medium=4-8h, high=8-15h
+4. Priority: critical (critical path) > high (main deliverables) > medium (supporting work) > low (nice-to-have)
+5. requiredSkills may only use the 8 standard skill values
+6. Return pure JSON
 
-**Temperature**: 0.4 (适度创造力，保证任务分解的多样性)
+**Temperature**: 0.4 (moderate creativity for diverse task decomposition)
 
-**数据链**: rubric.items → tasks.relatedRubricIds (每个任务关联到评分标准)
+**Data chain**: rubric.items → tasks.relatedRubricIds (each task linked to rubric criteria)
 
 ---
 
 ### Agent 3: Skill Matching (FR-003)
 
-**角色**: SkillMatcher — 团队优化专家
+**Role**: SkillMatcher — Team optimization expert
 
-**类型**: LLM
+**Type**: LLM
 
-**输入**:
+**Input**:
 
-- `tasks`: Step 2 的输出 (任务列表)
-- `members`: 团队成员列表 (含技能 proficiency 1-5 评分 + 每周可用时间)
+- `tasks`: Step 2's output (task list)
+- `members`: Team member list (with skill proficiency 1-5 scores + weekly available hours)
 
-**输出**: `SkillMatchResult`
+**Output**: `SkillMatchResult`
 
-- assignments[]: 任务分配列表，每个包含 matchScore (0-1), matchReason
-- unmatchedTaskIds[]: 无法匹配的任务 ID
+- assignments[]: Task assignment list, each containing matchScore (0-1), matchReason
+- unmatchedTaskIds[]: Task IDs that could not be matched
 
-**Prompt 设计关键规则**:
+**Prompt design key rules**:
 
-1. matchScore: 0.0-1.0，基于技能匹配度 + 可用时间
-2. matchReason: 解释为什么选这个人 (如 "Strong in research (5/5), available 14h")
-3. 不超过成员的可用时间限制
-4. 匹配阈值 > 0.3，低于此值留为 unmatched
-5. 考虑依赖关系 — 连续任务倾向分配给同一人
+1. matchScore: 0.0-1.0, based on skill match + availability
+2. matchReason: Explain why this person was chosen (e.g. "Strong in research (5/5), available 14h")
+3. Do not exceed member's available time limit
+4. Match threshold > 0.3; below this value, leave as unmatched
+5. Consider dependencies — consecutive tasks tend to be assigned to the same person
 
-**Temperature**: 0.2 (低温度，优化问题需要确定性)
+**Temperature**: 0.2 (low temperature; optimization problem requires determinism)
 
-**数据链**: tasks[].requiredSkills ↔ members[].skillProficiency (技能匹配)
+**Data chain**: tasks[].requiredSkills ↔ members[].skillProficiency (skill matching)
 
 ---
 
 ### Agent 4: Critical Path (FR-004)
 
-**角色**: 确定性算法，无 LLM
+**Role**: Deterministic algorithm, no LLM
 
-**类型**: Deterministic (确定性)
+**Type**: Deterministic
 
-**输入**:
+**Input**:
 
-- `tasks`: 任务列表 (带 dependencies 和 estimatedHours)
+- `tasks`: Task list (with dependencies and estimatedHours)
 
-**输出**: `CriticalPathResult`
+**Output**: `CriticalPathResult`
 
-- nodes[]: 每个任务的 CPM 节点 (earlyStart, earlyFinish, lateStart, lateFinish, slack, isCritical)
-- criticalPath[]: 关键路径上的任务 ID 有序列表
-- projectDuration: 项目总工时 (关键路径长度)
+- nodes[]: CPM node for each task (earlyStart, earlyFinish, lateStart, lateFinish, slack, isCritical)
+- criticalPath[]: Ordered list of task IDs on the critical path
+- projectDuration: Total project hours (critical path length)
 
-**算法**: 见 [第 5 节: CPM 算法详解](#5-cpm-算法详解)
+**Algorithm**: See [Section 5: CPM Algorithm Detailed Explanation](#5-cpm-algorithm-detailed-explanation)
 
-**为什么不用 LLM**: CPM 是确定性数学算法，LLM 容易算错。用确定性算法保证 100% 正确。
+**Why not use LLM**: CPM is a deterministic mathematical algorithm; LLMs are prone to calculation errors. Using a deterministic algorithm guarantees 100% correctness.
 
 ---
 
 ### Agent 5: Risk Detection (FR-006)
 
-**角色**: RiskDetector — 学生团队项目风险分析师
+**Role**: RiskDetector — Student team project risk analyst
 
-**类型**: LLM
+**Type**: LLM
 
-**输入**:
+**Input**:
 
-- `tasks`: 任务列表 (含状态、进度、分配)
-- `members`: 团队成员 (含工作负载)
-- `deadline`: 截止日期信息 (DeadlineInfo)
-- `progress`: 项目进度 (ProjectProgress)
+- `tasks`: Task list (with status, progress, assignments)
+- `members`: Team members (with workload)
+- `deadline`: Deadline info (DeadlineInfo)
+- `progress`: Project progress (ProjectProgress)
 
-**输出**: `RiskAssessment`
+**Output**: `RiskAssessment`
 
-- flags[]: 风险标记列表，每个包含:
-  - riskType: 5 种类型 (见下表)
+- flags[]: Risk flag list, each containing:
+  - riskType: 5 types (see table below)
   - riskLevel: high / medium / low
-  - description: 具体风险描述
-  - recommendation: 具体可操作的建议 (不是 "improve time management"，而是 "Split task-002: finish personas first (4h) to unblock wireframing")
-- overallRiskLevel: 综合风险等级
+  - description: Specific risk description
+  - recommendation: Specific actionable advice (not "improve time management", but "Split task-002: finish personas first (4h) to unblock wireframing")
+- overallRiskLevel: Overall risk level
 
-**风险类型**:
+**Risk Types**:
 
-| riskType   | 含义             | 示例                                              |
-| ---------- | -------------- | ----------------------------------------------- |
-| deadline   | 任务可能无法按期完成     | "task-002 在关键路径上，8h 工作量"                        |
-| dependency | 上游任务延迟阻塞下游     | "task-003 依赖 task-002，后者未完成"                    |
-| skill_gap  | 没有成员有所需技能      | "task-009 需要 writing+research+editing，无人满足"     |
-| overload   | 成员任务过多/时间不足    | "Carol 有 3 个任务但每周只有 14h"                        |
-| quality    | 复杂度 vs 技能水平不匹配 | "task-005 是 high complexity 但分配给 design 4/5 的人" |
+| riskType   | Meaning                      | Example                                              |
+| ---------- | ---------------------------- | ----------------------------------------------- |
+| deadline   | Task may not be completed on time     | "task-002 is on the critical path, 8h workload"                        |
+| dependency | Upstream task delay blocks downstream     | "task-003 depends on task-002, which is incomplete"                    |
+| skill_gap  | No member has the required skills      | "task-009 needs writing+research+editing, no one qualifies"     |
+| overload   | Member has too many tasks/insufficient time    | "Carol has 3 tasks but only 14h per week"                        |
+| quality    | Complexity vs skill level mismatch | "task-005 is high complexity but assigned to someone with design 4/5" |
 
 **Temperature**: 0.3
 
-**数据链**: tasks[].status + tasks[].assignedTo + progress.taskProgress → 风险分析
+**Data chain**: tasks[].status + tasks[].assignedTo + progress.taskProgress → risk analysis
 
 ---
 
 ### Agent 6: Rescue Planner (FR-012)
 
-**角色**: RescuePlanner — 项目救援策略师
+**Role**: RescuePlanner — Project rescue strategist
 
-**类型**: Hybrid (混合: LLM 生成方案 + 确定性计算影响)
+**Type**: Hybrid (mixed: LLM generates plan + deterministic impact calculation)
 
-**输入**:
+**Input**:
 
-- `riskAssessment`: Step 5 的输出 (风险列表)
-- `tasks`: 任务列表
-- `members`: 团队成员
+- `riskAssessment`: Step 5's output (risk list)
+- `tasks`: Task list
+- `members`: Team members
 
-**输出**: `RescuePlan`
+**Output**: `RescuePlan`
 
-- actions[]: 救援行动列表，每个包含:
-  - actionType: 6 种类型 (见下表)
-  - description: 具体行动描述
+- actions[]: Rescue action list, each containing:
+  - actionType: 6 types (see table below)
+  - description: Specific action description
   - priority: critical / high / medium / low
-  - estimatedImpact: 量化影响 ("Saves ~3h", "Unblocks task-005")
-  - assignedTo: 行动执行者
-- projectedRecovery: 救援后预期结果
-- confidence: 置信度 (0-1)
+  - estimatedImpact: Quantified impact ("Saves ~3h", "Unblocks task-005")
+  - assignedTo: Action executor
+- projectedRecovery: Expected outcome after rescue
+- confidence: Confidence (0-1)
 
-**行动类型**:
+**Action Types**:
 
-| actionType   | 含义            | 示例                           |
+| actionType   | Meaning            | Example                           |
 | ------------ | ------------- | ---------------------------- |
-| reassign     | 把任务换人         | "task-007 从 David 换给 Carol"  |
-| split        | 拆分任务为并行子任务    | "task-009 拆成写作+研究两部分"        |
-| escalate     | 标记需要团队讨论/外部帮助 | "请助教确认 reflection 字数要求"      |
-| reduce_scope | 削减非核心交付物      | "reflection 从 500 字减到 400 字" |
-| add_resource | 引入额外资源        | "向其他组借人帮忙测试"                 |
-| reorder      | 调整任务顺序        | "先做 wireframe 再做 interview"  |
+| reassign     | Reassign task to a different person         | "task-007 from David to Carol"  |
+| split        | Split task into parallel subtasks    | "Split task-009 into writing + research"        |
+| escalate     | Flag for team discussion/external help | "Ask TA to confirm reflection word count"      |
+| reduce_scope | Reduce non-core deliverables      | "Reflection reduced from 500 to 400 words" |
+| add_resource | Bring in additional resources        | "Borrow someone from another team for testing"                 |
+| reorder      | Reorder task sequence        | "Do wireframe before interview"  |
 
 **Temperature**: 0.4
 
-**数据链**: riskAssessment.flags[].recommendation → rescue actions (将建议转化为具体行动)
+**Data chain**: riskAssessment.flags[].recommendation → rescue actions (convert recommendations into concrete actions)
 
 ---
 
-## 5. CPM 算法详解
+## 5. CPM Algorithm Detailed Explanation
 
-`src/lib/agents/critical-path.ts` 实现了标准的 Critical Path Method (关键路径法)。
+`src/lib/agents/critical-path.ts` implements the standard Critical Path Method (CPM).
 
-### 5.1 算法步骤
+### 5.1 Algorithm Steps
 
 ```
-输入: tasks[] (每个 task 有 id, estimatedHours, dependencies[])
+Input: tasks[] (each task has id, estimatedHours, dependencies[])
 
-Step 1: 构建邻接表
-  - dependents: Map<taskId, taskId[]>  — "谁依赖我？"
-  - dependencies: Map<taskId, taskId[]> — "我依赖谁？"
+Step 1: Build adjacency list
+  - dependents: Map<taskId, taskId[]>  — "Who depends on me?"
+  - dependencies: Map<taskId, taskId[]> — "Who do I depend on?"
 
-Step 2: 拓扑排序 (Kahn's 算法)
-  - 计算每个任务的入度 (in-degree = dependencies.length)
-  - 入度为 0 的任务入队
-  - 出队一个任务，将其后续任务的入度 -1
-  - 入度变 0 的入队
-  - 结果: topoOrder[] (拓扑有序的任务 ID 列表)
+Step 2: Topological sort (Kahn's algorithm)
+  - Calculate each task's in-degree (in-degree = dependencies.length)
+  - Enqueue tasks with in-degree 0
+  - Dequeue a task, decrement in-degree of its successors by 1
+  - Enqueue when in-degree reaches 0
+  - Result: topoOrder[] (topologically ordered task ID list)
 
-Step 3: 正向遍历 (Forward Pass) — 计算 earlyStart / earlyFinish
-  - 按拓扑顺序遍历
-  - earlyStart = max(所有前驱任务的 earlyFinish)，无前驱则为 0
+Step 3: Forward Pass — calculate earlyStart / earlyFinish
+  - Traverse in topological order
+  - earlyStart = max(earlyFinish of all predecessors), 0 if no predecessors
   - earlyFinish = earlyStart + estimatedHours
 
-Step 4: 计算项目总工期
-  - projectDuration = max(所有任务的 earlyFinish)
+Step 4: Calculate project duration
+  - projectDuration = max(earlyFinish of all tasks)
 
-Step 5: 逆向遍历 (Backward Pass) — 计算 lateStart / lateFinish
-  - 按拓扑逆序遍历
-  - lateFinish = min(所有后续任务的 lateStart)，无后续则为 projectDuration
+Step 5: Backward Pass — calculate lateStart / lateFinish
+  - Traverse in reverse topological order
+  - lateFinish = min(lateStart of all successors), projectDuration if no successors
   - lateStart = lateFinish - estimatedHours
 
-Step 6: 计算 slack (浮动时间)
+Step 6: Calculate slack (float time)
   - slack = lateStart - earlyStart
-  - slack = 0 → 在关键路径上 (isCritical = true)
-  - slack > 0 → 有缓冲空间
+  - slack = 0 → on critical path (isCritical = true)
+  - slack > 0 → has buffer
 
-输出: CriticalPathResult {
+Output: CriticalPathResult {
   nodes: [{ taskId, earlyStart, earlyFinish, lateStart, lateFinish, slack, isCritical }],
-  criticalPath: [isCritical 为 true 的 taskId 列表],
-  projectDuration: 关键路径总长度 (小时)
+  criticalPath: [list of taskIds where isCritical is true],
+  projectDuration: total critical path length (hours)
 }
 ```
 
-### 5.2 示例
+### 5.2 Example
 
-输入 4 个任务:
-
-```
-task-001: 8h, 无依赖
-task-002: 6h, 依赖 task-001
-task-003: 10h, 依赖 task-002
-task-004: 4h, 依赖 task-003
-```
-
-计算过程:
+Input 4 tasks:
 
 ```
-拓扑序: task-001 → task-002 → task-003 → task-004
+task-001: 8h, no dependencies
+task-002: 6h, depends on task-001
+task-003: 10h, depends on task-002
+task-004: 4h, depends on task-003
+```
 
-正向遍历:
+Calculation process:
+
+```
+Topological order: task-001 → task-002 → task-003 → task-004
+
+Forward pass:
   task-001: earlyStart=0,  earlyFinish=8
   task-002: earlyStart=8,  earlyFinish=14
   task-003: earlyStart=14, earlyFinish=24
@@ -552,7 +552,7 @@ task-004: 4h, 依赖 task-003
 
 projectDuration = 28
 
-逆向遍历:
+Backward pass:
   task-004: lateFinish=28, lateStart=24
   task-003: lateFinish=24, lateStart=14
   task-002: lateFinish=14, lateStart=8
@@ -564,49 +564,49 @@ Slack:
   task-003: 14-14=0 → critical
   task-004: 24-24=0 → critical
 
-结果: 所有关键, projectDuration=28h
+Result: all critical, projectDuration=28h
 ```
 
-### 5.3 为什么用确定性算法
+### 5.3 Why Use a Deterministic Algorithm
 
-- CPM 是数学算法，LLM 容易算错 (尤其在多分支依赖时)
-- 执行速度: <1ms (LLM 需要 1-2s)
-- 100% 可重现 (相同输入永远相同输出)
-- 可验证 ( judges 可以手动验算)
+- CPM is a mathematical algorithm; LLMs are prone to calculation errors (especially with multi-branch dependencies)
+- Execution speed: <1ms (LLM requires 1-2s)
+- 100% reproducible (same input always produces same output)
+- Verifiable (judges can manually verify calculations)
 
 ---
 
-## 6. Mock LLM 层与真实 LLM 切换
+## 6. Mock LLM Layer and Real LLM Switch
 
-### 6.1 当前架构 (Mock)
+### 6.1 Current Architecture (Mock)
 
 ```
-prompts.ts (生成 LLMCallParams)
+prompts.ts (generates LLMCallParams)
      │
      ▼
-mock-llm.ts (mockLLMCall 函数)
-     │  根据 systemPrompt 中的角色名匹配返回对应的 mock 数据
-     │  模拟网络延迟 (1.5-2.4s)
+mock-llm.ts (mockLLMCall function)
+     │  Matches and returns corresponding mock data based on role name in systemPrompt
+     │  Simulates network latency (1.5-2.4s)
      ▼
-返回 LLMCallResult { content, parsed, durationMs, model }
+Returns LLMCallResult { content, parsed, durationMs, model }
 ```
 
-`mockLLMCall()` 的匹配逻辑:
+Matching logic of `mockLLMCall()`:
 
 ```typescript
-if (params.systemPrompt.includes('RubricIntelligence')) → 返回 mockRubric
-if (params.systemPrompt.includes('TaskDecomposer')) → 返回 mockPlanResult
-if (params.systemPrompt.includes('SkillMatcher')) → 返回 mockSkillMatch
-if (params.systemPrompt.includes('RiskDetector')) → 返回 mockRiskAssessment
-if (params.systemPrompt.includes('RescuePlanner')) → 返回 mockRescuePlan
+if (params.systemPrompt.includes('RubricIntelligence')) → returns mockRubric
+if (params.systemPrompt.includes('TaskDecomposer')) → returns mockPlanResult
+if (params.systemPrompt.includes('SkillMatcher')) → returns mockSkillMatch
+if (params.systemPrompt.includes('RiskDetector')) → returns mockRiskAssessment
+if (params.systemPrompt.includes('RescuePlanner')) → returns mockRescuePlan
 ```
 
-### 6.2 切换到真实 WorkBuddy LLM
+### 6.2 Switching to Real WorkBuddy LLM
 
-只需在 `mock-llm.ts` 中将 `mockLLMCall()` 替换为 `realLLMCall()`:
+Simply replace `mockLLMCall()` with `realLLMCall()` in `mock-llm.ts`:
 
 ```typescript
-// 取消注释以下代码:
+// Uncomment the following code:
 import { createWorkBuddyCloud } from '@tencent-ai/workbuddy-cloud-sdk';
 
 const cloud = createWorkBuddyCloud({
@@ -618,14 +618,14 @@ async function realLLMCall(params: LLMCallParams): Promise<LLMCallResult> {
   const startTime = Date.now();
   let content = '';
 
-  // WorkBuddy cloud.llm 只支持 stream: true
+  // WorkBuddy cloud.llm only supports stream: true
   for await (const chunk of cloud.llm.chat.completions.create({
     model: 'model-id-from-list',
     messages: [
       { role: 'system', content: params.systemPrompt },
       { role: 'user', content: params.userPrompt },
     ],
-    stream: true,                              // 必须为 true
+    stream: true,                              // must be true
     temperature: params.temperature ?? 0.3,
     response_format: params.responseFormat === 'json_object'
       ? { type: 'json_object' }
@@ -644,27 +644,27 @@ async function realLLMCall(params: LLMCallParams): Promise<LLMCallResult> {
 }
 ```
 
-**关键点**:
+**Key points**:
 
-- 只改 `mock-llm.ts` 一个文件，其他文件 (orchestrator, API routes, prompts) 完全不动
-- 接口签名不变: `LLMCallParams → LLMCallResult`
-- `response_format: { type: 'json_object' }` 确保结构化输出
-- `stream: true` 是 WorkBuddy cloud.llm 的要求
+- Only `mock-llm.ts` needs to change; other files (orchestrator, API routes, prompts) remain untouched
+- Interface signature unchanged: `LLMCallParams → LLMCallResult`
+- `response_format: { type: 'json_object' }` ensures structured output
+- `stream: true` is a WorkBuddy cloud.llm requirement
 
 ---
 
-## 7. Orchestrator 编排逻辑
+## 7. Orchestrator Orchestration Logic
 
-`src/lib/agents/orchestrator.ts` 是 Pipeline 的核心编排器。
+`src/lib/agents/orchestrator.ts` is the Pipeline's core orchestrator.
 
-### 7.1 执行流程
+### 7.1 Execution Flow
 
 ```
 runPipeline(assignment, members, onProgress)
   │
-  ├─ 1. 创建初始 PipelineState (所有步骤 pending)
+  ├─ 1. Create initial PipelineState (all steps pending)
   │
-  ├─ 2. Step 0: calculateDeadline() — 瞬时, 非 Agent
+  ├─ 2. Step 0: calculateDeadline() — instantaneous, non-Agent
   │     setState({ deadline })
   │
   ├─ 3. Step 1: updateStep(0, { status: 'running', logs: [...] })
@@ -697,43 +697,43 @@ runPipeline(assignment, members, onProgress)
   │     catch: updateStep(5, { status: 'error' }) → return
   │     updateStep(5, { status: 'completed' })
   │
-  └─ 9. Pipeline 完成
+  └─ 9. Pipeline complete
         state.isRunning = false
         state.isComplete = true
         return state
 ```
 
-### 7.2 ProgressCallback 机制
+### 7.2 ProgressCallback Mechanism
 
 ```typescript
 type ProgressCallback = (state: PipelineState) => void;
 ```
 
-每次 `updateStep()` 或 `setState()` 都会调用 `onProgress({...state})`，传回当前完整状态。前端 `PipelineRunner` 组件用这个回调实时更新 UI:
+Every `updateStep()` or `setState()` call invokes `onProgress({...state})`, passing back the current complete state. The frontend `PipelineRunner` component uses this callback to update the UI in real time:
 
-- 每个步骤的 status: pending → running → completed
-- 每个步骤的 logs[] 数组 (逐步追加)
-- 每个步骤的 durationMs
-- 每个步骤的 result (人类可读摘要)
+- Each step's status: pending → running → completed
+- Each step's logs[] array (incrementally appended)
+- Each step's durationMs
+- Each step's result (human-readable summary)
 
 
-### 7.3 错误处理
+### 7.3 Error Handling
 
-任何一步出错:
+If any step errors:
 
-1. 该步骤 status 设为 'error'
-2. error 信息写入 step.error
-3. Pipeline 立即停止 (不继续后续步骤)
-4. 已完成的步骤结果保留在 state 中
+1. That step's status is set to 'error'
+2. Error message is written to step.error
+3. Pipeline stops immediately (does not continue to subsequent steps)
+4. Completed step results are preserved in state
 5. `state.isRunning = false`
 
 ---
 
-## 8. API 端点参考
+## 8. API Endpoint Reference
 
-### 8.1 单步 API (可单独调用)
+### 8.1 Single-Step APIs (can be called individually)
 
-| 端点                            | 方法   | 请求 Body                                    | 返回                   | FR     |
+| Endpoint                       | Method | Request Body                                | Returns               | FR     |
 | ----------------------------- | ---- | ------------------------------------------ | -------------------- | ------ |
 | `/api/pipeline/rubric`        | POST | `{ assignment }`                           | `RubricResult`       | FR-001 |
 | `/api/pipeline/tasks`         | POST | `{ assignment, rubric }`                   | `PlanResult`         | FR-002 |
@@ -742,18 +742,18 @@ type ProgressCallback = (state: PipelineState) => void;
 | `/api/pipeline/risk`          | POST | `{ tasks, members, deadline?, progress? }` | `RiskAssessment`     | FR-006 |
 | `/api/pipeline/rescue`        | POST | `{ riskAssessment, tasks, members }`       | `RescuePlan`         | FR-012 |
 
-### 8.2 完整 Pipeline API
+### 8.2 Full Pipeline API
 
-| 端点                  | 方法   | 请求 Body                   | 返回              |
+| Endpoint              | Method | Request Body               | Returns          |
 | ------------------- | ---- | ------------------------- | --------------- |
 | `/api/pipeline/run` | POST | `{ assignment, members }` | `PipelineState` |
 
-`/api/pipeline/run` 内部调用 `runPipeline()`，一次性执行全部 6 步，返回最终 `PipelineState`。  
-注意: HTTP 版本不支持实时进度回调 (使用 no-op callback)。实时进度需用客户端 `PipelineRunner` 组件。
+`/api/pipeline/run` internally calls `runPipeline()`, executing all 6 steps at once and returning the final `PipelineState`.  
+Note: The HTTP version does not support real-time progress callbacks (uses a no-op callback). For real-time progress, use the client-side `PipelineRunner` component.
 
-### 8.3 请求/响应示例
+### 8.3 Request/Response Example
 
-**请求** (POST /api/pipeline/run):
+**Request** (POST /api/pipeline/run):
 
 ```json
 {
@@ -781,7 +781,7 @@ type ProgressCallback = (state: PipelineState) => void;
 }
 ```
 
-**响应** (PipelineState):
+**Response** (PipelineState):
 
 ```json
 {
@@ -794,7 +794,7 @@ type ProgressCallback = (state: PipelineState) => void;
       "durationMs": 1800,
       "result": "Extracted 6 criteria, total 100 marks"
     },
-    ... (共 6 个 step)
+    ... (total 6 steps)
   ],
   "rubric": { "items": [...], "totalMarks": 100 },
   "plan": { "tasks": [...], "totalEstimatedHours": 57 },
@@ -807,41 +807,41 @@ type ProgressCallback = (state: PipelineState) => void;
 
 ---
 
-## 9. 组件与数据源映射
+## 9. Component and Data Source Mapping
 
-| 组件                      | 数据源                                                  | 功能                   |
+| Component                 | Data Source                                             | Functionality                |
 | ----------------------- | ---------------------------------------------------- | -------------------- |
-| `TaskFlowMockup2`        | `useMockupStore2` Zustand store                       | Mockup 2 主容器(logo、role toggle、screen routing) |
-| `ProjectScreen`          | `PROJECTS` mock 数组                                   | 项目首页(项目卡片、流程引导、contribution 按钮)    |
-| `CreateScreen`           | 表单状态 + `/api/upload`                                 | Step 1: 项目创建表单        |
-| `TeamScreen`             | `MEM` mock + 本地状态                                     | Step 2: 团队成员编辑        |
-| `ReviewScreen`           | Create + Team 摘要                                     | Step 3: 审查摘要          |
-| `AnalysisScreen`         | `/api/pipeline/run` (DST 步骤动画)                       | Step 4: AI 分析进度可视化   |
-| `OverviewScreen`         | `useTaskStore` + `PGP` mock (per-project via `getProjectTK()`)  | 项目概览(预测完成线、团队进度、contribution);任务总数动态计算 |
-| `TasksScreen`            | `TK` mock / `getProjectTK()` (per-project derivation)            | 任务列表 + 看板 + 任务详情;SRS 用 TK,其他项目从 PGP 推导 |
-| `TimelineScreen`         | `GT` mock / `getProjectGT()` (per-project derivation)            | 甘特图时间轴;SRS 用 GT,其他项目从 PGP 推导;预测线颜色按项目状态 |
-| `DefenderScreen`         | `/api/pipeline/rescue` + `useTaskStore` + `getProjectTK()`    | AI Deadline Defender (3-phase);任务总数/可完成数动态计算 |
-| `Mockup2Overlays`        | `useMockupStore2` state + `PGP` (per-project)                 | Drawers, modals, toasts;Contribution Modal 用 PGP 显示各项目成员 |
-| `WorkspaceHeader`        | `PROJECTS` + `PROJECT_MEMBERS` + `getProjectTK()` (per-project) | 项目面包屑、标题、状态、tabs;任务徽章和开放任务数动态计算 |
+| `TaskFlowMockup2`        | `useMockupStore2` Zustand store                       | Mockup 2 main container (logo, role toggle, screen routing) |
+| `ProjectScreen`          | `PROJECTS` mock array                                 | Project home page (project cards, flow guide, contribution button)    |
+| `CreateScreen`           | Form state + `/api/upload`                                 | Step 1: Project creation form        |
+| `TeamScreen`             | `MEM` mock + local state                                     | Step 2: Team member editing        |
+| `ReviewScreen`           | Create + Team summary                                     | Step 3: Review summary          |
+| `AnalysisScreen`         | `/api/pipeline/run` (DST step animation)                       | Step 4: AI analysis progress visualization   |
+| `OverviewScreen`         | `useTaskStore` + `PGP` mock (per-project via `getProjectTK()`)  | Project overview (predicted completion line, team progress, contribution); task count dynamically calculated |
+| `TasksScreen`            | `TK` mock / `getProjectTK()` (per-project derivation)            | Task list + Kanban + task detail; SRS uses TK, other projects derived from PGP |
+| `TimelineScreen`         | `GT` mock / `getProjectGT()` (per-project derivation)            | Gantt chart timeline; SRS uses GT, other projects derived from PGP; predicted line color by project status |
+| `DefenderScreen`         | `/api/pipeline/rescue` + `useTaskStore` + `getProjectTK()`    | AI Deadline Defender (3-phase); task count/completable count dynamically calculated |
+| `Mockup2Overlays`        | `useMockupStore2` state + `PGP` (per-project)                 | Drawers, modals, toasts; Contribution Modal uses PGP to display project members |
+| `WorkspaceHeader`        | `PROJECTS` + `PROJECT_MEMBERS` + `getProjectTK()` (per-project) | Project breadcrumb, title, status, tabs; task badge and open task count dynamically calculated |
 
 ### Zustand Stores
 
-- `useMockupStore2` (`src/store/useMockupStore2.ts`): UI 状态(screen, role, overlay, task view, defender phase, activeProjectId, toasts 等)
-- `useTaskStore` (`src/store/useTaskStore.ts`): Pipeline 数据(riskAssessment, plan, members, rescuePlan, criticalPath 等)
+- `useMockupStore2` (`src/store/useMockupStore2.ts`): UI state (screen, role, overlay, task view, defender phase, activeProjectId, toasts, etc.)
+- `useTaskStore` (`src/store/useTaskStore.ts`): Pipeline data (riskAssessment, plan, members, rescuePlan, criticalPath, etc.)
 
-切换到真实 API 时,只需在 store 的初始化处替换 mock 数据为 fetch 调用。
+When switching to real API, simply replace mock data with fetch calls in the store's initialization.
 
 ---
 
-## 10. 错误处理机制
+## 10. Error Handling Mechanism
 
-### 10.1 API 路由错误处理
+### 10.1 API Route Error Handling
 
-每个 API 路由都有统一的 try-catch:
+Each API route has unified try-catch:
 
 ```typescript
 try {
-  // 业务逻辑
+  // Business logic
   return NextResponse.json(data, { status: 200 });
 } catch (error) {
   const message = error instanceof Error ? error.message : 'Unknown error';
@@ -852,85 +852,85 @@ try {
 }
 ```
 
-### 10.2 参数校验
+### 10.2 Parameter Validation
 
-每个路由在调用 agent 函数前校验必填字段:
+Each route validates required fields before calling the agent function:
 
-- 缺少字段 → 返回 400 + `{ error: "Missing 'xxx' in request body" }`
-- 字段存在 → 调用 agent 函数
+- Missing field → return 400 + `{ error: "Missing 'xxx' in request body" }`
+- Fields present → call agent function
 
-### 10.3 Pipeline 错误传播
+### 10.3 Pipeline Error Propagation
 
-Orchestrator 中任何一步出错:
+If any step in the Orchestrator errors:
 
-1. 该步骤 `status = 'error'`，`error = String(err)`
-2. Pipeline 停止执行后续步骤
-3. 已完成步骤的结果保留
-4. 前端 PipelineRunner 显示错误步骤的红色状态 + 错误信息
+1. That step's `status = 'error'`, `error = String(err)`
+2. Pipeline stops executing subsequent steps
+3. Completed step results are preserved
+4. Frontend PipelineRunner displays red status + error message for the error step
 
 ---
 
-## 11. Before/After 对比逻辑
+## 11. Before/After Comparison Logic
 
-`BeforeAfterComparison.tsx` 是 Hackathon 的 "killer demo"，展示 TaskFlow AI 的可量化价值。
+`BeforeAfterComparison.tsx` is the Hackathon "killer demo", showcasing the quantifiable value of TaskFlow AI.
 
-### 数据来源
+### Data Sources
 
-- **Before** (无 TaskFlow): 使用 mockRiskAssessment (未处理的原始风险) + mockPlanResult (原始工时)
-- **After** (有 TaskFlow): 使用 mockRescuePlan (救援后的结果) + 计算节省的工时
+- **Before** (without TaskFlow): Uses mockRiskAssessment (unhandled raw risks) + mockPlanResult (raw hours)
+- **After** (with TaskFlow): Uses mockRescuePlan (post-rescue results) + calculated saved hours
 
-### 对比指标
+### Comparison Metrics
 
-| 指标     | Before | After | 变化           |
+| Metric     | Before | After | Change           |
 | ------ | ------ | ----- | ------------ |
-| 预估工时   | 57h    | 50h   | -7h (救援行动节省) |
-| 风险数量   | 4      | 0     | 全部解决         |
-| 未分配任务  | 3      | 0     | 全部分配         |
-| 截止日期状态 | 落后     | 按时    | +4h buffer   |
-| 综合风险   | HIGH   | LOW   | 降级           |
-| 项目进度   | 15%    | 35%   | +20%         |
+| Estimated Hours   | 57h    | 50h   | -7h (saved by rescue actions) |
+| Risk Count   | 4      | 0     | All resolved         |
+| Unassigned Tasks  | 3      | 0     | All assigned         |
+| Deadline Status | Behind     | On track    | +4h buffer   |
+| Overall Risk   | HIGH   | LOW   | Downgraded           |
+| Project Progress   | 15%    | 35%   | +20%         |
 
-### 救援行动影响
+### Rescue Action Impact
 
-每个 RescueAction 都有 `estimatedImpact` 字段，量化该行动的效果:
+Each RescueAction has an `estimatedImpact` field quantifying the action's effect:
 
-- "Saves ~4h of blocking time" → 工时减少
-- "Unblocks task-005" → 依赖链解锁
-- "Reduces risk to low" → 风险降级
+- "Saves ~4h of blocking time" → hours reduced
+- "Unblocks task-005" → dependency chain unlocked
+- "Reduces risk to low" → risk downgraded
 
-Before/After 的 savedHours = 7 是从救援行动的影响累加得出的。
+The Before/After savedHours = 7 is derived from accumulating the impact of rescue actions.
 
 ---
 
-## 12. Track 2 评判标准覆盖
+## 12. Track 2 Judging Criteria Coverage
 
-| 评判标准                            | 如何满足                                        | 对应代码                                              |
+| Judging Criteria                    | How Satisfied                                        | Corresponding Code                                              |
 | ------------------------------- | ------------------------------------------- | ------------------------------------------------- |
-| **Real Problem & User Value**   | 每个学生都知道小组作业的混乱 — 真实痛点                       | page.tsx Problem Hero + Pain Points               |
-| **Agentic Workflow**            | 6 个 Agent 顺序执行，每步有可见状态 + 日志                 | orchestrator.ts + PipelineRunner.tsx              |
-| **Meaningful Use of WorkBuddy** | 5 个 LLM Agent + CPM 算法 + cloud.llm 切换就绪     | prompts.ts + mock-llm.ts (realLLMCall 注释代码)       |
-| **End-to-End Execution**        | 一个表单输入 → 完整计划输出 (任务+分配+路径+风险+救援)            | AssignmentInputForm → runPipeline → PipelineState |
-| **Usable & Verifiable Results** | Before/After 对比 + CPM 可手动验算 + API 可 curl 测试 | BeforeAfterComparison.tsx + critical-path.ts      |
+| **Real Problem & User Value**   | Every student knows the chaos of group assignments — real pain point                       | page.tsx Problem Hero + Pain Points               |
+| **Agentic Workflow**            | 6 Agents execute sequentially, each with visible status + logs                 | orchestrator.ts + PipelineRunner.tsx              |
+| **Meaningful Use of WorkBuddy** | 5 LLM Agents + CPM algorithm + cloud.llm switch ready     | prompts.ts + mock-llm.ts (realLLMCall commented code)       |
+| **End-to-End Execution**        | One form input → complete plan output (tasks + assignments + path + risks + rescue)            | AssignmentInputForm → runPipeline → PipelineState |
+| **Usable & Verifiable Results** | Before/After comparison + CPM manually verifiable + API curl-testable | BeforeAfterComparison.tsx + critical-path.ts      |
 
 ---
 
-## 13. 验证方法
+## 13. Verification Methods
 
-本节说明如何验证系统每个环节的正确性，从单步 API 到全链路 Pipeline。
+This section explains how to verify the correctness of each part of the system, from single-step API to full-chain Pipeline.
 
-### 13.1 前置条件
+### 13.1 Prerequisites
 
 ```bash
-# 确保 dev server 已启动
+# Ensure dev server is running
 cd taskflow-ai
 npm run dev    # http://localhost:3000
 
-# 所有 curl 命令在项目根目录执行
+# All curl commands run in the project root directory
 ```
 
-### 13.2 验证 1: 单步 API — Rubric Agent (FR-001)
+### 13.2 Verification 1: Single-Step API — Rubric Agent (FR-001)
 
-**验证目标**: 输入原始 rubric 文本，输出结构化 RubricResult
+**Verification target**: Input raw rubric text, output structured RubricResult
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/rubric \
@@ -950,27 +950,27 @@ curl -s -X POST http://localhost:3000/api/pipeline/rubric \
   }' | python -m json.tool
 ```
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] `items` 数组有 6 个元素
-- [ ] 每个 item 有 `id` (rub-001 格式)、`criteria`、`marks`、`mandatory`、`description`
+- [ ] `items` array has 6 elements
+- [ ] Each item has `id` (rub-001 format), `criteria`, `marks`, `mandatory`, `description`
 - [ ] `totalMarks` = 100
-- [ ] `rawExtractionConfidence` 在 0-1 之间
-- [ ] `warnings` 是空数组（无警告）
+- [ ] `rawExtractionConfidence` is between 0-1
+- [ ] `warnings` is an empty array (no warnings)
 
-**错误情况验证**:
+**Error case verification**:
 
 ```bash
-# 缺少 assignment 字段 → 应返回 400
+# Missing assignment field → should return 400
 curl -s -X POST http://localhost:3000/api/pipeline/rubric \
   -H "Content-Type: application/json" \
   -d '{}'
-# 预期: {"error":"Missing \"assignment\" in request body"}
+# Expected: {"error":"Missing \"assignment\" in request body"}
 ```
 
-### 13.3 验证 2: 单步 API — Task Agent (FR-002)
+### 13.3 Verification 2: Single-Step API — Task Agent (FR-002)
 
-**验证目标**: 输入 assignment + rubric，输出 PlanResult（任务列表）
+**Verification target**: Input assignment + rubric, output PlanResult (task list)
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/tasks \
@@ -991,22 +991,22 @@ curl -s -X POST http://localhost:3000/api/pipeline/tasks \
   }' | python -m json.tool
 ```
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] `tasks` 数组有 8-15 个任务
-- [ ] 每个 task 有 `requiredSkills` (只用 8 种标准技能值)
-- [ ] 每个 task 有 `dependencies` (task ID 数组)
-- [ ] 每个 task 有 `relatedRubricIds` (关联到 rubric item)
-- [ ] 每个 task 有 `estimatedHours` (2-15 范围)
-- [ ] 每个 task 有 `priority` (critical/high/medium/low)
-- [ ] `totalEstimatedHours` = 所有 task hours 之和
-- [ ] `criticalPath` 是非空数组
+- [ ] `tasks` array has 8-15 tasks
+- [ ] Each task has `requiredSkills` (only uses 8 standard skill values)
+- [ ] Each task has `dependencies` (task ID array)
+- [ ] Each task has `relatedRubricIds` (linked to rubric item)
+- [ ] Each task has `estimatedHours` (range 2-15)
+- [ ] Each task has `priority` (critical/high/medium/low)
+- [ ] `totalEstimatedHours` = sum of all task hours
+- [ ] `criticalPath` is a non-empty array
 
-**数据链验证**: `tasks[].relatedRubricIds` 中的 ID 必须在 `rubric.items[].id` 中存在
+**Data chain verification**: IDs in `tasks[].relatedRubricIds` must exist in `rubric.items[].id`
 
-### 13.4 验证 3: 单步 API — Skill Agent (FR-003)
+### 13.4 Verification 3: Single-Step API — Skill Agent (FR-003)
 
-**验证目标**: 输入 tasks + members，输出 SkillMatchResult
+**Verification target**: Input tasks + members, output SkillMatchResult
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/skills \
@@ -1023,20 +1023,20 @@ curl -s -X POST http://localhost:3000/api/pipeline/skills \
   }' | python -m json.tool
 ```
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] `assignments` 中每个 `matchScore` 在 0.0-1.0 之间
-- [ ] `matchReason` 不是空字符串
-- [ ] 每个 `taskId` 在输入的 tasks 中存在
-- [ ] 每个 `memberId` 在输入的 members 中存在
-- [ ] `unmatchedTaskIds` 中的 ID 在 tasks 中存在但不在 assignments 中
-- [ ] 同一个 member 不会被分配超过其 `availability` 的任务总 hours
+- [ ] Each `matchScore` in `assignments` is between 0.0-1.0
+- [ ] `matchReason` is not an empty string
+- [ ] Each `taskId` exists in the input tasks
+- [ ] Each `memberId` exists in the input members
+- [ ] IDs in `unmatchedTaskIds` exist in tasks but not in assignments
+- [ ] The same member is not assigned more total task hours than their `availability`
 
-**逻辑验证**: task-001 (需要 research+analysis) 应分配给 Carol (research 5/5, analysis 5/5)，而不是 Alice (research 3/5, analysis 4/5)
+**Logic verification**: task-001 (requires research+analysis) should be assigned to Carol (research 5/5, analysis 5/5), not Alice (research 3/5, analysis 4/5)
 
-### 13.5 验证 4: 单步 API — Critical Path (FR-004)
+### 13.5 Verification 4: Single-Step API — Critical Path (FR-004)
 
-**验证目标**: 输入带依赖关系的 tasks，输出 CPM 计算结果
+**Verification target**: Input tasks with dependencies, output CPM calculation result
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
@@ -1052,12 +1052,12 @@ curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
 ```
 
 
-**验证检查点** (手动验算):
+**Verification checkpoints** (manual calculation):
 
 ```
-拓扑序: task-001 → task-002 → task-003 → task-004
+Topological order: task-001 → task-002 → task-003 → task-004
 
-正向遍历:
+Forward pass:
   task-001: ES=0,  EF=8
   task-002: ES=8,  EF=14
   task-003: ES=14, EF=24
@@ -1065,24 +1065,24 @@ curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
 
 projectDuration = 28
 
-逆向遍历:
+Backward pass:
   task-004: LF=28, LS=24
   task-003: LF=24, LS=14
   task-002: LF=14, LS=8
   task-001: LF=8,  LS=0
 
-Slack (全部 = 0 → 全部 critical)
+Slack (all = 0 → all critical)
 ```
 
-- [ ] `nodes` 有 4 个元素，顺序与拓扑排序一致
+- [ ] `nodes` has 4 elements, order consistent with topological sort
 - [ ] `nodes[0].earlyStart` = 0
 - [ ] `nodes[3].earlyFinish` = 28 (= projectDuration)
-- [ ] 所有 node 的 `slack` = 0 (因为线性依赖，全在关键路径上)
-- [ ] 所有 node 的 `isCritical` = true
+- [ ] All nodes' `slack` = 0 (due to linear dependency, all on critical path)
+- [ ] All nodes' `isCritical` = true
 - [ ] `criticalPath` = ["task-001","task-002","task-003","task-004"]
 - [ ] `projectDuration` = 28
 
-**分支依赖验证** (task-003 同时依赖 task-001 和 task-002):
+**Branch dependency verification** (task-003 depends on both task-001 and task-002):
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
@@ -1097,12 +1097,12 @@ curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
   }' | python -m json.tool
 ```
 
-**手动验算**:
+**Manual calculation**:
 
 ```
-拓扑序: t1 → t2, t3 (并行) → t4
+Topological order: t1 → t2, t3 (parallel) → t4
 
-正向:
+Forward:
   t1: ES=0, EF=4
   t2: ES=4, EF=10
   t3: ES=4, EF=7
@@ -1110,22 +1110,22 @@ curl -s -X POST http://localhost:3000/api/pipeline/critical-path \
 
 projectDuration = 15
 
-逆向:
+Backward:
   t4: LF=15, LS=10
   t2: LF=10, LS=4     (slack=0, critical)
   t3: LF=10, LS=7     (slack=3, NOT critical)
   t1: LF=4, LS=0      (slack=0, critical)
 
-criticalPath = [t1, t2, t4]   (t3 有 3h slack，不在关键路径上)
+criticalPath = [t1, t2, t4]   (t3 has 3h slack, not on critical path)
 ```
 
-- [ ] t3 的 `slack` = 3, `isCritical` = false
-- [ ] `criticalPath` 只包含 t1, t2, t4 (不含 t3)
+- [ ] t3's `slack` = 3, `isCritical` = false
+- [ ] `criticalPath` only contains t1, t2, t4 (not t3)
 - [ ] `projectDuration` = 15
 
-### 13.6 验证 5: 单步 API — Risk Agent (FR-006)
+### 13.6 Verification 5: Single-Step API — Risk Agent (FR-006)
 
-**验证目标**: 输入 tasks + members + deadline + progress，输出 RiskAssessment
+**Verification target**: Input tasks + members + deadline + progress, output RiskAssessment
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/risk \
@@ -1143,18 +1143,18 @@ curl -s -X POST http://localhost:3000/api/pipeline/risk \
   }' | python -m json.tool
 ```
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] `flags` 数组非空（至少 1 个风险）
-- [ ] 每个 flag 有 `riskType` (5 种之一: deadline/dependency/skill_gap/overload/quality)
-- [ ] 每个 flag 有 `riskLevel` (high/medium/low)
-- [ ] 每个 flag 有 `recommendation` (非空，具体可操作)
-- [ ] task-009 (assignedTo=null, 需要 3 种技能) 应触发 `skill_gap` 风险
-- [ ] `overallRiskLevel` 是 flags 中最高级别
+- [ ] `flags` array is non-empty (at least 1 risk)
+- [ ] Each flag has `riskType` (one of 5: deadline/dependency/skill_gap/overload/quality)
+- [ ] Each flag has `riskLevel` (high/medium/low)
+- [ ] Each flag has `recommendation` (non-empty, specifically actionable)
+- [ ] task-009 (assignedTo=null, requires 3 skills) should trigger `skill_gap` risk
+- [ ] `overallRiskLevel` is the highest level among flags
 
-### 13.7 验证 6: 单步 API — Rescue Agent (FR-012)
+### 13.7 Verification 6: Single-Step API — Rescue Agent (FR-012)
 
-**验证目标**: 输入 riskAssessment + tasks + members，输出 RescuePlan
+**Verification target**: Input riskAssessment + tasks + members, output RescuePlan
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/rescue \
@@ -1178,19 +1178,19 @@ curl -s -X POST http://localhost:3000/api/pipeline/rescue \
   }' | python -m json.tool
 ```
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] `actions` 数组非空
-- [ ] 每个 action 有 `actionType` (6 种之一: reassign/split/escalate/reduce_scope/add_resource/reorder)
-- [ ] 每个 action 有 `estimatedImpact` (包含量化效果，如 "Saves ~4h")
-- [ ] 每个 action 有 `assignedTo` (指向一个 member ID 或 null)
-- [ ] `projectedRecovery` 非空
-- [ ] `confidence` 在 0.0-1.0 之间
-- [ ] 对 skill_gap 风险，action 应是 `split` 或 `reassign` 类型
+- [ ] `actions` array is non-empty
+- [ ] Each action has `actionType` (one of 6: reassign/split/escalate/reduce_scope/add_resource/reorder)
+- [ ] Each action has `estimatedImpact` (contains quantified effect, e.g. "Saves ~4h")
+- [ ] Each action has `assignedTo` (points to a member ID or null)
+- [ ] `projectedRecovery` is non-empty
+- [ ] `confidence` is between 0.0-1.0
+- [ ] For skill_gap risk, action should be `split` or `reassign` type
 
-### 13.8 验证 7: 完整 Pipeline — /api/pipeline/run
+### 13.8 Verification 7: Full Pipeline — /api/pipeline/run
 
-**验证目标**: 输入 assignment + members，一步执行全部 6 个 Agent
+**Verification target**: Input assignment + members, execute all 6 Agents in one step
 
 ```bash
 curl -s -X POST http://localhost:3000/api/pipeline/run \
@@ -1212,66 +1212,66 @@ curl -s -X POST http://localhost:3000/api/pipeline/run \
   }' | python -m json.tool
 ```
 
-**验证检查点 (全链路)**:
+**Verification checkpoints (full chain)**:
 
-| 检查项                                       | 预期                    | 说明              |
+| Check Item                                       | Expected                    | Description              |
 | ----------------------------------------- | --------------------- | --------------- |
-| `isComplete`                              | true                  | 全部 6 步完成        |
-| `isRunning`                               | false                 | Pipeline 已结束    |
-| `steps.length`                            | 6                     | 6 个 Agent       |
-| 每个 `steps[i].status`                      | "completed"           | 无 error/skipped |
+| `isComplete`                              | true                  | All 6 steps complete        |
+| `isRunning`                               | false                 | Pipeline finished    |
+| `steps.length`                            | 6                     | 6 Agents       |
+| Each `steps[i].status`                      | "completed"           | No error/skipped |
 | `steps[0].agent.frId`                     | "FR-001"              | Rubric Agent    |
-| `steps[3].agent.type`                     | "deterministic"       | CPM 不是 LLM      |
-| `steps[3].durationMs`                     | ≤ 100                 | CPM 应近乎瞬时       |
-| `steps[0..5].durationMs`                  | > 0                   | Mock 有模拟延迟      |
-| `rubric.items.length`                     | ≥ 1                   | 至少解析出 1 个标准     |
-| `rubric.totalMarks`                       | > 0                   | 总分有效            |
-| `plan.tasks.length`                       | 8-15                  | 任务数量合理          |
-| `plan.totalEstimatedHours`                | > 0                   | 有工时估算           |
-| `plan.tasks` 每个有 `relatedRubricIds`       | 非空                    | 任务关联到评分标准       |
-| `skillMatch.assignments.length`           | > 0                   | 至少有 1 个分配       |
-| `skillMatch.assignments` 每个有 `matchScore` | 0-1                   | 分数在有效范围         |
-| `criticalPath.nodes.length`               | = `plan.tasks.length` | 每个任务都有 CPM 节点   |
-| `criticalPath.projectDuration`            | > 0                   | 项目总工时           |
-| `riskAssessment.flags.length`             | ≥ 1                   | 至少检测到 1 个风险     |
-| `riskAssessment.overallRiskLevel`         | 非 "none"              | 有风险等级           |
-| `rescuePlan.actions.length`               | ≥ 1                   | 至少 1 个救援行动      |
-| `rescuePlan.confidence`                   | 0-1                   | 置信度有效           |
-| `deadline.daysRemaining`                  | > 0                   | 截止日期在未来         |
+| `steps[3].agent.type`                     | "deterministic"       | CPM is not LLM      |
+| `steps[3].durationMs`                     | ≤ 100                 | CPM should be near-instant       |
+| `steps[0..5].durationMs`                  | > 0                   | Mock has simulated latency      |
+| `rubric.items.length`                     | ≥ 1                   | At least 1 criterion parsed     |
+| `rubric.totalMarks`                       | > 0                   | Total marks valid            |
+| `plan.tasks.length`                       | 8-15                  | Reasonable task count          |
+| `plan.totalEstimatedHours`                | > 0                   | Has hour estimates           |
+| `plan.tasks` each has `relatedRubricIds`       | non-empty                    | Tasks linked to rubric criteria       |
+| `skillMatch.assignments.length`           | > 0                   | At least 1 assignment       |
+| `skillMatch.assignments` each has `matchScore` | 0-1                   | Score in valid range         |
+| `criticalPath.nodes.length`               | = `plan.tasks.length` | Every task has a CPM node   |
+| `criticalPath.projectDuration`            | > 0                   | Total project hours           |
+| `riskAssessment.flags.length`             | ≥ 1                   | At least 1 risk detected     |
+| `riskAssessment.overallRiskLevel`         | not "none"              | Has risk level           |
+| `rescuePlan.actions.length`               | ≥ 1                   | At least 1 rescue action      |
+| `rescuePlan.confidence`                   | 0-1                   | Confidence valid           |
+| `deadline.daysRemaining`                  | > 0                   | Deadline is in the future         |
 
-### 13.9 验证 8: 客户端 Pipeline 可视化
+### 13.9 Verification 8: Client-Side Pipeline Visualization
 
-**验证目标**: 点击 "Run Pipeline" 按钮，6 步实时显示
+**Verification target**: Click "Run Pipeline" button, 6 steps display in real time
 
-**操作步骤**:
+**Operation steps**:
 
-1. 打开 <http://localhost:3000>
-2. 滚动到 "6 Agents Run Autonomously" 部分
-3. 点击 "Run Pipeline" 按钮
-4. 观察 6 个步骤依次从 pending → running → completed
+1. Open <http://localhost:3000>
+2. Scroll to the "6 Agents Run Autonomously" section
+3. Click the "Run Pipeline" button
+4. Observe 6 steps sequentially going from pending → running → completed
 
-**验证检查点**:
+**Verification checkpoints**:
 
-- [ ] 步骤按顺序执行 (不会跳过或乱序)
-- [ ] running 状态时有 loading 动画
-- [ ] 每步完成后显示 durationMs 和 result 摘要
-- [ ] 完成后底部显示 summary (criteria/tasks/risks/rescue 数量)
-- [ ] CPM 步骤显示 "Instant" 或极短时间
-- [ ] 可再次点击 "Run Pipeline" 重新执行
+- [ ] Steps execute in order (no skipping or out-of-order)
+- [ ] Running state has loading animation
+- [ ] Each step shows durationMs and result summary after completion
+- [ ] Summary shown at bottom after completion (count of criteria/tasks/risks/rescue)
+- [ ] CPM step shows "Instant" or very short time
+- [ ] Can click "Run Pipeline" again to re-execute
 
-### 13.10 验证 9: 数据链完整性
+### 13.10 Verification 9: Data Chain Integrity
 
-**验证目标**: 确保各 Agent 之间的数据传递正确
+**Verification target**: Ensure data is passed correctly between Agents
 
-**验证方法**: 对完整 Pipeline 的输出做交叉检查
+**Verification method**: Cross-check the output of the full Pipeline
 
 ```bash
-# 运行完整 pipeline 并保存输出
+# Run full pipeline and save output
 curl -s -X POST http://localhost:3000/api/pipeline/run \
   -H "Content-Type: application/json" \
   -d '{...}' > /tmp/pipeline_output.json
 
-# 检查 1: tasks 的 relatedRubricIds 在 rubric.items 中存在
+# Check 1: tasks' relatedRubricIds exist in rubric.items
 python -c "
 import json
 d = json.load(open('/tmp/pipeline_output.json'))
@@ -1282,7 +1282,7 @@ for t in d['plan']['tasks']:
 print('PASS: all relatedRubricIds valid')
 "
 
-# 检查 2: skillMatch 的 taskId 在 plan.tasks 中存在
+# Check 2: skillMatch's taskId exists in plan.tasks
 python -c "
 import json
 d = json.load(open('/tmp/pipeline_output.json'))
@@ -1292,7 +1292,7 @@ for a in d['skillMatch']['assignments']:
 print('PASS: all assignment taskIds valid')
 "
 
-# 检查 3: criticalPath.nodes 数量 = plan.tasks 数量
+# Check 3: criticalPath.nodes count = plan.tasks count
 python -c "
 import json
 d = json.load(open('/tmp/pipeline_output.json'))
@@ -1300,7 +1300,7 @@ assert len(d['criticalPath']['nodes']) == len(d['plan']['tasks']), 'node count m
 print('PASS: CPM node count matches task count')
 "
 
-# 检查 4: rescuePlan 的 taskId 在 plan.tasks 中存在
+# Check 4: rescuePlan's taskId exists in plan.tasks
 python -c "
 import json
 d = json.load(open('/tmp/pipeline_output.json'))
@@ -1310,7 +1310,7 @@ for a in d['rescuePlan']['actions']:
 print('PASS: all rescue taskIds valid')
 "
 
-# 检查 5: criticalPath.projectDuration = max(earlyFinish)
+# Check 5: criticalPath.projectDuration = max(earlyFinish)
 python -c "
 import json
 d = json.load(open('/tmp/pipeline_output.json'))
@@ -1320,125 +1320,125 @@ print('PASS: projectDuration = max earlyFinish')
 "
 ```
 
-### 13.11 验证 10: Mock→Real LLM 切换就绪
+### 13.11 Verification 10: Mock→Real LLM Switch Readiness
 
-**验证目标**: 确认 mock-llm.ts 的接口设计兼容真实 cloud.llm
+**Verification target**: Confirm mock-llm.ts interface design is compatible with real cloud.llm
 
-**验证方法**: 代码审查 (不需要实际运行)
+**Verification method**: Code review (no actual run needed)
 
-检查 `mock-llm.ts`:
+Check `mock-llm.ts`:
 
-- [ ] `LLMCallParams` 接口有: `systemPrompt`, `userPrompt`, `temperature`, `responseFormat`
-- [ ] `LLMCallResult` 接口有: `content`, `parsed`, `durationMs`, `model`
-- [ ] `realLLMCall()` 函数已注释，取消注释即可启用
-- [ ] `realLLMCall()` 使用 `stream: true` (WorkBuddy 要求)
-- [ ] `realLLMCall()` 用 `response_format: { type: 'json_object' }` 确保结构化输出
-- [ ] `realLLMCall()` 收集 chunks 后 `JSON.parse(content)` 填入 `parsed`
-- [ ] 5 个 `callXxxAgent()` 函数签名不变 (只内部从 mockLLMCall 换成 realLLMCall)
+- [ ] `LLMCallParams` interface has: `systemPrompt`, `userPrompt`, `temperature`, `responseFormat`
+- [ ] `LLMCallResult` interface has: `content`, `parsed`, `durationMs`, `model`
+- [ ] `realLLMCall()` function is commented out; uncomment to enable
+- [ ] `realLLMCall()` uses `stream: true` (WorkBuddy requirement)
+- [ ] `realLLMCall()` uses `response_format: { type: 'json_object' }` to ensure structured output
+- [ ] `realLLMCall()` collects chunks then `JSON.parse(content)` to populate `parsed`
+- [ ] 5 `callXxxAgent()` function signatures unchanged (only internally switch from mockLLMCall to realLLMCall)
 
-检查其他文件:
+Check other files:
 
-- [ ] `orchestrator.ts` 不需要改动 (调用的是 `callXxxAgent` 函数)
-- [ ] `API routes` 不需要改动 (调用的是 `callXxxAgent` 函数)
-- [ ] `prompts.ts` 不需要改动 (只生成 LLMCallParams)
+- [ ] `orchestrator.ts` needs no changes (calls `callXxxAgent` functions)
+- [ ] `API routes` need no changes (calls `callXxxAgent` functions)
+- [ ] `prompts.ts` needs no changes (only generates LLMCallParams)
 
-### 13.12 验证 11: Before/After 数据一致性
+### 13.12 Verification 11: Before/After Data Consistency
 
-**验证目标**: BeforeAfterComparison 展示的数据与 mock 数据一致
+**Verification target**: BeforeAfterComparison displays data consistent with mock data
 
-**验证方法**: 在浏览器中检查页面渲染
+**Verification method**: Inspect page rendering in browser
 
-打开 <http://localhost:3000，找到> "Measurable Impact" 部分:
+Open <http://localhost:3000, find> the "Measurable Impact" section:
 
-| 元素                       | 预期值                   | 数据来源                                   |
+| Element                       | Expected Value                   | Data Source                                   |
 | ------------------------ | --------------------- | -------------------------------------- |
 | Before - Estimated Hours | 57h                   | mockPlanResult.totalEstimatedHours     |
-| After - Estimated Hours  | 50h (-7h saved)       | 57 - 7 (savedHours 硬编码)                |
+| After - Estimated Hours  | 50h (-7h saved)       | 57 - 7 (savedHours hardcoded)                |
 | Before - Tasks at Risk   | 4                     | mockRiskAssessment.flags.length        |
-| After - Tasks at Risk    | 0 (all resolved)      | 救援后风险清零                                |
+| After - Tasks at Risk    | 0 (all resolved)      | Risks cleared to zero after rescue                                |
 | Before - Unassigned      | 3                     | mockSkillMatch.unmatchedTaskIds.length |
-| After - Unassigned       | 0 (all assigned)      | 救援后全部分配                                |
-| Before - Deadline Status | Behind schedule       | 静态文本                                   |
-| After - Deadline Status  | On track (+4h buffer) | 静态文本                                   |
-| Before - Overall Risk    | HIGH                  | 静态文本                                   |
-| After - Overall Risk     | LOW                   | 静态文本                                   |
-| Stat: Hours Saved        | -7h                   | savedHours 变量                          |
-| Stat: Risks Resolved     | 4 → 0                 | riskCount 变量                           |
-| Stat: Deadline Buffer    | +4h                   | 静态                                     |
+| After - Unassigned       | 0 (all assigned)      | All assigned after rescue                                |
+| Before - Deadline Status | Behind schedule       | Static text                                   |
+| After - Deadline Status  | On track (+4h buffer) | Static text                                   |
+| Before - Overall Risk    | HIGH                  | Static text                                   |
+| After - Overall Risk     | LOW                   | Static text                                   |
+| Stat: Hours Saved        | -7h                   | savedHours variable                          |
+| Stat: Risks Resolved     | 4 → 0                 | riskCount variable                           |
+| Stat: Deadline Buffer    | +4h                   | Static                                     |
 | Stat: Rescue Actions     | 4                     | mockRescuePlan.actions.length          |
-| Progress bar: Without    | 15%                   | 硬编码                                    |
-| Progress bar: With       | 35%                   | 硬编码                                    |
+| Progress bar: Without    | 15%                   | Hardcoded                                    |
+| Progress bar: With       | 35%                   | Hardcoded                                    |
 
-### 13.13 验证总结表
+### 13.13 Verification Summary Table
 
-| 验证项                    | 验证方法                 | 关键检查点数  |
+| Verification Item                    | Verification Method                 | Key Checkpoints  |
 | ---------------------- | -------------------- | ------- |
-| Rubric API (FR-001)    | curl + JSON 检查       | 5       |
-| Task API (FR-002)      | curl + JSON 检查 + 数据链 | 8       |
-| Skill API (FR-003)     | curl + 逻辑验证          | 6       |
-| Critical Path (FR-004) | curl + 手动验算 (线性+分支)  | 7+6     |
-| Risk API (FR-006)      | curl + 风险类型检查        | 6       |
-| Rescue API (FR-012)    | curl + 行动类型检查        | 7       |
-| Full Pipeline          | curl + 全链路检查表        | 17      |
-| 客户端可视化                 | 浏览器手动操作              | 6       |
-| 数据链完整性                 | Python 脚本交叉检查        | 5       |
-| Mock→Real LLM          | 代码审查                 | 8       |
-| Before/After           | 浏览器渲染检查              | 13      |
-| **合计**                 |                      | **~94** |
+| Rubric API (FR-001)    | curl + JSON check       | 5       |
+| Task API (FR-002)      | curl + JSON check + data chain | 8       |
+| Skill API (FR-003)     | curl + logic verification          | 6       |
+| Critical Path (FR-004) | curl + manual calculation (linear + branch)  | 7+6     |
+| Risk API (FR-006)      | curl + risk type check        | 6       |
+| Rescue API (FR-012)    | curl + action type check        | 7       |
+| Full Pipeline          | curl + full chain checklist        | 17      |
+| Client-side visualization                 | Browser manual operation              | 6       |
+| Data chain integrity                 | Python script cross-check        | 5       |
+| Mock→Real LLM          | Code review                 | 8       |
+| Before/After           | Browser rendering check              | 13      |
+| **Total**                 |                      | **~94** |
 
 ---
 
-## 15. MVP Requirements 映射 (Hackathon Final Spec)
+## 15. MVP Requirements Mapping (Hackathon Final Spec)
 
-> 本节将 Hackathon Final MVP Requirements 文档的每一条要求映射到代码实现位置和数据模型。
-> 标记: ✅ 已实现 | 🔧 代码已更新 | 📋 文档已覆盖 | ⏳ 前端待实现
+> This section maps each requirement from the Hackathon Final MVP Requirements document to its code implementation location and data model.
+> Legend: ✅ Implemented | 🔧 Code updated | 📋 Document covered | ⏳ Frontend pending implementation
 
-### 15.1 Rubric Good/Average/Poor 三级标准
+### 15.1 Rubric Good/Average/Poor Three-Level Criteria
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| RubricItem 增加 goodLevelRequirements | `types.ts` → `RubricItem.goodLevelRequirements?: RubricLevelRequirements` | 🔧 |
-| RubricItem 增加 averageLevelRequirements | `types.ts` → `RubricItem.averageLevelRequirements?: RubricLevelRequirements` | 🔧 |
-| RubricItem 增加 poorLevelRequirements | `types.ts` → `RubricItem.poorLevelRequirements?: RubricLevelRequirements` | 🔧 |
-| 每级包含 description + estimatedHours + keyDeliverables | `types.ts` → `RubricLevelRequirements` interface | 🔧 |
-| Rubric Agent prompt 提取三级标准 | `prompts.ts` → `RUBRIC_AGENT_SYSTEM` Rule 6 | 🔧 |
-| Rubric Agent JSON 输出包含三级字段 | `prompts.ts` → `RUBRIC_AGENT_USER` JSON template | 🔧 |
-| Mock 数据填充三级标准 | `mockRubric.ts` → 6 个 RubricItem 全部带三级字段 | 🔧 |
+| RubricItem add goodLevelRequirements | `types.ts` → `RubricItem.goodLevelRequirements?: RubricLevelRequirements` | 🔧 |
+| RubricItem add averageLevelRequirements | `types.ts` → `RubricItem.averageLevelRequirements?: RubricLevelRequirements` | 🔧 |
+| RubricItem add poorLevelRequirements | `types.ts` → `RubricItem.poorLevelRequirements?: RubricLevelRequirements` | 🔧 |
+| Each level includes description + estimatedHours + keyDeliverables | `types.ts` → `RubricLevelRequirements` interface | 🔧 |
+| Rubric Agent prompt extracts three-level criteria | `prompts.ts` → `RUBRIC_AGENT_SYSTEM` Rule 6 | 🔧 |
+| Rubric Agent JSON output includes three-level fields | `prompts.ts` → `RUBRIC_AGENT_USER` JSON template | 🔧 |
+| Mock data populates three-level criteria | `mockRubric.ts` → 6 RubricItems all with three-level fields | 🔧 |
 
-**RubricLevelRequirements 数据模型:**
+**RubricLevelRequirements data model:**
 ```typescript
 interface RubricLevelRequirements {
-  description: string;          // 该级别要求描述
-  estimatedHours?: number;       // 达到该级别建议工时
-  keyDeliverables?: string[];    // 关键交付物列表
+  description: string;          // Description of requirements for this level
+  estimatedHours?: number;       // Suggested hours to reach this level
+  keyDeliverables?: string[];    // Key deliverables list
 }
 ```
 
-**Mock 示例 (rub-001 User Research):**
-| 级别 | 描述 | 建议工时 | 关键交付物 |
+**Mock example (rub-001 User Research):**
+| Level | Description | Suggested Hours | Key Deliverables |
 | --- | --- | --- | --- |
 | Good | 10+ interviews, 3+ personas, comprehensive task analysis | 8h | 10+ transcripts, 3+ personas, flow diagrams, pain points |
 | Average | 8-9 interviews, 2 personas, basic task analysis | 5h | 8-9 transcripts, 2 personas, basic analysis |
 | Poor | <8 interviews, 1 persona, incomplete | 3h | <8 interviews, 1 persona |
 
-### 15.2 Multi-Member Tasks (多人任务)
+### 15.2 Multi-Member Tasks (Multi-person Tasks)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| Task 支持多成员分配 | `types.ts` → `Task.memberAssignments?: MemberTaskAssignment[]` | 🔧 |
-| 每成员个性化工时估算 | `types.ts` → `MemberTaskAssignment.estimatedHours` (per-member) | 🔧 |
-| 每成员匹配分数 | `types.ts` → `MemberTaskAssignment.matchScore` | 🔧 |
-| 每成员角色 (Primary/Support/Reviewer) | `types.ts` → `MemberTaskAssignment.role` | 🔧 |
-| 保留 assignedTo (backward compat) | `types.ts` → `Task.assignedTo` 仍为 primary assignee | ✅ |
-| Task Agent prompt 支持多成员 | `prompts.ts` → `TASK_AGENT_SYSTEM` Rule 8 | 🔧 |
-| Mock 数据示例: task-005 (2人) | `mockTasks.ts` → task-005: mem-001(6h, Primary) + mem-002(4h, Support) | 🔧 |
-| Mock 数据示例: task-010 (4人) | `mockTasks.ts` → task-010: 全员参与, 各自不同工时 | 🔧 |
+| Task supports multi-member assignment | `types.ts` → `Task.memberAssignments?: MemberTaskAssignment[]` | 🔧 |
+| Per-member personalized hour estimation | `types.ts` → `MemberTaskAssignment.estimatedHours` (per-member) | 🔧 |
+| Per-member match score | `types.ts` → `MemberTaskAssignment.matchScore` | 🔧 |
+| Per-member role (Primary/Support/Reviewer) | `types.ts` → `MemberTaskAssignment.role` | 🔧 |
+| Preserve assignedTo (backward compat) | `types.ts` → `Task.assignedTo` remains primary assignee | ✅ |
+| Task Agent prompt supports multi-member | `prompts.ts` → `TASK_AGENT_SYSTEM` Rule 8 | 🔧 |
+| Mock data example: task-005 (2 people) | `mockTasks.ts` → task-005: mem-001(6h, Primary) + mem-002(4h, Support) | 🔧 |
+| Mock data example: task-010 (4 people) | `mockTasks.ts` → task-010: all members, different hours each | 🔧 |
 
-**MemberTaskAssignment 数据模型:**
+**MemberTaskAssignment data model:**
 ```typescript
 interface MemberTaskAssignment {
   memberId: string;
-  estimatedHours: number;       // 该成员在此任务上的个性化工时
+  estimatedHours: number;       // Per-member personalized hours for this task
   matchScore: number;           // 0.0-1.0
   role: string;                 // "Primary" | "Support" | "Reviewer"
   invitationStatus: InvitationStatus;
@@ -1446,35 +1446,35 @@ interface MemberTaskAssignment {
 }
 ```
 
-**Mock 示例 (task-005 Build Prototype):**
-| 成员 | 角色 | 个性化工时 | 匹配分数 | 邀请状态 |
+**Mock example (task-005 Build Prototype):**
+| Member | Role | Personalized Hours | Match Score | Invitation Status |
 | --- | --- | --- | --- | --- |
 | mem-001 (Alice) | Primary | 6h | 0.94 | pending |
 | mem-002 (Bob) | Support (visual polish) | 4h | 0.82 | pending |
 
-### 15.3 Accept/Reject 邀请流程
+### 15.3 Accept/Reject Invitation Flow
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| InvitationStatus 类型 | `types.ts` → `InvitationStatus = 'pending' \| 'accepted' \| 'rejected'` | 🔧 |
-| Task.invitationStatus 字段 | `types.ts` → `Task.invitationStatus?: InvitationStatus` | 🔧 |
-| Task.rejectReason 字段 | `types.ts` → `Task.rejectReason?: string \| null` | 🔧 |
+| InvitationStatus type | `types.ts` → `InvitationStatus = 'pending' \| 'accepted' \| 'rejected'` | 🔧 |
+| Task.invitationStatus field | `types.ts` → `Task.invitationStatus?: InvitationStatus` | 🔧 |
+| Task.rejectReason field | `types.ts` → `Task.rejectReason?: string \| null` | 🔧 |
 | MemberTaskAssignment.invitationStatus | `types.ts` → `MemberTaskAssignment.invitationStatus` | 🔧 |
-| Task Agent prompt 生成 pending 状态 | `prompts.ts` → `TASK_AGENT_SYSTEM` Rule 9 | 🔧 |
-| Mock: 已完成任务 accepted | `mockTasks.ts` → task-001/002/003: `invitationStatus: 'accepted'` | 🔧 |
-| Mock: 待办任务 pending | `mockTasks.ts` → task-004~011: `invitationStatus: 'pending'` | 🔧 |
-| Mock: 拒绝示例 | `mockTasks.ts` → task-009: `invitationStatus: 'rejected'`, rejectReason 记录原因 | 🔧 |
+| Task Agent prompt generates pending status | `prompts.ts` → `TASK_AGENT_SYSTEM` Rule 9 | 🔧 |
+| Mock: completed tasks accepted | `mockTasks.ts` → task-001/002/003: `invitationStatus: 'accepted'` | 🔧 |
+| Mock: pending tasks pending | `mockTasks.ts` → task-004~011: `invitationStatus: 'pending'` | 🔧 |
+| Mock: rejection example | `mockTasks.ts` → task-009: `invitationStatus: 'rejected'`, rejectReason records the reason | 🔧 |
 
-**流程逻辑:**
+**Flow logic:**
 ```
-AI 分配任务 → invitationStatus: 'pending'
+AI assigns task → invitationStatus: 'pending'
      ↓
-成员收到通知 → 接受 (accepted) 或 拒绝 (rejected + rejectReason)
+Member receives notification → Accept (accepted) or Reject (rejected + rejectReason)
      ↓
-拒绝后 → task 回到 unassigned, Rescue Agent 重新分配
+After rejection → task returns to unassigned, Rescue Agent reassigns
 ```
 
-**Mock 拒绝示例 (task-009 Report Writing):**
+**Mock rejection example (task-009 Report Writing):**
 ```json
 {
   "id": "task-009",
@@ -1484,43 +1484,43 @@ AI 分配任务 → invitationStatus: 'pending'
 }
 ```
 
-### 15.4 七种风险类型 (7 Risk Types)
+### 15.4 Seven Risk Types (7 Risk Types)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| 扩展 riskType 到 7 种 | `types.ts` → `RiskFlag.riskType` union type | 🔧 |
-| + 'insufficient_time' | 工时超过成员周可用时间 | 🔧 |
-| + 'unassigned' | 任务无分配成员 | 🔧 |
-| Risk Agent prompt 包含 7 种类型 | `prompts.ts` → `RISK_AGENT_SYSTEM` RISK TYPES (7 types) | 🔧 |
-| Risk Agent 区分 unassigned vs skill_gap | `prompts.ts` → `RISK_AGENT_SYSTEM` Rule 3-4 | 🔧 |
-| Mock: insufficient_time 示例 | `mockRiskFlags.ts` → task-002: 4h remaining + 14h/week, 链条紧 | 🔧 |
-| Mock: unassigned 示例 | `mockRiskFlags.ts` → task-008 + task-009: 无分配成员 | 🔧 |
+| Expand riskType to 7 types | `types.ts` → `RiskFlag.riskType` union type | 🔧 |
+| + 'insufficient_time' | Hours exceed member's weekly available time | 🔧 |
+| + 'unassigned' | Task has no assigned member | 🔧 |
+| Risk Agent prompt includes 7 types | `prompts.ts` → `RISK_AGENT_SYSTEM` RISK TYPES (7 types) | 🔧 |
+| Risk Agent distinguishes unassigned vs skill_gap | `prompts.ts` → `RISK_AGENT_SYSTEM` Rule 3-4 | 🔧 |
+| Mock: insufficient_time example | `mockRiskFlags.ts` → task-002: 4h remaining + 14h/week, tight chain | 🔧 |
+| Mock: unassigned example | `mockRiskFlags.ts` → task-008 + task-009: no assigned member | 🔧 |
 
-**7 种风险类型对照:**
-| # | riskType | 含义 | 触发条件 | Mock 示例 |
+**7 Risk Types Comparison:**
+| # | riskType | Meaning | Trigger Condition | Mock Example |
 | --- | --- | --- | --- | --- |
-| 1 | `deadline` | 任务延迟/阻塞关键路径 | 进度落后 + 依赖下游 | task-002: 50% complete, blocking task-003 |
-| 2 | `dependency` | 上游任务延迟 | 上游 task 延迟 | — |
-| 3 | `skill_gap` | 无成员有足够技能 | 匹配分数 < 0.3 | — |
-| 4 | `overload` | 成员过载 | 分配任务数 > 可用时间 | — |
-| 5 | `quality` | 质量风险 | 复杂度 vs 技能不匹配 | — |
-| 6 | `insufficient_time` | 工时不足 | 剩余工时 + 依赖链 > 周可用时间 | task-002: 4h left, 19h downstream, 14h/week |
-| 7 | `unassigned` | 无分配成员 | assignedTo === null | task-008, task-009: 无分配成员 |
+| 1 | `deadline` | Task delayed/blocks critical path | Progress behind + has downstream | task-002: 50% complete, blocking task-003 |
+| 2 | `dependency` | Upstream task delayed | Upstream task delayed | — |
+| 3 | `skill_gap` | No member has sufficient skills | Match score < 0.3 | — |
+| 4 | `overload` | Member overloaded | Assigned task count > available time | — |
+| 5 | `quality` | Quality risk | Complexity vs skill mismatch | — |
+| 6 | `insufficient_time` | Insufficient time | Remaining hours + dependency chain > weekly available time | task-002: 4h left, 19h downstream, 14h/week |
+| 7 | `unassigned` | No assigned member | assignedTo === null | task-008, task-009: no assigned member |
 
 ### 15.5 Autonomous Deadline Defender — 6-Step Rescue Workflow
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| 6 步工作流类型 | `types.ts` → `RescueWorkflowStep = 'detect' \| 'analyze' \| 'optimize' \| 'validate' \| 'apply' \| 'compare'` | 🔧 |
-| 工作流状态追踪 | `types.ts` → `RescueWorkflowState` (currentStep, optimizationRound, maxRounds, stepHistory) | 🔧 |
-| 步骤历史记录 | `types.ts` → `RescueStepRecord[]` (step, round, timestamp, description, result) | 🔧 |
-| RescuePlan 关联工作流 | `types.ts` → `RescuePlan.workflow?: RescueWorkflowState` | 🔧 |
-| Rescue Agent prompt 描述 6 步 | `prompts.ts` → `RESCUE_AGENT_SYSTEM` MVP 6-STEP WORKFLOW section | 🔧 |
-| Rescue Agent JSON 输出包含 workflow | `prompts.ts` → `RESCUE_AGENT_USER` JSON template | 🔧 |
-| Mock: 完整 6 步历史 | `mockRiskFlags.ts` → mockRescuePlan.workflow.stepHistory (6 条记录) | 🔧 |
+| 6-step workflow type | `types.ts` → `RescueWorkflowStep = 'detect' \| 'analyze' \| 'optimize' \| 'validate' \| 'apply' \| 'compare'` | 🔧 |
+| Workflow state tracking | `types.ts` → `RescueWorkflowState` (currentStep, optimizationRound, maxRounds, stepHistory) | 🔧 |
+| Step history records | `types.ts` → `RescueStepRecord[]` (step, round, timestamp, description, result) | 🔧 |
+| RescuePlan linked to workflow | `types.ts` → `RescuePlan.workflow?: RescueWorkflowState` | 🔧 |
+| Rescue Agent prompt describes 6 steps | `prompts.ts` → `RESCUE_AGENT_SYSTEM` MVP 6-STEP WORKFLOW section | 🔧 |
+| Rescue Agent JSON output includes workflow | `prompts.ts` → `RESCUE_AGENT_USER` JSON template | 🔧 |
+| Mock: complete 6-step history | `mockRiskFlags.ts` → mockRescuePlan.workflow.stepHistory (6 records) | 🔧 |
 
-**6 步工作流详解:**
-| 步骤 | 名称 | 输入 | 输出 | Mock 记录 |
+**6-Step Workflow Details:**
+| Step | Name | Input | Output | Mock Record |
 | --- | --- | --- | --- | --- |
 | 1 | Detect | RiskAssessment | 5 risk flags detected | "5 risks detected, overall risk: medium" |
 | 2 | Analyze | risks + critical path | task-002 blocks 8 downstream tasks | "Critical path at risk, 3 unassigned" |
@@ -1531,84 +1531,84 @@ AI 分配任务 → invitationStatus: 'pending'
 
 ### 15.6 Max 3 Optimization Rounds
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
 | maxRounds = 3 | `types.ts` → `RescueWorkflowState.maxRounds` | 🔧 |
-| optimizationRound 计数器 | `types.ts` → `RescueWorkflowState.optimizationRound` | 🔧 |
-| Round 1-3 逻辑 | `prompts.ts` → `RESCUE_AGENT_SYSTEM` MAX 3 OPTIMIZATION ROUNDS section | 🔧 |
-| Mock: Round 1 即成功 | `mockRiskFlags.ts` → `optimizationRound: 1`, stepHistory 显示 Round 1 sufficient | 🔧 |
-| 跳过 Round 2/3 条件 | `prompts.ts` → "Stop when comparison shows improvement" | 🔧 |
+| optimizationRound counter | `types.ts` → `RescueWorkflowState.optimizationRound` | 🔧 |
+| Round 1-3 logic | `prompts.ts` → `RESCUE_AGENT_SYSTEM` MAX 3 OPTIMIZATION ROUNDS section | 🔧 |
+| Mock: Round 1 succeeded | `mockRiskFlags.ts` → `optimizationRound: 1`, stepHistory shows Round 1 sufficient | 🔧 |
+| Skip Round 2/3 condition | `prompts.ts` → "Stop when comparison shows improvement" | 🔧 |
 
-**轮次逻辑:**
+**Round logic:**
 ```
-Round 1: 生成初始计划 → Validate → Compare
-  → 如果改善: STOP (Round 1 sufficient)
-  → 如果未改善或不满足: → Round 2
+Round 1: Generate initial plan → Validate → Compare
+  → If improved: STOP (Round 1 sufficient)
+  → If not improved or unsatisfied: → Round 2
 
-Round 2: 调整 actions → Validate → Compare
-  → 如果改善: STOP
-  → 如果仍不满足: → Round 3
+Round 2: Adjust actions → Validate → Compare
+  → If improved: STOP
+  → If still unsatisfied: → Round 3
 
-Round 3: 最终尝试 → Validate → Compare
-  → 如果改善: STOP
-  → 如果仍不满足: ESCALATE to Leader ("manual intervention required")
+Round 3: Final attempt → Validate → Compare
+  → If improved: STOP
+  → If still unsatisfied: ESCALATE to Leader ("manual intervention required")
 ```
 
-### 15.7 Rescue Permission Rules (救援权限规则)
+### 15.7 Rescue Permission Rules (Rescue Permission Rules)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| 未确认+未开始: 自动修改 | `prompts.ts` → `RESCUE_AGENT_SYSTEM` PERMISSION RULES | 🔧 |
-| 已确认: 需 Leader 批准 | `prompts.ts` → 同上 | 🔧 |
-| 进行中: 始终需 Leader 批准 | `prompts.ts` → 同上 | 🔧 |
-| requiresLeaderApproval 字段 | `types.ts` → `RescuePlan.requiresLeaderApproval?: boolean` | 🔧 |
-| approvalStatus 字段 | `types.ts` → `RescuePlan.approvalStatus?: 'pending' \| 'approved' \| 'rejected'` | 🔧 |
-| Rescue Agent prompt 传入 confirmed 状态 | `prompts.ts` → `RESCUE_AGENT_USER` 显示每 task 的 Permission 状态 | 🔧 |
-| Mock: res-001 需批准 (task-002 confirmed) | `mockRiskFlags.ts` → `requiresLeaderApproval: true`, `approvalStatus: 'approved'` | 🔧 |
-| Mock: res-002/003/004 自动 (unconfirmed) | `mockRiskFlags.ts` → stepHistory apply step 记录 | 🔧 |
+| Unconfirmed + not started: auto-modify | `prompts.ts` → `RESCUE_AGENT_SYSTEM` PERMISSION RULES | 🔧 |
+| Confirmed: requires Leader approval | `prompts.ts` → same as above | 🔧 |
+| In progress: always requires Leader approval | `prompts.ts` → same as above | 🔧 |
+| requiresLeaderApproval field | `types.ts` → `RescuePlan.requiresLeaderApproval?: boolean` | 🔧 |
+| approvalStatus field | `types.ts` → `RescuePlan.approvalStatus?: 'pending' \| 'approved' \| 'rejected'` | 🔧 |
+| Rescue Agent prompt passes confirmed status | `prompts.ts` → `RESCUE_AGENT_USER` shows each task's Permission status | 🔧 |
+| Mock: res-001 needs approval (task-002 confirmed) | `mockRiskFlags.ts` → `requiresLeaderApproval: true`, `approvalStatus: 'approved'` | 🔧 |
+| Mock: res-002/003/004 auto (unconfirmed) | `mockRiskFlags.ts` → stepHistory apply step record | 🔧 |
 
-**权限矩阵:**
-| Task 状态 | confirmed | 可自动修改? | Mock 示例 |
+**Permission Matrix:**
+| Task Status | confirmed | Can auto-modify? | Mock Example |
 | --- | --- | --- | --- |
 | todo | false | ✅ YES | task-004 (reassign), task-009 (reassign), task-011 (reorder) |
-| todo | true | ❌ NO — 需 Leader | — |
-| in-progress | true | ❌ NO — 需 Leader | task-002 (split) → Leader approved |
-| in-progress | false | ❌ NO — 需 Leader | — |
-| done | any | ❌ NO — 不可修改 | — |
+| todo | true | ❌ NO — requires Leader | — |
+| in-progress | true | ❌ NO — requires Leader | task-002 (split) → Leader approved |
+| in-progress | false | ❌ NO — requires Leader | — |
+| done | any | ❌ NO — cannot modify | — |
 
-### 15.8 Rubric-Aware Rescue Priority (Rubric 感知救援优先级)
+### 15.8 Rubric-Aware Rescue Priority (Rubric-Aware Rescue Priority)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| 救援优先考虑覆盖更多 rubric marks 的任务 | `prompts.ts` → `RESCUE_AGENT_SYSTEM` Optimize step (a) | 🔧 |
-| Rescue Agent 传入 relatedRubricIds | `prompts.ts` → `RESCUE_AGENT_USER` 显示每 task 的 Related Rubric IDs | 🔧 |
-| Rubric-aware priority 提示 | `prompts.ts` → `RESCUE_AGENT_USER` "RUBRIC-AWARE PRIORITY" section | 🔧 |
+| Rescue prioritizes tasks covering more rubric marks | `prompts.ts` → `RESCUE_AGENT_SYSTEM` Optimize step (a) | 🔧 |
+| Rescue Agent passes relatedRubricIds | `prompts.ts` → `RESCUE_AGENT_USER` shows each task's Related Rubric IDs | 🔧 |
+| Rubric-aware priority hint | `prompts.ts` → `RESCUE_AGENT_USER` "RUBRIC-AWARE PRIORITY" section | 🔧 |
 
-**优先级排序逻辑:**
+**Priority sorting logic:**
 ```
-1. Rubric marks coverage: 救援覆盖更多 marks 的任务优先
+1. Rubric marks coverage: Rescue prioritizes tasks covering more marks
    (task-002 covers rub-001=25 marks → high priority)
-2. Critical path impact: 解锁更多下游任务的 action 优先
+2. Critical path impact: Actions that unblock more downstream tasks are prioritized
    (split task-002 unblocks 8 downstream tasks)
-3. Feasibility: 在成员可用时间内可执行的 action 优先
+3. Feasibility: Actions executable within member's available time are prioritized
 ```
 
-### 15.9 Comparison Result (救援前后对比)
+### 15.9 Comparison Result (Before/After Rescue Comparison)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| RescueComparisonResult 类型 | `types.ts` → `RescueComparisonResult` interface | 🔧 |
+| RescueComparisonResult type | `types.ts` → `RescueComparisonResult` interface | 🔧 |
 | beforeHours / afterHours | `types.ts` → `comparisonResult.beforeHours/afterHours` | 🔧 |
 | hoursSaved | `types.ts` → `comparisonResult.hoursSaved` | 🔧 |
 | beforeRiskLevel / afterRiskLevel | `types.ts` → `comparisonResult.beforeRiskLevel/afterRiskLevel` | 🔧 |
 | beforeTasksAtRisk / afterTasksAtRisk | `types.ts` → `comparisonResult` | 🔧 |
 | beforeDeadlineBuffer / afterDeadlineBuffer | `types.ts` → `comparisonResult` | 🔧 |
 | improvementSummary | `types.ts` → `comparisonResult.improvementSummary` | 🔧 |
-| RescuePlan 关联 comparisonResult | `types.ts` → `RescuePlan.comparisonResult?` | 🔧 |
-| Mock: 完整对比数据 | `mockRiskFlags.ts` → 57h→50h, medium→none, 5→0, -4h→+4h | 🔧 |
+| RescuePlan linked to comparisonResult | `types.ts` → `RescuePlan.comparisonResult?` | 🔧 |
+| Mock: complete comparison data | `mockRiskFlags.ts` → 57h→50h, medium→none, 5→0, -4h→+4h | 🔧 |
 
-**Mock 对比数据:**
-| 指标 | Before (救援前) | After (救援后) | 变化 |
+**Mock comparison data:**
+| Metric | Before (pre-rescue) | After (post-rescue) | Change |
 | --- | --- | --- | --- |
 | Total Hours | 57h | 50h | -7h saved |
 | Risk Level | medium | none | ↓ resolved |
@@ -1616,36 +1616,36 @@ Round 3: 最终尝试 → Validate → Compare
 | Deadline Buffer | -4h (behind) | +4h (ahead) | +8h swing |
 | Overall | Behind schedule | On track | ✅ Rescue successful |
 
-### 15.10 Weekly Availability (每日可用时间)
+### 15.10 Weekly Availability (Daily Available Time)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| WeeklyAvailability 类型 | `types.ts` → `WeeklyAvailability` (monday-sunday) | 🔧 |
-| Member.weeklyAvailability 字段 | `types.ts` → `Member.weeklyAvailability?: WeeklyAvailability` | 🔧 |
-| Mock: 4 成员每日数据 | `mockMembers.ts` → 全员带 weeklyAvailability | 🔧 |
+| WeeklyAvailability type | `types.ts` → `WeeklyAvailability` (monday-sunday) | 🔧 |
+| Member.weeklyAvailability field | `types.ts` → `Member.weeklyAvailability?: WeeklyAvailability` | 🔧 |
+| Mock: 4 members' daily data | `mockMembers.ts` → all members with weeklyAvailability | 🔧 |
 
-**Mock 每日可用时间:**
-| 成员 | Mon | Tue | Wed | Thu | Fri | Sat | Sun | 总计 |
+**Mock daily available time:**
+| Member | Mon | Tue | Wed | Thu | Fri | Sat | Sun | Total |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Alice (mem-001) | 3h | 3h | 2h | 2h | 2h | 2h | 1h | 15h |
 | Bob (mem-002) | 2h | 2h | 2h | 2h | 2h | 1h | 1h | 12h |
 | Carol (mem-003) | 3h | 3h | 2h | 2h | 2h | 1h | 1h | 14h |
 | David (mem-004) | 2h | 2h | 2h | 2h | 1h | 0h | 1h | 10h |
 
-### 15.11 Plan Validator (计划验证器)
+### 15.11 Plan Validator (Plan Validator)
 
-| 需求 | 实现位置 | 状态 |
+| Requirement | Implementation Location | Status |
 | --- | --- | --- |
-| PlanValidationResult 类型 | `types.ts` → `PlanValidationResult` interface | 🔧 |
-| PlanResult.validation 字段 | `types.ts` → `PlanResult.validation?: PlanValidationResult` | 🔧 |
-| 验证项: rubricCoverageComplete | `types.ts` → `PlanValidationResult.rubricCoverageComplete` | 🔧 |
-| 验证项: allTasksHaveMembers | `types.ts` → `PlanValidationResult.allTasksHaveMembers` | 🔧 |
-| 验证项: noCircularDependencies | `types.ts` → `PlanValidationResult.noCircularDependencies` | 🔧 |
-| 验证项: deadlineFeasible | `types.ts` → `PlanValidationResult.deadlineFeasible` | 🔧 |
+| PlanValidationResult type | `types.ts` → `PlanValidationResult` interface | 🔧 |
+| PlanResult.validation field | `types.ts` → `PlanResult.validation?: PlanValidationResult` | 🔧 |
+| Validation item: rubricCoverageComplete | `types.ts` → `PlanValidationResult.rubricCoverageComplete` | 🔧 |
+| Validation item: allTasksHaveMembers | `types.ts` → `PlanValidationResult.allTasksHaveMembers` | 🔧 |
+| Validation item: noCircularDependencies | `types.ts` → `PlanValidationResult.noCircularDependencies` | 🔧 |
+| Validation item: deadlineFeasible | `types.ts` → `PlanValidationResult.deadlineFeasible` | 🔧 |
 | issues[] + suggestions[] | `types.ts` → `PlanValidationResult.issues/suggestions` | 🔧 |
-| Mock: validation 结果 | `mockTasks.ts` → `mockPlanResult.validation` | 🔧 |
+| Mock: validation result | `mockTasks.ts` → `mockPlanResult.validation` | 🔧 |
 
-**Mock Plan Validator 输出:**
+**Mock Plan Validator output:**
 ```json
 {
   "isValid": false,
@@ -1666,47 +1666,47 @@ Round 3: 最终尝试 → Validate → Compare
 }
 ```
 
-### 15.12 P0/P1/P2 优先级列表
+### 15.12 P0/P1/P2 Priority List
 
-| 优先级 | 范围 | 状态 |
+| Priority | Scope | Status |
 | --- | --- | --- |
-| **P0 (必须)** | 6-Agent Pipeline (Rubric→Task→Skill→CPM→Risk→Rescue) | ✅ 已实现 |
-| **P0** | Mock LLM layer (可切换 real LLM) | ✅ 已实现 |
-| **P0** | Before/After 救援对比 demo | ✅ 已实现 |
-| **P0** | Narrative-driven landing page | ✅ 已实现 |
-| **P0** | types.ts 完整数据契约 | 🔧 已更新 (MVP fields) |
-| **P0** | Rubric Good/Average/Poor 三级 | 🔧 已实现 |
-| **P0** | 7 种风险类型 | 🔧 已实现 |
-| **P0** | 6-Step Rescue Workflow | 🔧 已实现 |
-| **P0** | Max 3 optimization rounds | 🔧 已实现 |
-| **P0** | Rescue permission rules | 🔧 已实现 |
-| **P0** | Comparison result | 🔧 已实现 |
-| **P0** | Multi-member tasks + personalized hours | 🔧 已实现 |
-| **P0** | Accept/reject flow | 🔧 已实现 |
-| **P0** | Plan Validator | 🔧 已实现 |
-| **P0** | Weekly availability | 🔧 已实现 |
-| **P1 (应该)** | Kanban Board (@dnd-kit) | ⏳ 前端待实现 |
-| **P1** | Gantt Chart | ⏳ 前端待实现 |
-| **P1** | Task Detail Panel | ⏳ 前端待实现 |
-| **P1** | Rescue Plan Modal | ⏳ 前端待实现 |
-| **P1** | WorkBuddy cloud.llm 接入 | ⏳ 待激活 |
-| **P2 (可选)** | Hero typography 精修 | ⏳ 前端待实现 |
-| **P2** | Visual polish | ⏳ 前端待实现 |
-| **P2** | PDF upload (Assignment Input) | ⏳ 未来 |
+| **P0 (Must)** | 6-Agent Pipeline (Rubric→Task→Skill→CPM→Risk→Rescue) | ✅ Implemented |
+| **P0** | Mock LLM layer (switchable to real LLM) | ✅ Implemented |
+| **P0** | Before/After rescue comparison demo | ✅ Implemented |
+| **P0** | Narrative-driven landing page | ✅ Implemented |
+| **P0** | types.ts complete data contract | 🔧 Updated (MVP fields) |
+| **P0** | Rubric Good/Average/Poor three levels | 🔧 Implemented |
+| **P0** | 7 risk types | 🔧 Implemented |
+| **P0** | 6-Step Rescue Workflow | 🔧 Implemented |
+| **P0** | Max 3 optimization rounds | 🔧 Implemented |
+| **P0** | Rescue permission rules | 🔧 Implemented |
+| **P0** | Comparison result | 🔧 Implemented |
+| **P0** | Multi-member tasks + personalized hours | 🔧 Implemented |
+| **P0** | Accept/reject flow | 🔧 Implemented |
+| **P0** | Plan Validator | 🔧 Implemented |
+| **P0** | Weekly availability | 🔧 Implemented |
+| **P1 (Should)** | Kanban Board (@dnd-kit) | ⏳ Frontend pending |
+| **P1** | Gantt Chart | ⏳ Frontend pending |
+| **P1** | Task Detail Panel | ⏳ Frontend pending |
+| **P1** | Rescue Plan Modal | ⏳ Frontend pending |
+| **P1** | WorkBuddy cloud.llm integration | ⏳ Pending activation |
+| **P2 (Could)** | Hero typography refinement | ⏳ Frontend pending |
+| **P2** | Visual polish | ⏳ Frontend pending |
+| **P2** | PDF upload (Assignment Input) | ⏳ Future |
 
 ### 15.13 5-Scene Demo Story
 
-| 场景 | 描述 | 展示组件 | 数据来源 |
+| Scene | Description | Components Showcased | Data Source |
 | --- | --- | --- | --- |
-| Scene 1: Input | 粘贴 Assignment + Rubric 文本 | AssignmentInputForm | mockAssignment + rubricText |
-| Scene 2: Pipeline | 6-Agent 实时执行 | PipelineRunner | orchestrator + mock-llm |
-| Scene 3: Plan | 11 tasks, 多人分配, 邀请状态 | (TaskBoard 待实现) | mockPlanResult |
-| Scene 4: Risk + Rescue | 5 风险 → 6步救援 → 对比 | BeforeAfterComparison | mockRiskAssessment + mockRescuePlan |
-| Scene 5: Architecture | 6 Agent 卡片 + Track 2 映射 | AgentCard section | page.tsx CRITERIA_MAPPING |
+| Scene 1: Input | Paste Assignment + Rubric text | AssignmentInputForm | mockAssignment + rubricText |
+| Scene 2: Pipeline | 6-Agent real-time execution | PipelineRunner | orchestrator + mock-llm |
+| Scene 3: Plan | 11 tasks, multi-member assignments, invitation status | (TaskBoard pending) | mockPlanResult |
+| Scene 4: Risk + Rescue | 5 risks → 6-step rescue → comparison | BeforeAfterComparison | mockRiskAssessment + mockRescuePlan |
+| Scene 5: Architecture | 6 Agent cards + Track 2 mapping | AgentCard section | page.tsx CRITERIA_MAPPING |
 
-### 15.14 MVP Requirements 实现总结
+### 15.14 MVP Requirements Implementation Summary
 
-| MVP 需求 | 代码实现 | Mock 数据 | Prompt 更新 | 文档覆盖 |
+| MVP Requirement | Code Implementation | Mock Data | Prompt Update | Document Coverage |
 | --- | --- | --- | --- | --- |
 | Rubric Good/Average/Poor | ✅ types.ts | ✅ mockRubric | ✅ RUBRIC_AGENT | ✅ §15.1 |
 | Multi-member tasks | ✅ types.ts | ✅ mockTasks | ✅ TASK_AGENT | ✅ §15.2 |
@@ -1725,4 +1725,4 @@ Round 3: 最终尝试 → Validate → Compare
 
 ---
 
-*文档版本: 2026-10-11 v2 | 项目: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*
+*Document version: 2026-10-11 v2 | Project: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*
