@@ -187,15 +187,16 @@ export function runRescueWorkflow(params: {
   members: Member[];
   deadline: DeadlineInfo | null;
   leaderReason?: { type: string; memberId?: string; note?: string };
+  forceRound?: number;
 }): RescuePlan {
-  const { riskAssessment, tasks, members, deadline, leaderReason } = params;
+  const { riskAssessment, tasks, members, deadline, leaderReason, forceRound } = params;
   const now = new Date().toISOString();
 
   // --- Normalize tasks to ensure all required fields exist ---
   const normalizedTasks = normalizeTasks(tasks);
 
   // --- Run scheduler-based rescue search (3 rounds) ---
-  const searchResult = planRescueSearch(normalizedTasks, members, deadline, leaderReason);
+  const searchResult = planRescueSearch(normalizedTasks, members, deadline, leaderReason, forceRound);
 
   // --- Case 1: Rescue not needed (project is on track or complete) ---
   if (!searchResult.needed) {
@@ -212,12 +213,16 @@ export function runRescueWorkflow(params: {
         beforeHours: totalHours,
         afterHours: totalHours,
         hoursSaved: 0,
+        workloadDelta: 0,
         beforeRiskLevel: riskAssessment.overallRiskLevel,
         afterRiskLevel: 'none',
         beforeTasksAtRisk: riskAssessment.flags.length,
         afterTasksAtRisk: 0,
         beforeDeadlineBuffer: Math.max(0, (searchResult.baseAssessment.deadlineDay - searchResult.baseAssessment.predictedCompletionDay) * 8),
         afterDeadlineBuffer: Math.max(0, (searchResult.baseAssessment.deadlineDay - searchResult.baseAssessment.predictedCompletionDay) * 8),
+        beforePredictedDay: searchResult.baseAssessment.predictedCompletionDay,
+        afterPredictedDay: searchResult.baseAssessment.predictedCompletionDay,
+        deadlineDay: searchResult.baseAssessment.deadlineDay,
         improvementSummary: 'No rescue needed — project is on track.',
       },
     };
@@ -247,9 +252,29 @@ export function runRescueWorkflow(params: {
   });
 
   // --- Build comparison result ---
+  // beforeHours = "Original Workload" — only work currently assigned to members (43h)
+  // afterHours  = "Proposed Workload" — total remaining work after rescue (56h)
+  //   includes newly assigned tasks + any scope reductions
+  // The delta (afterHours - beforeHours) shows hidden work the rescue exposed.
+  function totalRemainingWork(tasks: Task[]): number {
+    return tasks.reduce((sum, t) => {
+      if (t.status === 'done') return sum;
+      if (t.memberAssignments && t.memberAssignments.length > 0) {
+        const assigned = t.memberAssignments
+          .filter(a => a.invitationStatus !== 'rejected')
+          .reduce((s, a) => s + (a.remainingHours ?? a.estimatedHours), 0);
+        return sum + assigned;
+      }
+      return sum + t.estimatedHours;
+    }, 0);
+  }
+
+  // Original workload = only work currently assigned to members (excludes unassigned tasks)
   const beforeHours = baseAssessment.memberLoads.reduce((s, m) => s + m.remainingWorkHours, 0);
-  const afterHours = afterAssessment.memberLoads.reduce((s, m) => s + m.remainingWorkHours, 0);
-  const hoursSaved = Math.max(0, Math.round((beforeHours - afterHours) * 10) / 10);
+  // Proposed workload = total remaining work after rescue (includes newly assigned + reductions)
+  const afterHours = totalRemainingWork(afterTasks);
+  const workloadDelta = Math.round((afterHours - beforeHours) * 10) / 10;
+  const hoursSaved = Math.max(0, Math.round((totalRemainingWork(normalizedTasks) - afterHours) * 10) / 10);
 
   const beforeRiskLevel = riskStatusToLevel(baseAssessment.riskStatus);
   const afterRiskLevel = riskStatusToLevel(afterAssessment.riskStatus);
@@ -266,12 +291,16 @@ export function runRescueWorkflow(params: {
     beforeHours: Math.round(beforeHours * 10) / 10,
     afterHours: Math.round(afterHours * 10) / 10,
     hoursSaved,
+    workloadDelta,
     beforeRiskLevel,
     afterRiskLevel,
     beforeTasksAtRisk,
     afterTasksAtRisk,
     beforeDeadlineBuffer: beforeBuffer,
     afterDeadlineBuffer: afterBuffer,
+    beforePredictedDay: baseAssessment.predictedCompletionDay,
+    afterPredictedDay: afterAssessment.predictedCompletionDay,
+    deadlineDay,
     improvementSummary: bestRound.valid
       ? `Rescue plan resolves deadline risk in Round ${bestRound.n}: ${bestRound.label}. Predicted end: Day ${bestRound.predictedEnd} (deadline: Day ${deadlineDay}).`
       : bestRound.predictedEnd >= 999
@@ -283,48 +312,38 @@ export function runRescueWorkflow(params: {
   const needsLeaderApproval = bestRound.ops.some(op => op.approval);
   const approvalStatus = needsLeaderApproval ? 'pending' : 'approved';
 
-  // --- Build workflow step history ---
+  // --- Build workflow step history (4-step AI Agent flow) ---
+  const blockedCount = Object.values(baseAssessment.schedule).filter(n => n.blocked).length;
+  const afterBlockedCount = Object.values(afterAssessment.schedule).filter(n => n.blocked).length;
   const stepHistory: RescueStepRecord[] = [
     {
-      step: 'detect', round: 1, timestamp: now,
-      description: 'Ran scheduler to check if rescue is needed',
-      result: `Base risk: ${baseAssessment.riskStatus} (predicted day ${baseAssessment.predictedCompletionDay >= 999 ? 'Blocked' : baseAssessment.predictedCompletionDay}, deadline day ${baseAssessment.deadlineDay}, ${baseAssessment.delayDays >= 999 ? 'blocked' : baseAssessment.delayDays + 'd delay'})`,
+      step: 'diagnose', round: 1, timestamp: now,
+      description: 'Diagnosed project health — ran scheduler to assess deadline risk',
+      result: `Risk: ${baseAssessment.riskStatus}, predicted day ${baseAssessment.predictedCompletionDay >= 999 ? 'Blocked' : baseAssessment.predictedCompletionDay}, deadline day ${baseAssessment.deadlineDay}, ${baseAssessment.delayedTaskIds.length} tasks delayed, ${blockedCount} blocked${leaderReason ? `, reason: ${leaderReason.type}` : ''}`,
     },
     {
-      step: 'analyze', round: 1, timestamp: now,
-      description: 'Analyzed member loads and delayed tasks',
-      result: `${baseAssessment.delayedTaskIds.length} tasks delayed, ${baseAssessment.memberLoads.filter(m => m.isOverloaded).length} members overloaded${leaderReason ? `, leader reason: ${leaderReason.type}` : ''}`,
+      step: 'plan', round: bestRound.n, timestamp: now,
+      description: `Planned rescue operations — 3-round search (reallocate → rebalance → reduce scope)`,
+      result: `Best result: Round ${bestRound.n} (${bestRound.label}) with ${bestRound.ops.length} operations${needsLeaderApproval ? ' — leader approval required' : ''}`,
     },
     {
-      step: 'optimize', round: bestRound.n, timestamp: now,
-      description: `Ran 3-round rescue search — best result: Round ${bestRound.n}`,
-      result: `${bestRound.label}: ${bestRound.ops.length} operations, predicted end ${bestRound.predictedEnd >= 999 ? 'Blocked' : 'Day ' + bestRound.predictedEnd} (${bestRound.valid ? 'VALID' : 'PARTIAL'})`,
+      step: 'simulate', round: bestRound.n, timestamp: now,
+      description: `Simulated rescue plan by re-running scheduler on modified task set`,
+      result: `Predicted end: ${bestRound.predictedEnd >= 999 ? 'Blocked' : 'Day ' + bestRound.predictedEnd} (${bestRound.valid ? 'meets deadline' : 'still over deadline'}), blocked: ${blockedCount} → ${afterBlockedCount}`,
     },
     {
       step: 'validate', round: bestRound.n, timestamp: now,
-      description: 'Re-ran scheduler to validate rescue plan',
+      description: 'Self-validated — compared before/after metrics against deadline',
       result: bestRound.valid
-        ? `✅ Plan meets deadline (Day ${bestRound.predictedEnd} ≤ Day ${deadlineDay})`
+        ? `✅ Plan resolves deadline risk (Day ${bestRound.predictedEnd} ≤ Day ${deadlineDay}), ${hoursSaved}h saved`
         : bestRound.predictedEnd >= 999
-          ? `⚠️ Some tasks remain blocked after rescue — manual assignment needed`
-          : `⚠️ Plan does not fully meet deadline (Day ${bestRound.predictedEnd} > Day ${deadlineDay}), but improves timeline`,
-    },
-    {
-      step: 'apply', round: bestRound.n, timestamp: now,
-      description: 'Determined permission rules',
-      result: needsLeaderApproval
-        ? 'Leader approval required (ops affect accepted/locked tasks)'
-        : 'All actions auto-applied (unstarted work only)',
-    },
-    {
-      step: 'compare', round: bestRound.n, timestamp: now,
-      description: 'Generated before/after comparison',
-      result: `${hoursSaved}h saved, ${beforeTasksAtRisk} → ${afterTasksAtRisk} tasks at risk, buffer ${beforeBuffer}h → ${afterBuffer}h`,
+          ? `⚠️ ${afterBlockedCount} task(s) remain blocked — manual assignment needed`
+          : `⚠️ Still ${Math.max(0, bestRound.predictedEnd - deadlineDay)}d over deadline — partial improvement only`,
     },
   ];
 
   const workflow: RescueWorkflowState = {
-    currentStep: 'compare',
+    currentStep: 'validate',
     optimizationRound: bestRound.n,
     maxRounds: 3,
     stepHistory,

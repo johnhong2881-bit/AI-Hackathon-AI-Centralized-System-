@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
 import { WorkspaceHeader, av } from './Mockup2Screens';
@@ -262,8 +262,8 @@ function RunPhase() {
           const cmp = rescuePlan.comparisonResult;
           newLogs.push({
             icon: cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low' ? 'ti-check' : 'ti-alert-triangle',
-            msg: `Optimization complete: ${cmp.beforeHours}h → ${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`,
-            tool: 'comparison',
+            msg: `Rescue complete: ${cmp.beforeHours}h → ${cmp.afterHours}h${cmp.workloadDelta > 0 ? ` (+${cmp.workloadDelta}h exposed)` : cmp.workloadDelta < 0 ? ` (${cmp.workloadDelta}h reduced)` : ''}${cmp.hoursSaved > 0 ? `, ${cmp.hoursSaved}h saved` : ''}`,
+            tool: 'validate',
             detail: cmp.improvementSummary,
             flag: cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low' ? 'o' : 'f',
           });
@@ -306,10 +306,10 @@ function RunPhase() {
       <div className="row wrap mb12">
         <div>
           <div className="eyebrow">Project Rescue</div>
-          <h2 className="h2 mt4">Optimizing for maximum marks</h2>
+          <h2 className="h2 mt4">Running AI Project Rescue</h2>
         </div>
         <span className="sp" />
-        <span className="demo"><i className="ti ti-flask" /> {error ? 'Error' : logs.length > 0 ? 'Complete' : 'Ranking tasks by effort-to-score...'}</span>
+        <span className="demo"><i className="ti ti-flask" /> {error ? 'Error' : logs.length > 0 ? 'Complete' : 'Diagnosing project health...'}</span>
         <button className="btn btn-sm" onClick={() => setDefenderPhase('result')}>Skip to result</button>
       </div>
       {error && (
@@ -361,8 +361,8 @@ function RunPhase() {
             <div className="lg">
               <i className="ti ti-loader-2 spin" style={{ color: '#8ea2e8' }} />
               <div>
-                <div style={{ color: '#fff' }}>Ranking tasks by effort-to-score ratio...</div>
-                <div className="xs mt4" style={{ color: '#a9b8ea' }}>3-round optimization: identify quick wins, rank by mark value, flag low-value tasks to drop.</div>
+                <div style={{ color: '#fff' }}>Diagnosing project health...</div>
+                <div className="xs mt4" style={{ color: '#a9b8ea' }}>4-step AI Agent flow: Diagnose → Plan → Simulate → Self-Validate. Running 3-round rescue search (reallocate → rebalance → reduce scope).</div>
               </div>
             </div>
           )}
@@ -387,6 +387,8 @@ function ResultPhase() {
   const setCriticalPath = useTaskStore(s => s.setCriticalPath);
   const setRescuePlan = useTaskStore(s => s.setRescuePlan);
 
+  const [strategyLoading, setStrategyLoading] = useState<number | null>(null);
+
   const reasonText = () => {
     if (defenderReason === null) return '';
     const base = REASONS[defenderReason][1];
@@ -398,151 +400,274 @@ function ResultPhase() {
   };
 
   const ok = proposal2 === 'approved';
-  const rej = proposal2 === 'rejected';
 
-  // Build dynamic data from real rescue plan, fall back to mock for display
+  // --- Build dynamic data from rescue plan ---
   const cmp = rescuePlan?.comparisonResult;
   const actions = rescuePlan?.actions ?? [];
-  const projectedRecovery = rescuePlan?.projectedRecovery ?? 'Priority plan generated';
+  const projectedRecovery = rescuePlan?.projectedRecovery ?? '';
   const confidence = rescuePlan ? Math.round(rescuePlan.confidence * 100) : 0;
+  const wf = rescuePlan?.workflow;
+  const bestRound = wf?.optimizationRound ?? 1;
 
-  // Predicted completion from scheduler
-  // Handle 999 (blocked) gracefully — don't show "Day 999"
-  const beforeDay = criticalPath?.predictedCompletionDay ?? 0;
-  const isBlocked = beforeDay >= 999;
-  const beforePredicted = criticalPath
-    ? isBlocked
-      ? `Blocked (${criticalPath.delayDays > 0 ? `${criticalPath.delayDays}d` : 'tasks unassigned'})`
-      : `Day ${beforeDay}${criticalPath.delayDays > 0 ? ` (${criticalPath.delayDays}d late)` : ''}`
-    : 'Unknown';
-  const afterPredicted = cmp
-    ? cmp.afterDeadlineBuffer > 0
-      ? `On track (${cmp.afterDeadlineBuffer}h buffer)`
-      : cmp.afterRiskLevel === 'none' || cmp.afterRiskLevel === 'low'
-        ? `On track (0h buffer)`
-        : `Still behind (0h buffer)`
-    : projectedRecovery;
+  // --- Predicted completion data ---
+  const beforeDay = cmp?.beforePredictedDay ?? criticalPath?.predictedCompletionDay ?? 0;
+  const afterDay = cmp?.afterPredictedDay ?? 0;
+  const dlDay = cmp?.deadlineDay ?? criticalPath?.deadlineDay ?? 0;
+  const isBeforeBlocked = beforeDay >= 999;
+  const isAfterBlocked = afterDay >= 999;
 
-  const bannerMap: Record<string, [string, string, string, string]> = {
-    pending: ['al-wn', 'ti-hand-stop', 'Priority plan ready for review', `${actions.length} actions recommended to maximize your marks. ${projectedRecovery}.`],
-    approved: ['al-ok', 'ti-circle-check', 'Priority plan approved', `The optimized plan can score ${cmp?.hoursSaved ?? 0} more marks. ${projectedRecovery}.`],
-    rejected: ['al-dg', 'ti-alert-triangle', 'Marks at risk', `Without optimization you may only score partial marks. ${cmp?.improvementSummary ?? ''}`],
+  // --- Status determination ---
+  const isResolved = !isAfterBlocked && afterDay <= dlDay;
+  const isPartial = !isAfterBlocked && afterDay > dlDay;
+  const statusLabel = isResolved ? 'Resolved' : isPartial ? 'Partially Resolved' : 'Not Resolved';
+  const statusColor = isResolved ? '#6fe0b2' : isPartial ? '#ffb44a' : '#ff8f85';
+  const statusBg = isResolved ? 'rgba(111,224,178,.12)' : isPartial ? 'rgba(255,180,74,.12)' : 'rgba(255,143,133,.12)';
+  const statusIcon = isResolved ? 'ti-circle-check' : isPartial ? 'ti-alert-triangle' : 'ti-alert-octagon';
+
+  // --- Workload metrics ---
+  const beforeHours = cmp?.beforeHours ?? 0;
+  const afterHours = cmp?.afterHours ?? 0;
+  const workloadDelta = cmp?.workloadDelta ?? 0;
+  const hoursSaved = cmp?.hoursSaved ?? 0;
+
+  // --- Tasks at risk ---
+  const beforeTasksAtRisk = cmp?.beforeTasksAtRisk ?? 0;
+  const afterTasksAtRisk = cmp?.afterTasksAtRisk ?? 0;
+  const tasksImproved = beforeTasksAtRisk > afterTasksAtRisk;
+
+  // --- Deadline status ---
+  const daysLate = isAfterBlocked ? null : Math.max(0, afterDay - dlDay);
+  const beforeDaysLate = isBeforeBlocked ? null : Math.max(0, beforeDay - dlDay);
+
+  // --- Rescue strategies (3 rounds) ---
+  const strategies = [
+    { n: 1, label: 'Reallocate Tasks', icon: 'ti-arrows-exchange', desc: 'Move unstarted work to available members' },
+    { n: 2, label: 'Parallel Execution', icon: 'ti-arrows-split', desc: 'Rebalance accepted work + relax dependencies' },
+    { n: 3, label: 'Scope Review', icon: 'ti-scissors', desc: 'Reduce low-priority scope (50% low, 30% medium)' },
+  ];
+
+  const handleStrategy = async (round: number) => {
+    const store = useTaskStore.getState();
+    const { riskAssessment, plan, members, deadline } = store;
+    if (!riskAssessment || !plan || !members.length) {
+      addToast('Pipeline data not found. Run AI analysis first.', 'ti-alert-circle');
+      return;
+    }
+
+    // Build leader reason object
+    let leaderReasonObj: { type: string; memberId?: string; memberName?: string; detail?: string } | undefined;
+    if (defenderReason !== null) {
+      const reasonLabel = REASONS[defenderReason][1];
+      const projectMembers = getProjectMembers(useMockupStore2.getState().activeProjectId);
+      const member = projectMembers.find(m => m.n === defenderWho);
+      leaderReasonObj = {
+        type: reasonLabel,
+        memberId: member?.k,
+        memberName: defenderWho,
+        detail: defenderReason === 5 ? useMockupStore2.getState().defenderReasonText : undefined,
+      };
+    }
+
+    setStrategyLoading(round);
+    try {
+      const res = await fetch('/api/pipeline/rescue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          riskAssessment,
+          tasks: plan.tasks,
+          members,
+          deadline,
+          leaderReason: leaderReasonObj,
+          forceRound: round,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      const newPlan: RescuePlan = await res.json();
+      store.setRescuePlan(newPlan);
+      setProposal2('pending');
+      addToast(`${strategies[round - 1].label} complete — results updated below`);
+    } catch (err) {
+      addToast(`Strategy failed: ${err instanceof Error ? err.message : String(err)}`, 'ti-alert-circle');
+    } finally {
+      setStrategyLoading(null);
+    }
   };
-  const B = bannerMap[proposal2];
-
-  const cmpRow = (label: string, before: ReactNode, after: ReactNode) => (
-    <div className="cmp">
-      <div className="b sm">{label}</div>
-      <div className="bf">{before}</div>
-      <div className="mut3"><i className="ti ti-arrow-right" /></div>
-      <div className="af">{after}</div>
-    </div>
-  );
 
   return (
     <div>
-      <div className="row g8 mb12 wrap">
-        <span className="badge b-blue"><i className="ti ti-message-2" /> Situation: {reasonText()}</span>
-        {rescuePlan && (
-          <span className="badge b-ok"><i className="ti ti-trophy" /> {actions.length} tasks ranked · {confidence}% confidence</span>
-        )}
-      </div>
+      {/* --- Header --- */}
       <div className="mb16">
-        <div className={`alert ${B[0]}`}>
-          <i className={`ti ${B[1]}`} />
-          <div style={{ flex: 1 }}>
-            <div className="b" style={{ fontSize: 16 }}>{B[2]}</div>
-            <div className="sm">{B[3]}</div>
-          </div>
+        <div className="eyebrow">AI Agent · Rescue Workflow</div>
+        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', marginTop: 4 }}>AI Project Rescue</h2>
+        <p className="mut mt4" style={{ maxWidth: 560 }}>Based on your current simulation</p>
+        <div className="row wrap g8 mt12">
+          <span className="badge" style={{ background: statusBg, color: statusColor, fontSize: 14, padding: '6px 14px', fontWeight: 600 }}>
+            <i className={`ti ${statusIcon}`} /> {statusLabel}
+          </span>
+          {rescuePlan && (
+            <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)', color: '#b5c3f3' }}>
+              <i className="ti ti-robot" /> Round {bestRound} of 3
+            </span>
+          )}
+          {confidence > 0 && (
+            <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)', color: '#b5c3f3' }}>
+              <i className="ti ti-gauge" /> {confidence}% confidence
+            </span>
+          )}
+          {reasonText() && (
+            <span className="badge b-blue"><i className="ti ti-message-2" /> {reasonText()}</span>
+          )}
         </div>
       </div>
 
-      {/* Rescue actions from real API data */}
+      {/* --- Metrics Cards --- */}
+      {cmp && (
+        <div className="g2r mb16" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
+          {/* Workload */}
+          <div className="card" style={{ padding: 16 }}>
+            <div className="eyebrow">Workload</div>
+            <div className="row g8 mt8 wrap" style={{ alignItems: 'baseline' }}>
+              <span style={{ fontSize: 26, fontWeight: 700 }}>{beforeHours}h</span>
+              <i className="ti ti-arrow-right" style={{ color: '#8ea2e8' }} />
+              <span style={{ fontSize: 26, fontWeight: 700, color: workloadDelta > 0 ? '#ff8f85' : workloadDelta < 0 ? '#6fe0b2' : '#fff' }}>{afterHours}h</span>
+            </div>
+            <div className="sm mt4" style={{ color: workloadDelta > 0 ? '#ff8f85' : workloadDelta < 0 ? '#6fe0b2' : '#8ea2e8' }}>
+              {workloadDelta > 0 ? `+${workloadDelta}h additional work exposed` : workloadDelta < 0 ? `${Math.abs(workloadDelta)}h reduced` : 'No change'}
+              {hoursSaved > 0 && ` · ${hoursSaved}h saved by scope reduction`}
+            </div>
+            <div className="xs mt4 mut">Original → Proposed</div>
+          </div>
+
+          {/* Tasks at Risk */}
+          <div className="card" style={{ padding: 16 }}>
+            <div className="eyebrow">Tasks at Risk</div>
+            <div className="row g8 mt8 wrap" style={{ alignItems: 'baseline' }}>
+              <span style={{ fontSize: 26, fontWeight: 700 }}>{beforeTasksAtRisk}</span>
+              <i className="ti ti-arrow-right" style={{ color: '#8ea2e8' }} />
+              <span style={{ fontSize: 26, fontWeight: 700, color: tasksImproved ? '#6fe0b2' : '#ff8f85' }}>{afterTasksAtRisk}</span>
+            </div>
+            <div className="sm mt4" style={{ color: tasksImproved ? '#6fe0b2' : '#ff8f85' }}>
+              {tasksImproved ? `${beforeTasksAtRisk - afterTasksAtRisk} task(s) resolved` : 'No improvement'}
+            </div>
+            <div className="xs mt4 mut">Before → After</div>
+          </div>
+
+          {/* Deadline Status */}
+          <div className="card" style={{ padding: 16 }}>
+            <div className="eyebrow">Deadline Status</div>
+            <div className="mt8">
+              <span style={{ fontSize: 26, fontWeight: 700, color: isResolved ? '#6fe0b2' : '#ff8f85' }}>
+                {isAfterBlocked ? 'Blocked' : isResolved ? (daysLate === 0 ? 'On time' : 'On track') : `${daysLate}d late`}
+              </span>
+            </div>
+            <div className="sm mt4" style={{ color: '#8ea2e8' }}>
+              {isBeforeBlocked ? 'Was: Blocked' : beforeDaysLate !== null && beforeDaysLate > 0 ? `Was: ${beforeDaysLate}d late` : 'Was: On track'}
+              {!isAfterBlocked && !isBeforeBlocked && afterDay !== beforeDay && ` → Now: Day ${afterDay}`}
+            </div>
+            <div className="xs mt4 mut">Deadline: Day {dlDay}</div>
+          </div>
+        </div>
+      )}
+
+      {/* --- AI Agent Assessment --- */}
+      {cmp && (
+        <div className="card mb16" style={{ padding: 16 }}>
+          <div className="row g8 mb8" style={{ alignItems: 'center' }}>
+            <i className="ti ti-robot" style={{ color: '#8ea2e8', fontSize: 18 }} />
+            <div className="eyebrow">AI Agent Assessment</div>
+            <span className="sp" />
+            <span className="badge b-navy" style={{ background: 'rgba(255,255,255,.14)', color: '#b5c3f3', fontSize: 12 }}>
+              Based on Round {bestRound}
+            </span>
+          </div>
+          <p className="sm" style={{ color: '#c5d1f5', lineHeight: 1.6, maxWidth: 680 }}>
+            {cmp.improvementSummary}
+          </p>
+          {projectedRecovery && (
+            <div className="xs mt8" style={{ color: '#8ea2e8' }}>
+              <i className="ti ti-trending-up" /> {projectedRecovery}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- Rescue Actions --- */}
       {actions.length > 0 && (
         <>
-          <h3 className="h3 mb8">Priority plan</h3>
-          <div className="row g8 mb12 wrap">
-            <span className="badge b-ok"><i className="ti ti-bolt" /> Do first</span>
-            <span className="badge b-wn"><i className="ti ti-hand-stop" /> If time permits</span>
-            <span className="xs mut">{actions.length} tasks ranked by effort-to-score</span>
+          <h3 className="h3 mb8">Rescue Actions ({actions.length})</h3>
+          <div className="mb16">
+            {actions.map((action, i) => {
+              const needsApproval = action.priority === 'critical' || action.priority === 'high';
+              const badgeClass = needsApproval ? 'b-wn' : 'b-ok';
+              return (
+                <div key={action.id} className={`prop ${needsApproval && proposal2 === 'pending' ? 'pend' : ''}`} style={{ marginBottom: 8 }}>
+                  <div className="row wrap mb8">
+                    <span className={`badge ${badgeClass}`}>
+                      <i className="ti ti-bolt" /> {action.actionType}
+                    </span>
+                    <span className="b" style={{ fontSize: 14 }}>#{i + 1} {action.description}</span>
+                  </div>
+                  <div className="sm mut">{action.estimatedImpact}</div>
+                </div>
+              );
+            })}
           </div>
-          {actions.map((action, i) => {
-            const needsApproval = action.priority === 'critical' || action.priority === 'high';
-            const badgeClass = needsApproval ? 'b-wn' : 'b-ok';
-            const badgeIcon = needsApproval ? 'ti-hand-stop' : 'ti-bolt';
-            const badgeLabel = needsApproval ? 'If time permits' : 'Do first';
-            return (
-              <div key={action.id} className={`prop ${needsApproval && proposal2 === 'pending' ? 'pend' : ''}`}>
-                <div className="row wrap mb12">
-                  <span className={`badge ${badgeClass}`}>
-                    <i className={`ti ${badgeIcon}`} /> {badgeLabel}
-                  </span>
-                  <span className="h3">Task {i + 1} &mdash; {action.description}</span>
-                </div>
-                <div className="ba">
-                  <div>
-                    <div className="eyebrow mb8">Impact</div>
-                    <div className="sm">{action.estimatedImpact}</div>
-                  </div>
-                  <div className="ar"><i className="ti ti-arrow-right" /></div>
-                  <div>
-                    <div className="eyebrow mb8">Type</div>
-                    <div className="sm">{action.actionType} · Priority: {action.priority}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
 
           {/* Approval buttons */}
           {rescuePlan?.requiresLeaderApproval && proposal2 === 'pending' && (
-            <div className="row g8 mt16">
-              <button className="btn btn-p" onClick={() => { setProposal2('approved'); addToast('Priority plan approved. Marks optimized.'); }}>
-                <i className="ti ti-check" /> Approve priority plan
+            <div className="row g8 mt8 mb16">
+              <button className="btn btn-p" onClick={() => { setProposal2('approved'); addToast('Rescue plan approved.'); }}>
+                <i className="ti ti-check" /> Approve plan
               </button>
-              <button className="btn" onClick={() => { setProposal2('rejected'); addToast('Priority plan rejected. No changes made.', 'ti-alert-triangle'); }}>
-                <i className="ti ti-x" /> Reject plan
+              <button className="btn" onClick={() => { setProposal2('rejected'); addToast('Plan rejected.', 'ti-alert-triangle'); }}>
+                <i className="ti ti-x" /> Reject
               </button>
             </div>
           )}
         </>
       )}
 
-      {/* Before vs After comparison from real data */}
-      {cmp && (
-        <>
-          <h3 className="h3 mb8 mt24">Before vs After</h3>
-          <div className="card">
-            <div className="cmp" style={{ borderTop: 0, paddingTop: 0 }}>
-              <div className="eyebrow">Metric</div>
-              <div className="eyebrow">Before</div>
-              <div />
-              <div className="eyebrow" style={{ color: 'var(--blue6)' }}>After</div>
-            </div>
-            {cmpRow('Total hours', `${cmp.beforeHours}h`, `${cmp.afterHours}h (saved ${cmp.hoursSaved}h)`)}
-            {cmpRow('Risk level', <span className="stat s-dg">{cmp.beforeRiskLevel}</span>, <span className={`stat ${cmp.afterRiskLevel === 'none' ? 's-ok' : cmp.afterRiskLevel === 'low' ? 's-ok' : 's-dg'}`}>{cmp.afterRiskLevel}</span>)}
-            {cmpRow('Tasks at risk', `${cmp.beforeTasksAtRisk}`, `${cmp.afterTasksAtRisk}`)}
-            {cmpRow('Deadline buffer', `${cmp.beforeDeadlineBuffer}h`, `${cmp.afterDeadlineBuffer}h`)}
-            {cmpRow('Predicted completion', beforePredicted, afterPredicted)}
-            <div className="mt12 sm mut"><i className="ti ti-info-circle" /> {cmp.improvementSummary}</div>
-          </div>
-        </>
-      )}
-
-      {/* Fallback when no rescue plan */}
-      {!rescuePlan && (
-        <div className="alert al-wn">
-          <i className="ti ti-info-circle" />
-          <div>
-            <b>No priority plan yet</b>
-            <div className="sm mut">Run the optimizer from the risk alert to generate a priority plan.</div>
-          </div>
+      {/* --- Rescue Strategies --- */}
+      <div className="card mb16" style={{ padding: 16 }}>
+        <div className="eyebrow mb8">Try a Different Strategy</div>
+        <div className="g2r" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
+          {strategies.map(s => {
+            const isBest = bestRound === s.n;
+            const isLoading = strategyLoading === s.n;
+            return (
+              <button
+                key={s.n}
+                className="btn"
+                style={{
+                  textAlign: 'left',
+                  padding: 12,
+                  background: isBest ? 'rgba(111,224,178,.08)' : 'rgba(255,255,255,.04)',
+                  border: isBest ? '1px solid rgba(111,224,178,.3)' : '1px solid rgba(255,255,255,.08)',
+                  cursor: isLoading ? 'wait' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+                onClick={() => handleStrategy(s.n)}
+                disabled={isLoading || strategyLoading !== null}
+              >
+                <div className="row g6" style={{ alignItems: 'center' }}>
+                  <i className={`ti ${isLoading ? 'ti-loader-2 spin' : s.icon}`} style={{ color: isBest ? '#6fe0b2' : '#8ea2e8' }} />
+                  <div className="b" style={{ fontSize: 13 }}>{s.label}</div>
+                  {isBest && <span className="badge b-ok" style={{ fontSize: 10, padding: '2px 6px' }}>Used</span>}
+                </div>
+                <div className="xs mt4" style={{ color: '#8ea2e8', textAlign: 'left' }}>{s.desc}</div>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
+      {/* --- Footer Buttons --- */}
       <div className="row g12 mt16 wrap">
         <button className={`btn btn-lg ${ok ? 'btn-p' : ''}`} onClick={() => {
-          // Apply rescue plan: update critical path with new predictions
           if (ok && rescuePlan && criticalPath && cmp) {
             const updatedCriticalPath = {
               ...criticalPath,
@@ -552,19 +677,32 @@ function ResultPhase() {
             };
             setCriticalPath(updatedCriticalPath);
           }
-          // Clear rescue plan to indicate it's been applied
           setRescuePlan(null);
-          // Reset defender state
           setDefenderPhase('risk');
           setProposal2('pending');
-          addToast(ok ? 'Priority plan applied. Tasks reordered by marks value.' : 'Approved changes applied.', 'ti-circle-check');
+          addToast(ok ? 'Rescue plan applied.' : 'Changes applied.', 'ti-circle-check');
           setTimeout(() => go('tasks'), 600);
         }}>
-          <i className="ti ti-circle-check" /> {ok ? 'Apply priority plan' : 'Apply approved changes only'}
+          <i className="ti ti-circle-check" /> {ok ? 'Apply rescue plan' : 'Apply changes'}
         </button>
-        <button className="btn btn-lg" onClick={() => { addToast('Plan discarded. No changes were made.', 'ti-trash'); setDefenderPhase('risk'); setProposal2('pending'); setRescuePlan(null); }}>Discard plan</button>
-        <button className="btn btn-lg btn-g" onClick={() => { setDefenderPhase('risk'); setProposal2('pending'); }}>Back to risk alert</button>
+        <button className="btn btn-lg" onClick={() => { addToast('Plan discarded.', 'ti-trash'); setDefenderPhase('risk'); setProposal2('pending'); setRescuePlan(null); }}>
+          Discard
+        </button>
+        <button className="btn btn-lg btn-g" onClick={() => { setDefenderPhase('risk'); setProposal2('pending'); }}>
+          Back to risk alert
+        </button>
       </div>
+
+      {/* --- Fallback --- */}
+      {!rescuePlan && (
+        <div className="alert al-wn">
+          <i className="ti ti-info-circle" />
+          <div>
+            <b>No rescue plan yet</b>
+            <div className="sm mut">Run the rescue from the risk alert to generate a plan.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

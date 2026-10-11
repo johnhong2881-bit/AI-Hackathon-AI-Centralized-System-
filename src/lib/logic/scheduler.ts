@@ -551,6 +551,19 @@ export function applyRescueOp(tasks: Task[], op: RescueOp): void {
     task.dependencies = op.deps ?? [];
   } else if (op.type === 'reduce') {
     // Reduce scope: cut remaining hours from all active assignments
+    if (!task.memberAssignments) task.memberAssignments = [];
+    // If no assignments exist, create a placeholder so we can track the reduction
+    if (task.memberAssignments.length === 0) {
+      task.memberAssignments.push({
+        memberId: '__reduced__',
+        estimatedHours: task.estimatedHours,
+        remainingHours: task.estimatedHours,
+        matchScore: 0,
+        role: 'Scope reduced',
+        invitationStatus: 'accepted',
+        assignmentStatus: 'todo',
+      });
+    }
     let left = op.hours ?? 0;
     for (const a of task.memberAssignments) {
       if (a.invitationStatus === 'rejected' || left <= 0) continue;
@@ -666,14 +679,19 @@ export function generateRescueCandidates(
       });
     }
 
-    // Reduce scope (only Low priority, non-mandatory)
-    if (rule.reduce && t.priority === 'low' && !t.mandatory) {
+    // Reduce scope (low AND medium priority, non-mandatory)
+    if (rule.reduce && (t.priority === 'low' || t.priority === 'medium') && !t.mandatory) {
       const totalRem = assignments.reduce((s, a) => s + a.rem, 0);
-      if (totalRem >= 3) {
+      // Also try reducing unassigned tasks (use estimatedHours if no assignments)
+      const effectiveRem = totalRem > 0 ? totalRem : t.estimatedHours;
+      if (effectiveRem >= 2) {
+        // Cut 50% of remaining for low priority, 30% for medium
+        const cutRatio = t.priority === 'low' ? 0.5 : 0.3;
+        const cutHours = Math.max(2, Math.floor(effectiveRem * cutRatio));
         out.push({
           type: 'reduce',
           taskId: t.id,
-          hours: 3,
+          hours: cutHours,
           approval: true,
         });
       }
@@ -692,6 +710,7 @@ export function planRescueSearch(
   members: Member[],
   deadline: DeadlineInfo | null,
   leaderReason?: { type: string; memberId?: string; note?: string },
+  forceRound?: number,
 ): {
   needed: boolean;
   rounds: Array<{
@@ -788,11 +807,12 @@ export function planRescueSearch(
     }
   }
 
-  const rules = [
+  const allRules = [
     { n: 1, label: 'Reallocate work that has not started', allowApproval: false, relax: false, reduce: false },
     { n: 2, label: 'Rebalance accepted work and re-order dependencies', allowApproval: true, relax: true, reduce: false },
     { n: 3, label: 'Reduce low-priority scope', allowApproval: true, relax: true, reduce: true },
   ];
+  const rules = forceRound ? allRules.filter(r => r.n === forceRound) : allRules;
 
   const rounds: Array<{ n: number; label: string; ops: RescueOp[]; predictedEnd: number; valid: boolean }> = [];
 

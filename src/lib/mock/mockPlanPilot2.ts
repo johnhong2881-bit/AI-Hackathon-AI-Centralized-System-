@@ -180,9 +180,7 @@ export const LOGS: [number, string, string, string, string, string?][] = [
 ];
 
 export const DST = [
-  'Analyzing Remaining Time', 'Evaluating Task Difficulty', 'Scoring Mark Value per Task',
-  'Ranking by Effort-to-Score Ratio', 'Identifying Quick Wins', 'Filtering Drop Candidates',
-  'Generating Priority Plan', 'Validating Maximum Marks',
+  'Diagnosing Project Health', 'Planning Rescue Operations', 'Simulating Rescue Plan', 'Self-Validating Results',
 ];
 
 // Defender reasons: [icon, label]

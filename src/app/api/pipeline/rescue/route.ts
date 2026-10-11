@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     const members: Member[] = body.members;
     const deadline: DeadlineInfo | null = body.deadline ?? null;
     const leaderReason = body.leaderReason ?? undefined;
+    const forceRound = body.forceRound ?? undefined;
 
     if (!riskAssessment) {
       return NextResponse.json(
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       members,
       deadline,
       leaderReason,
+      forceRound,
     });
 
     return NextResponse.json(data, { status: 200 });

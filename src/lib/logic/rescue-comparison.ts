@@ -9,6 +9,9 @@ export function calculateRescueComparison(params: {
   afterTasksAtRisk: number;
   beforeDeadlineBuffer: number;
   afterDeadlineBuffer: number;
+  beforePredictedDay?: number;
+  afterPredictedDay?: number;
+  deadlineDay?: number;
 }): RescueComparisonResult {
   const hoursSaved = params.beforeHours - params.afterHours;
 
@@ -18,12 +21,16 @@ export function calculateRescueComparison(params: {
     beforeHours: params.beforeHours,
     afterHours: params.afterHours,
     hoursSaved,
+    workloadDelta: params.afterHours - params.beforeHours,
     beforeRiskLevel: params.beforeRiskLevel,
     afterRiskLevel: params.afterRiskLevel,
     beforeTasksAtRisk: params.beforeTasksAtRisk,
     afterTasksAtRisk: params.afterTasksAtRisk,
     beforeDeadlineBuffer: params.beforeDeadlineBuffer,
     afterDeadlineBuffer: params.afterDeadlineBuffer,
+    beforePredictedDay: params.beforePredictedDay ?? 0,
+    afterPredictedDay: params.afterPredictedDay ?? 0,
+    deadlineDay: params.deadlineDay ?? 0,
     improvementSummary,
   };
 }

@@ -55,7 +55,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
 
 // ===== MVP: Rescue Workflow =====
 
-export type RescueWorkflowStep = 'detect' | 'analyze' | 'optimize' | 'validate' | 'apply' | 'compare';
+export type RescueWorkflowStep = 'diagnose' | 'plan' | 'simulate' | 'validate';
 
 export interface RescueWorkflowState {
   currentStep: RescueWorkflowStep;
@@ -76,15 +76,19 @@ export interface RescueStepRecord {
  * Before/after comparison result from the Compare step of the rescue workflow.
  */
 export interface RescueComparisonResult {
-  beforeHours: number;
-  afterHours: number;
-  hoursSaved: number;
+  beforeHours: number;             // "Original Workload" — assigned work only
+  afterHours: number;              // "Proposed Workload" — total remaining work after rescue
+  hoursSaved: number;              // hours cut by reduce ops (separate from workload delta)
+  workloadDelta: number;            // afterHours - beforeHours (positive = more work exposed, negative = work reduced)
   beforeRiskLevel: RiskLevel;
   afterRiskLevel: RiskLevel;
   beforeTasksAtRisk: number;
   afterTasksAtRisk: number;
   beforeDeadlineBuffer: number;     // hours
   afterDeadlineBuffer: number;      // hours
+  beforePredictedDay: number;       // predicted completion day (before rescue)
+  afterPredictedDay: number;        // predicted completion day (after rescue)
+  deadlineDay: number;              // deadline day offset
   improvementSummary: string;
 }
 
