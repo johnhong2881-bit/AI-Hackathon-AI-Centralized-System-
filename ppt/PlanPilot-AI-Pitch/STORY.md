@@ -1,9 +1,9 @@
-# TaskFlow AI - Hackathon Pitch Deck STORY.md
+# PlanPilot AI - Hackathon Pitch Deck STORY.md
 
 ## 1. User Intent Alignment
 
 - **Target Audience**: Hackathon judges (Track 2: WorkBuddy Agentic Solution). Technical reviewers who evaluate agentic workflow design, WorkBuddy integration depth, and end-to-end execution quality.
-- **Core Goal**: Convince judges that TaskFlow AI solves a real problem (chaotic group assignments) through a well-architected 6-agent pipeline built entirely on WorkBuddy AI, achieving "One Prompt -> One Goal" execution.
+- **Core Goal**: Convince judges that PlanPilot AI solves a real problem (chaotic group assignments) through a well-architected 6-agent pipeline built entirely on WorkBuddy AI, achieving "One Prompt -> One Goal" execution.
 - **PPT Length**: 10 slides. Hero pages: slides 1 (cover), 6 (demo flow), 10 (closing) = 3/10 = 30%.
 - **Visual Tone**: Modern, clean, tech-forward, data-driven, trustworthy. Blue-cyan palette on white. Professional but not corporate.
 - **Content Boundaries**: Must cover: problem, solution, architecture, WorkBuddy usage, team. Skip: market sizing, competitive analysis, financial projections, long-term roadmap.
@@ -37,7 +37,7 @@ Checks:
 ## 3. Page Outline
 
 ### Slide 01 - Cover
-- title: TaskFlow AI
+- title: PlanPilot AI
 - type: cover
 - role: hero
 - rhythm: peak
@@ -46,7 +46,7 @@ Checks:
 - visual_role: atmosphere
 - density: words ~25 / image 1 / whitespace ~35%
 - anti_pattern: no tiny logo in corner; no bullet points on cover
-- description: Title "TaskFlow AI" with tagline "Rubric-Aware Autonomous Deadline Defender" and "Track 2: WorkBuddy Agentic Solution" label.
+- description: Title "PlanPilot AI" with tagline "Rubric-Aware Autonomous Deadline Defender" and "Track 2: WorkBuddy Agentic Solution" label.
 
 ### Slide 02 - The Problem
 - title: Group Assignments Are Broken
@@ -70,7 +70,7 @@ Checks:
 - visual_role: anchor
 - density: words ~120 / diagram 1 / whitespace ~30%
 - anti_pattern: no 50:50 split; no small decorative image
-- description: Left 55% = visual pipeline showing input (assignment brief + rubric + team) flowing through 6 stages to output (complete plan + risk rescue). Right 45% = "TaskFlow AI takes a single assignment prompt and produces a complete, rubric-aligned project plan with task assignments, deadline risk flags, and autonomous rescue recommendations."
+- description: Left 55% = visual pipeline showing input (assignment brief + rubric + team) flowing through 6 stages to output (complete plan + risk rescue). Right 45% = "PlanPilot AI takes a single assignment prompt and produces a complete, rubric-aligned project plan with task assignments, deadline risk flags, and autonomous rescue recommendations."
 
 ### Slide 04 - System Architecture
 - title: Two-Layer Architecture
@@ -154,4 +154,4 @@ Checks:
 - visual_role: anchor
 - density: words ~20 / whitespace ~50%
 - anti_pattern: no bullet points; no "thank you" only; no contact info wall
-- description: Centered giant text: "One Prompt. One Goal. Zero Missed Deadlines." Below: "TaskFlow AI - Track 2: WorkBuddy Agentic Solution". Minimal decoration, maximum impact.
+- description: Centered giant text: "One Prompt. One Goal. Zero Missed Deadlines." Below: "PlanPilot AI - Track 2: WorkBuddy Agentic Solution". Minimal decoration, maximum impact.

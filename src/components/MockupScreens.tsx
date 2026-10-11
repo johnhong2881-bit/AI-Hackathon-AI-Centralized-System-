@@ -6,7 +6,7 @@ import {
   AVC, MEM, LVN, DN, SCR, GRP, TABS,
   STG, RUB, LOAD, TK, RD, WL, GT, ACT, STS, LOGS, DST, RJ_OPTS,
   type StageStatus, type TaskStatus,
-} from '@/lib/mock/mockTaskflow';
+} from '@/lib/mock/mockPlanPilot';
 
 // ===== Helpers =====
 const av = (k: string, c = '', key?: ReactKey) => <span key={key} className={`av ${AVC[k] || ''} ${c}`}>{k}</span>;
@@ -172,7 +172,7 @@ function CreateScreen() {
               <span>My assignment document already includes the grading rubric.</span>
             </label>
             {rubricInclude ? (
-              <div className="hint">Good. TaskFlow will find the rubric inside the PDF and ask you to review it.</div>
+              <div className="hint">Good. PlanPilot will find the rubric inside the PDF and ask you to review it.</div>
             ) : (
               <div className="mt12">
                 <div className="dz" style={{ padding: 18 }}>
@@ -380,7 +380,7 @@ function AnalysisScreen() {
           <div className="card">
             <div className="h3 mb8">Unclear or missing information</div>
             {[
-              { icon: 'ti-help-circle', color: 'var(--wn)', title: 'Peer review is mentioned but no marks are given.', sub: 'TaskFlow assumed Presentation = 5 marks.', btn: 'Confirm' },
+              { icon: 'ti-help-circle', color: 'var(--wn)', title: 'Peer review is mentioned but no marks are given.', sub: 'PlanPilot assumed Presentation = 5 marks.', btn: 'Confirm' },
               { icon: 'ti-help-circle', color: 'var(--wn)', title: 'Late penalty is not stated.', sub: 'No late-penalty planning will be added.', btn: 'Confirm' },
               { icon: 'ti-info-circle', color: 'var(--blue)', title: 'Rubric found on page 4 of the assignment PDF.', sub: 'Source: your uploaded document.', btn: 'Looks right' },
             ].map((item, i) => (

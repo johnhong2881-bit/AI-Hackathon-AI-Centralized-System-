@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMockupStore } from '@/store/useMockupStore';
-import { LOGS, DST } from '@/lib/mock/mockTaskflow';
+import { LOGS, DST } from '@/lib/mock/mockPlanPilot';
 import { av } from './MockupScreens';
 import { WorkspaceHeader } from './MockupScreens';
 
@@ -45,7 +45,7 @@ export function DefenderScreen() {
               <span className="badge" style={{ background: '#ffd9d4', color: '#8d1f15' }}><i className="ti ti-alert-triangle" /> Deadline at risk</span>
             </div>
             <h2 style={{ fontSize: 30, lineHeight: 1.15, fontWeight: 700, letterSpacing: '-.02em', maxWidth: 640 }}>Your team will finish about 7 days after the deadline.</h2>
-            <p className="mut mt8" style={{ maxWidth: 600 }}>The schedule is limited by a chain of dependent tasks, not by total hours. TaskFlow can reorganize work and check the new plan before anything changes.</p>
+            <p className="mut mt8" style={{ maxWidth: 600 }}>The schedule is limited by a chain of dependent tasks, not by total hours. PlanPilot can reorganize work and check the new plan before anything changes.</p>
             <div className="g2r mt24" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
               <div className="kv"><div className="k">Current deadline</div><div className="v">Fri 30 Oct</div></div>
               <div className="kv"><div className="k">Predicted completion</div><div className="v" style={{ color: '#ffb4ac' }}>Fri 6 Nov</div></div>

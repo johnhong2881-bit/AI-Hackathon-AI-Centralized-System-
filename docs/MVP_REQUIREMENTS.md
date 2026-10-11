@@ -1,4 +1,4 @@
-# TaskFlow AI — Hackathon Final MVP Requirements
+# PlanPilot AI — Hackathon Final MVP Requirements
 
 > Track 2: WorkBuddy Agentic Solution
 > Last updated: 2026-10-11
@@ -8,7 +8,7 @@
 
 ## 1. Core Concept
 
-**TaskFlow AI** = AI Project Manager for university group assignments.
+**PlanPilot AI** = AI Project Manager for university group assignments.
 
 **Tagline:** "4 students. 6 weeks. 1 grade. AI makes sure nobody drops the ball."
 
@@ -168,7 +168,7 @@
 
 ## 13. Demo UI — Full Next.js App (Mockup 2)
 
-The app renders at `http://localhost:3000` via `page.tsx` → `TaskFlowMockup2`. It includes 8 screens with real API integration where applicable.
+The app renders at `http://localhost:3000` via `page.tsx` → `PlanPilotMockup2`. It includes 8 screens with real API integration where applicable.
 
 1. **Project (Home)** — Landing page with hero, 4-step flow, project cards (At Risk / On Track / Completed), "Create new project" button, contribution report on completed projects
 2. **Create** — Step 1: project name, description, team size, assignment upload (PDF/DOCX via `/api/upload`), rubric, deadline. Back button to Home.
@@ -272,13 +272,13 @@ The app renders at `http://localhost:3000` via `page.tsx` → `TaskFlowMockup2`.
 | `src/lib/logic/rescue-engine.ts` | 3-round rescue search engine |
 | `src/lib/logic/rescue-comparison.ts` | Before/After comparison logic |
 | `src/lib/logic/multi-member-assigner.ts` | Skill scoring + matching |
-| `src/lib/mock/mockTaskflow2.ts` | Mockup 2 data (screens, members, tasks, projects) |
+| `src/lib/mock/mockPlanPilot2.ts` | Mockup 2 data (screens, members, tasks, projects) |
 | `src/lib/mock/*.ts` | All mock data (rubric, tasks, members, risk, rescue) |
 | `src/app/api/pipeline/*/route.ts` | 7 pipeline API routes |
 | `src/app/api/upload/route.ts` | PDF/DOCX upload + text extraction |
 | `src/app/api/tasks/[id]/invitation/route.ts` | Accept/reject invitation |
-| `src/app/page.tsx` | Entry point → renders TaskFlowMockup2 |
-| `src/components/TaskFlowMockup2.tsx` | Mockup 2 main wrapper |
+| `src/app/page.tsx` | Entry point → renders PlanPilotMockup2 |
+| `src/components/PlanPilotMockup2.tsx` | Mockup 2 main wrapper |
 | `src/components/Mockup2Screens.tsx` | 8 screen components + helpers |
 | `src/components/Mockup2Defender.tsx` | AI Deadline Defender (3-phase) |
 | `src/components/Mockup2Overlays.tsx` | Drawers, modals, toasts |

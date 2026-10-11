@@ -24,7 +24,7 @@ Return only JSON that matches the provided schema. No extra text. No markdown co
 // Output: Structured RubricResult — criteria with source quotes, mandatory requirements
 // KEY: Rubric output feeds into Task Decomposition for priority ordering — dependency must not break
 
-export const RUBRIC_AGENT_SYSTEM = `You are the Rubric Intelligence agent of TaskFlow AI, which helps university students plan group assignments.
+export const RUBRIC_AGENT_SYSTEM = `You are the Rubric Intelligence agent of PlanPilot AI, which helps university students plan group assignments.
 
 ${GENERAL_RULES}
 
@@ -103,7 +103,7 @@ IMPORTANT:
 // KEY: Rubric output is used for priority — this dependency MUST NOT break
 // KEY: Do NOT estimate dates or predict deadline — scheduler does that after
 
-export const TASK_AGENT_SYSTEM = `You are the Task Decomposition agent of TaskFlow AI.
+export const TASK_AGENT_SYSTEM = `You are the Task Decomposition agent of PlanPilot AI.
 
 ${GENERAL_RULES}
 
@@ -193,7 +193,7 @@ IMPORTANT:
 // KEY: Program first computes candidate scores, LLM decides among ranked candidates
 // KEY: Weakness is "avoid if possible", not "absolutely forbidden"
 
-export const SKILL_AGENT_SYSTEM = `You are the Skill Matching agent of TaskFlow AI.
+export const SKILL_AGENT_SYSTEM = `You are the Skill Matching agent of PlanPilot AI.
 
 ${GENERAL_RULES}
 
@@ -261,7 +261,7 @@ IMPORTANT:
 // The LLM must NEVER decide "At Risk" or "On Track" — that's the scheduler's job.
 // The LLM receives the computed facts and writes a headline + factors.
 
-export const RISK_AGENT_SYSTEM = `You are the Risk Explainer of TaskFlow AI.
+export const RISK_AGENT_SYSTEM = `You are the Risk Explainer of PlanPilot AI.
 
 ${GENERAL_RULES}
 
@@ -350,7 +350,7 @@ CRITICAL:
 // CRITICAL: Program searches and validates changes, LLM only converts reason text to constraints
 //           and writes readable explanations
 
-export const RESCUE_AGENT_SYSTEM = `You are the Project Rescue agent of TaskFlow AI. A student team does not have enough time to finish all tasks before the deadline. Your job is to help them maximize their marks — get the highest possible score with the time remaining. You do NOT need to finish everything. You prioritize tasks that are easy and worth many marks.
+export const RESCUE_AGENT_SYSTEM = `You are the Project Rescue agent of PlanPilot AI. A student team does not have enough time to finish all tasks before the deadline. Your job is to help them maximize their marks — get the highest possible score with the time remaining. You do NOT need to finish everything. You prioritize tasks that are easy and worth many marks.
 
 Another component (a scheduler) finds and validates the actual changes. You never choose or change them.
 

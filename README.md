@@ -1,4 +1,4 @@
-# TaskFlow AI
+# PlanPilot AI
 
 > **Rubric-Aware Autonomous Deadline Defender**
 >
@@ -10,7 +10,7 @@
 
 ## Table of Contents
 
-1. [What Is TaskFlow AI?](#what-is-taskflow-ai)
+1. [What Is PlanPilot AI?](#what-is-planpilot-ai)
 2. [Who Is It For?](#who-is-it-for)
 3. [The Problem We Solve](#the-problem-we-solve)
 4. [How It Works — The 6-Agent Pipeline](#how-it-works--the-6-agent-pipeline)
@@ -29,9 +29,9 @@
 
 ---
 
-## What Is TaskFlow AI?
+## What Is PlanPilot AI?
 
-TaskFlow AI is a web application that automates the most painful parts of university group projects:
+PlanPilot AI is a web application that automates the most painful parts of university group projects:
 
 - **Parsing the rubric** into structured, actionable criteria
 - **Breaking the assignment into tasks** mapped to those rubric criteria
@@ -56,21 +56,17 @@ You paste your assignment, enter your team details, and hit "Run AI Analysis." T
 
 ## The Problem We Solve
 
-Every semester, the same chaos:
+Every semester, university group projects hit the same four pain points:
 
-1. **Unfair distribution** — Nobody knows who should do what. Tasks get assigned by vibes, not skills. The leader can reassign, but members can't push back easily.
-2. **Last-minute deadline panic** — The deadline sneaks up. Nobody has tracked progress against the rubric. The team realizes too late that they can't finish everything.
-3. **No visibility** — There's no Gantt chart, no risk alert, no "you're 5 days behind" warning until week 4.
-4. **Rubric criteria get missed** — Mandatory requirements slip through the cracks because nobody mapped tasks back to the grading criteria.
+**1. Assignment requirements are complex and difficult to understand.** Students spend a significant amount of time trying to understand the Assignment Requirements and Marking Rubric, making it hard to quickly grasp the key points and priorities of the assignment.
 
-**TaskFlow AI solves all four:**
+**2. Group task distribution is unfair.** Workload is often uneven among team members, and responsibilities are unclear. Tasks get assigned by gut feeling rather than by skills or availability, which hurts team collaboration efficiency.
 
-| Problem | Solution |
-|---------|----------|
-| Unfair distribution | AI matches tasks to members by skill strengths/weaknesses + weekly availability |
-| Last-minute deadline | Resource-constrained scheduler predicts completion date; Risk agent flags "At Risk" |
-| No visibility | Full UI: Gantt chart, Kanban board, member load panels, countdown timer |
-| Missed rubric criteria | Rubric agent extracts criteria; Task agent maps every task to rubric IDs; Plan validator checks coverage |
+**3. Emergencies are difficult to handle.** When a team member temporarily cannot complete their tasks, is absent, or the deadline is approaching, the team struggles to reassign work in time and adapt the plan.
+
+**4. Individual contributions are hard to track.** Teams find it difficult to objectively record each member's work contribution. When it comes time to fill out the Contribution Form, disputes often arise over who did what.
+
+**How PlanPilot AI solves all four:** The Rubric Intelligence agent parses the rubric into structured criteria with performance levels and mark values, so students immediately see what matters most. The Skill Matching agent scores every team member against every task using skill strengths, weakness penalties, and weekly availability, ensuring fair and transparent task assignment. The Rescue Planner runs a three-round search — moving unstarted work, rebalancing accepted work, and reducing low-priority scope — each round validated by the scheduler, so the team can adapt when emergencies hit. And throughout the project, the system tracks each member's assigned tasks, personalized hours, and completion status, giving teams an objective record they can use when filling out contribution forms.
 
 ---
 
@@ -414,7 +410,7 @@ If WorkBuddy Cloud is configured → use cloud. Else if SovernStack API key is s
 ## Project Structure
 
 ```
-taskflow-ai/
+planpilot-ai/
 ├── src/
 │   ├── types/types.ts                    # Shared data contract (ALL types)
 │   ├── lib/
@@ -442,7 +438,7 @@ taskflow-ai/
 │   │   ├── useMockupStore.ts            # Legacy UI store
 │   │   └── useTaskStore.ts              # Pipeline data store
 │   ├── components/
-│   │   ├── TaskFlowMockup2.tsx          # Main UI wrapper
+│   │   ├── PlanPilotMockup2.tsx          # Main UI wrapper
 │   │   ├── Mockup2Screens.tsx           # 8 screen components
 │   │   ├── Mockup2Defender.tsx          # AI Deadline Defender (3-phase)
 │   │   ├── Mockup2Overlays.tsx          # Drawers, modals, toasts
@@ -450,7 +446,7 @@ taskflow-ai/
 │   │   ├── BeforeAfterComparison.tsx    # Before/After rescue comparison
 │   │   └── ... (KanbanBoard, GanttChart, Dashboard, etc.)
 │   └── app/
-│       ├── page.tsx                      # Entry → renders TaskFlowMockup2
+│       ├── page.tsx                      # Entry → renders PlanPilotMockup2
 │       ├── layout.tsx                   # Root layout
 │       └── api/pipeline/               # 7 pipeline API routes
 ├── docs/                                 # Full project documentation

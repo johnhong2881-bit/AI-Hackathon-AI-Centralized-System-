@@ -20,7 +20,7 @@ import type {
  * A "software" assignment type demo scenario.
  * Project: Build a food delivery mobile app with real-time tracking.
  *
- * This scenario demonstrates the TaskFlow AI pipeline on a
+ * This scenario demonstrates the PlanPilot AI pipeline on a
  * software-engineering project with a 5-person team, 12 tasks,
  * critical-path dependencies, risk detection, and a rescue plan.
  *

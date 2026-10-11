@@ -1,7 +1,7 @@
 'use client';
 
 import { useMockupStore2 } from '@/store/useMockupStore2';
-import { AVC } from '@/lib/mock/mockTaskflow2';
+import { AVC } from '@/lib/mock/mockPlanPilot2';
 import {
   ProjectScreen, CreateScreen, TeamScreen, ReviewScreen, AnalysisScreen,
   OverviewScreen, TasksScreen, TimelineScreen,
@@ -9,7 +9,7 @@ import {
 import { DefenderScreen } from './Mockup2Defender';
 import { Mockup2Overlays } from './Mockup2Overlays';
 
-export default function TaskFlowMockup2() {
+export default function PlanPilotMockup2() {
   const screen = useMockupStore2(s => s.screen);
   const go = useMockupStore2(s => s.go);
   const role = useMockupStore2(s => s.role);
@@ -22,7 +22,7 @@ export default function TaskFlowMockup2() {
       <header className="top">
         <div className="logo" onClick={() => go('project')}>
           <span className="mk"><i className="ti ti-bolt" /></span>
-          TaskFlow AI
+          PlanPilot AI
         </div>
         <div className="sp" />
         <div className="seg">

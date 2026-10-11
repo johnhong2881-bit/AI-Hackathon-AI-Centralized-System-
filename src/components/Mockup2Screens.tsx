@@ -7,7 +7,7 @@ import {
   STG, TK, PGP, GT, PROJECTS, PROJECT_MEMBERS, FLOW, memToMembers, RUBRIC_MARKS, RUBRIC_TOTAL, RUBRIC_SECTIONS,
   getProjectTK, getProjectGT,
   type TaskStatus, type PgpMember,
-} from '@/lib/mock/mockTaskflow2';
+} from '@/lib/mock/mockPlanPilot2';
 import { mockAssignment, mockMembers, mockProgress } from '@/lib/mock';
 import { calculateDeadline, generateId } from '@/lib/utils/helpers';
 import type {
@@ -364,7 +364,7 @@ function CreateScreen() {
               <span>My assignment document already includes the grading rubric.</span>
             </label>
             {rubricInclude ? (
-              <div className="hint">Good. TaskFlow will find the rubric inside the document and ask you to review it.</div>
+              <div className="hint">Good. PlanPilot will find the rubric inside the document and ask you to review it.</div>
             ) : (
               <div className="mt12">
                 <input ref={rubricInputRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: 'none' }} onChange={handleRubricInputChange} />

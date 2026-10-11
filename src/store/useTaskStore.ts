@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  TaskFlowState,
+  PlanPilotState,
   Assignment,
   RubricResult,
   PlanResult,
@@ -29,7 +29,7 @@ import {
 
 // ===== Actions Interface =====
 
-interface TaskFlowActions {
+interface PlanPilotActions {
   // Pipeline setters (for when backend APIs return real data)
   setAssignment: (a: Assignment) => void;
   setRubric: (r: RubricResult) => void;
@@ -55,11 +55,11 @@ interface TaskFlowActions {
   reset: () => void;
 }
 
-type Store = TaskFlowState & TaskFlowActions;
+type Store = PlanPilotState & PlanPilotActions;
 
 // ===== Initial State (loaded with mock data for development) =====
 
-const initialState: TaskFlowState = {
+const initialState: PlanPilotState = {
   assignment: mockAssignment,
   rubric: mockRubric,
   plan: mockPlanResult,

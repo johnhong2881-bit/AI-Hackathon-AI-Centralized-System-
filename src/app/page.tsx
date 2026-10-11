@@ -1,7 +1,7 @@
 'use client';
 
-import TaskFlowMockup2 from '@/components/TaskFlowMockup2';
+import PlanPilotMockup2 from '@/components/PlanPilotMockup2';
 
 export default function Home() {
-  return <TaskFlowMockup2 />;
+  return <PlanPilotMockup2 />;
 }

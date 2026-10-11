@@ -142,7 +142,7 @@
 
   {/* C — Footer (on dark) */}
   <Box style={{ height: 50, padding: '0 60px', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
-    <Text style={{ fontSize: 14, color: '#475569', fontWeight: '500' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 14, color: '#475569', fontWeight: '500' }}>PlanPilot AI</Text>
     <Text style={{ fontSize: 14, color: '#475569' }}>03 / 05</Text>
   </Box>
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMockupStore } from '@/store/useMockupStore';
-import { MEM, LVN, DN, RJ_OPTS } from '@/lib/mock/mockTaskflow';
+import { MEM, LVN, DN, RJ_OPTS } from '@/lib/mock/mockPlanPilot';
 import { av, lv, pri, SI } from './MockupScreens';
 
 // ===== Member Drawer =====

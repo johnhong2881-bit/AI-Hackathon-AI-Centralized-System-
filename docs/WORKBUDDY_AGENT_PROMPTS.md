@@ -1,6 +1,6 @@
-# TaskFlow AI — Confirmation Checklist and Tuning Prompts for 6 Agents (for WorkBuddy)
+# PlanPilot AI — Confirmation Checklist and Tuning Prompts for 6 Agents (for WorkBuddy)
 
-> Implementation status: The prompt templates for the 6 agents are in `src/lib/agents/prompts.ts`. Mock LLM in `mock-llm.ts`. Real LLM in `external-llm.ts`. WorkBuddy cloud.llm in `cloud-llm.ts`. Scheduling in `src/lib/logic/scheduler.ts`. Rescue engine in `src/lib/logic/rescue-engine.ts`. Per-project task derivation in `getProjectTK()`/`getProjectGT()` in `mockTaskflow2.ts`. All task counts have been dynamized.
+> Implementation status: The prompt templates for the 6 agents are in `src/lib/agents/prompts.ts`. Mock LLM in `mock-llm.ts`. Real LLM in `external-llm.ts`. WorkBuddy cloud.llm in `cloud-llm.ts`. Scheduling in `src/lib/logic/scheduler.ts`. Rescue engine in `src/lib/logic/rescue-engine.ts`. Per-project task derivation in `getProjectTK()`/`getProjectGT()` in `mockPlanPilot2.ts`. All task counts have been dynamized.
 
 Purpose:
 1. **Confirm** that all six agents are used in the product — none are "built but never called."
@@ -97,7 +97,7 @@ Return only JSON that matches the provided schema. No extra text.
 **System prompt**
 
 ```
-You are the Rubric Intelligence agent of TaskFlow AI, which helps university students plan group assignments.
+You are the Rubric Intelligence agent of PlanPilot AI, which helps university students plan group assignments.
 
 [General rules block here]
 
@@ -140,7 +140,7 @@ Task: extract the grading information from the assignment.
 **System prompt**
 
 ```
-You are the Task Decomposition agent of TaskFlow AI.
+You are the Task Decomposition agent of PlanPilot AI.
 
 [General rules block here]
 
@@ -189,7 +189,7 @@ Candidate score = strength level (0 to 3) x 10 - weakness penalty (8) + availabi
 **System prompt**
 
 ```
-You are the Skill Matching agent of TaskFlow AI.
+You are the Skill Matching agent of PlanPilot AI.
 
 [General rules block here]
 
@@ -246,7 +246,7 @@ Facts: predicted completion date, delay days, tasks ending after deadline, criti
 **System prompt**
 
 ```
-You are the Risk Explainer of TaskFlow AI.
+You are the Risk Explainer of PlanPilot AI.
 
 [General rules block here]
 
@@ -294,7 +294,7 @@ How reasons affect strategy:
 Only does two things: **convert the leader's free-text reason into constraints**, and **write the program-generated solutions into readable rationale**. The solutions themselves are generated and validated by the program.
 
 ```
-You are the Rescue Assistant of TaskFlow AI. A project is at risk of missing its deadline.
+You are the Rescue Assistant of PlanPilot AI. A project is at risk of missing its deadline.
 Another component (a scheduler) finds and validates the actual changes. You never choose or change them.
 
 Job A (when asked): the project leader wrote a free-text reason. Convert it to this JSON:

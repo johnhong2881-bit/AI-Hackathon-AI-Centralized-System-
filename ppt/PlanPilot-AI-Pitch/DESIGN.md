@@ -1,4 +1,4 @@
-# TaskFlow AI - Hackathon Pitch Deck DESIGN.md
+# PlanPilot AI - Hackathon Pitch Deck DESIGN.md
 
 ## 1. Canvas & Master Layout
 
@@ -9,7 +9,7 @@
 |------|-------------------|--------|-------------|
 | A - Title block | 0-120px | 120px (incl. top padding 20) | Main title 32-40px bold |
 | B - Content area | 120-660px | 540px usable | All content, charts, cards |
-| C - Footer bar | 660-720px | 60px (incl. bottom padding 20) | Left: "TaskFlow AI" / Right: page number "NN / 10" |
+| C - Footer bar | 660-720px | 60px (incl. bottom padding 20) | Left: "PlanPilot AI" / Right: page number "NN / 10" |
 | Padding | top/bottom 20px, left/right 60-80px | - | A/B/C within padding |
 
 Cover (slide 1) and ending (slide 10) use custom layouts, skip C zone.

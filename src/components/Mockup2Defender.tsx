@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
 import { WorkspaceHeader, av } from './Mockup2Screens';
-import { MEM, LOGS, DST, REASONS, RUBRIC_MARKS, RUBRIC_TOTAL, PROJECTS, PROJECT_MEMBERS, PGP, getProjectTK } from '@/lib/mock/mockTaskflow2';
+import { MEM, LOGS, DST, REASONS, RUBRIC_MARKS, RUBRIC_TOTAL, PROJECTS, PROJECT_MEMBERS, PGP, getProjectTK } from '@/lib/mock/mockPlanPilot2';
 import type { RescuePlan } from '@/types/types';
 
 // Build a combined member list from MEM and PGP (PGP has members not in MEM, e.g. EW, FA, GL, HS)

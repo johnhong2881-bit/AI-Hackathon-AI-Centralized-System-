@@ -1,4 +1,4 @@
-// TaskFlow AI — scheduling and rescue reference (not used by the mockup UI).
+// PlanPilot AI — scheduling and rescue reference (not used by the mockup UI).
 // Run:  node scheduler-reference.js
 // It builds the sample project, prints the risk status, then runs the rescue search.
 // Does NOT include weakness penalties in matching. See FEATURES_AND_LOGIC.md section 3.8.

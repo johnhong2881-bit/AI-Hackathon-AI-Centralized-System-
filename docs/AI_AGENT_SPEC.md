@@ -1,4 +1,4 @@
-# TaskFlow AI — AI Agent Specification and Prompt Guidelines
+# PlanPilot AI — AI Agent Specification and Prompt Guidelines
 
 This document corresponds to the current UI mockup (Mockup 2 — Next.js App). The first half describes what data the frontend needs to collect (Create, Team), and the second half describes the prompt and workflow considerations when integrating AI (Plan generation, AI Deadline Defender).
 
@@ -135,7 +135,7 @@ What the program does after the output is produced (not the AI):
 ### 3.2 System Prompt Template (English; models perform more stably in English)
 
 ```
-You are the planning engine of TaskFlow AI, which helps university students plan group assignments.
+You are the planning engine of PlanPilot AI, which helps university students plan group assignments.
 
 You will receive: the assignment text, an optional grading rubric, a deadline, and a list of team members
 (strengths with levels, weaknesses, weekly availability).
@@ -256,7 +256,7 @@ Return only JSON that matches the provided schema.
 ### 4.5 System Prompt Template
 
 ```
-You are the AI Deadline Defender of TaskFlow AI. A project is at risk of missing its deadline.
+You are the AI Deadline Defender of PlanPilot AI. A project is at risk of missing its deadline.
 The project leader has told you WHY the plan needs to change (the "reason" field). Plan around that reason.
 
 You receive the current plan, members (strengths, weaknesses, availability), the computed schedule, which tasks

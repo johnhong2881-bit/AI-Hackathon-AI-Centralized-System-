@@ -1,5 +1,5 @@
 // ============================================================
-// TaskFlow AI — Shared Data Contract (types.ts)
+// PlanPilot AI — Shared Data Contract (types.ts)
 // ============================================================
 // This file is the SINGLE SOURCE OF TRUTH for all data types.
 // Both frontend (Person A) and backend (Person B) import from here.
@@ -413,7 +413,7 @@ export interface DeadlineInfo {
 
 // ===== Root State (for Zustand store) =====
 
-export interface TaskFlowState {
+export interface PlanPilotState {
   // Input
   assignment: Assignment | null;
   // Pipeline outputs

@@ -4,7 +4,7 @@
  * BeforeAfterComparison.tsx — The Killer Demo View (LIVE DATA)
  *
  * Reads from useTaskStore (populated by PipelineRunner via API calls).
- * Shows measurable value: "Without TaskFlow" vs "With TaskFlow"
+ * Shows measurable value: "Without PlanPilot" vs "With PlanPilot"
  *
  * FR-014: Before/After Rescue Comparison
  */
@@ -20,7 +20,7 @@ export default function BeforeAfterComparison() {
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
         <p className="text-slate-400">Run the pipeline to see Before vs After comparison</p>
         <p className="mt-1 text-xs text-slate-300">
-          This view shows how TaskFlow AI defended your deadline
+          This view shows how PlanPilot AI defended your deadline
         </p>
       </div>
     );
@@ -53,7 +53,7 @@ export default function BeforeAfterComparison() {
       <div>
         <h2 className="text-lg font-semibold">📊 Before vs After: Rescue Plan Impact</h2>
         <p className="text-sm text-slate-500">
-          Measurable value: how TaskFlow AI defended your deadline
+          Measurable value: how PlanPilot AI defended your deadline
         </p>
       </div>
 
@@ -62,7 +62,7 @@ export default function BeforeAfterComparison() {
         <div className="rounded-lg border-2 border-red-200 bg-red-50 p-5">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-xl">😨</span>
-            <h3 className="font-semibold text-red-700">Without TaskFlow AI</h3>
+            <h3 className="font-semibold text-red-700">Without PlanPilot AI</h3>
           </div>
 
           <div className="space-y-3">
@@ -103,7 +103,7 @@ export default function BeforeAfterComparison() {
         <div className="rounded-lg border-2 border-green-200 bg-green-50 p-5">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-xl">😊</span>
-            <h3 className="font-semibold text-green-700">With TaskFlow AI</h3>
+            <h3 className="font-semibold text-green-700">With PlanPilot AI</h3>
           </div>
 
           <div className="space-y-3">
@@ -176,12 +176,12 @@ export default function BeforeAfterComparison() {
         <p className="mb-2 text-xs font-medium text-slate-600">Project Progress Comparison</p>
         <div className="space-y-2">
           <ProgressRow
-            label="Without TaskFlow"
+            label="Without PlanPilot"
             percent={Math.min(100, Math.round((beforeTasksAtRisk / Math.max(1, totalTasks)) * 100))}
             color="bg-red-400"
           />
           <ProgressRow
-            label="With TaskFlow"
+            label="With PlanPilot"
             percent={Math.min(100, Math.round(((totalTasks - afterTasksAtRisk) / Math.max(1, totalTasks)) * 100))}
             color="bg-green-400"
           />

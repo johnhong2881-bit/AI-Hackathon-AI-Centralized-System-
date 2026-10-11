@@ -1,5 +1,5 @@
-// ===== TaskFlow AI Mockup2 Data =====
-// All mock data for the TaskFlow AI UI mockup2 prototype
+// ===== PlanPilot AI Mockup2 Data =====
+// All mock data for the PlanPilot AI UI mockup2 prototype
 
 import type { Member, Skill } from '../../types/types';
 

@@ -1,5 +1,5 @@
-// ===== TaskFlow AI Mockup Data =====
-// All mock data for the TaskFlow AI UI mockup prototype
+// ===== PlanPilot AI Mockup Data =====
+// All mock data for the PlanPilot AI UI mockup prototype
 
 export const AVC: Record<string, string> = { AT: 'av0', BL: 'av1', CN: 'av2', DC: 'av3' };
 

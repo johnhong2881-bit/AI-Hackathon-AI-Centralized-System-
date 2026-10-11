@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useMockupStore } from '@/store/useMockupStore';
-import { SCR, GRP } from '@/lib/mock/mockTaskflow';
+import { SCR, GRP } from '@/lib/mock/mockPlanPilot';
 import {
   CreateScreen, TeamScreen, ReviewScreen, AnalysisScreen,
   OverviewScreen, TasksScreen, RubricScreen, TimelineScreen,
@@ -11,7 +11,7 @@ import {
 import { DefenderScreen } from './MockupDefender';
 import { Overlay, ToastContainer } from './MockupOverlays';
 
-export default function TaskFlowMockup() {
+export default function PlanPilotMockup() {
   const screen = useMockupStore(s => s.screen);
   const role = useMockupStore(s => s.role);
   const setRole = useMockupStore(s => s.setRole);
@@ -34,7 +34,7 @@ export default function TaskFlowMockup() {
       <header className="top">
         <div className="logo" onClick={() => go('create')}>
           <span className="mk"><i className="ti ti-bolt" /></span>
-          TaskFlow AI
+          PlanPilot AI
         </div>
         <span className="demo hide-m"><i className="ti ti-flask" /> UI mockup · sample data</span>
         <div className="sp" />

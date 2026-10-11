@@ -19,7 +19,7 @@
       <span style={{ backgroundImage: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)', backgroundClip: 'text', color: 'transparent' }}>Zero Missed Deadlines.</span>
     </Text>
     <Box style={{ width: 80, height: 3, background: 'linear-gradient(90deg, #3B82F6, #06B6D4)', borderRadius: 2 }} />
-    <Text style={{ fontSize: 24, color: '#94A3B8', textAlign: 'center' }}>TaskFlow AI</Text>
+    <Text style={{ fontSize: 24, color: '#94A3B8', textAlign: 'center' }}>PlanPilot AI</Text>
     <Text style={{ fontSize: 18, color: '#64748B', textAlign: 'center' }}>Track 2: WorkBuddy Agentic Solution</Text>
     <Box style={{ marginTop: 24, flexDirection: 'row', gap: 40 }}>
       <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

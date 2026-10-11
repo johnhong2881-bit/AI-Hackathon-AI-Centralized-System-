@@ -25,7 +25,7 @@
       <Text style={{ fontSize: 18, color: '#94A3B8', letterSpacing: 2 }}>TRACK 2: WORKBUDDY AGENTIC SOLUTION</Text>
     </Box>
     <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: -2, lineHeight: 1.1 }}>
-      TaskFlow AI
+      PlanPilot AI
     </Text>
     <Text style={{ fontSize: 28, fontWeight: '600', lineHeight: 1.3, backgroundImage: 'linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)', backgroundClip: 'text', color: 'transparent' }}>
       Rubric-Aware Autonomous Deadline Defender

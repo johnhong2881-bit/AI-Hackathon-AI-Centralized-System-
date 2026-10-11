@@ -1,6 +1,6 @@
-# TaskFlow AI — Functional Logic Document
+# PlanPilot AI — Functional Logic Document
 
-> This document details the complete functional logic of TaskFlow AI: from user input through the 6-Agent Pipeline to final output.  
+> This document details the complete functional logic of PlanPilot AI: from user input through the 6-Agent Pipeline to final output.  
 > Audience: Hackathon judges, developers, teammates.
 
 ---
@@ -30,7 +30,7 @@
 
 ## 1. System Overview
 
-TaskFlow AI is a 6-Agent automated Pipeline. It takes an assignment requirement (Assignment) as input and outputs a complete execution plan: task decomposition, personnel allocation, critical path, risk detection, and rescue plan.
+PlanPilot AI is a 6-Agent automated Pipeline. It takes an assignment requirement (Assignment) as input and outputs a complete execution plan: task decomposition, personnel allocation, critical path, risk detection, and rescue plan.
 
 ```
 User inputs Assignment (title + Rubric text + deadline + team members)
@@ -811,7 +811,7 @@ Note: The HTTP version does not support real-time progress callbacks (uses a no-
 
 | Component                 | Data Source                                             | Functionality                |
 | ----------------------- | ---------------------------------------------------- | -------------------- |
-| `TaskFlowMockup2`        | `useMockupStore2` Zustand store                       | Mockup 2 main container (logo, role toggle, screen routing) |
+| `PlanPilotMockup2`        | `useMockupStore2` Zustand store                       | Mockup 2 main container (logo, role toggle, screen routing) |
 | `ProjectScreen`          | `PROJECTS` mock array                                 | Project home page (project cards, flow guide, contribution button)    |
 | `CreateScreen`           | Form state + `/api/upload`                                 | Step 1: Project creation form        |
 | `TeamScreen`             | `MEM` mock + local state                                     | Step 2: Team member editing        |
@@ -872,12 +872,12 @@ If any step in the Orchestrator errors:
 
 ## 11. Before/After Comparison Logic
 
-`BeforeAfterComparison.tsx` is the Hackathon "killer demo", showcasing the quantifiable value of TaskFlow AI.
+`BeforeAfterComparison.tsx` is the Hackathon "killer demo", showcasing the quantifiable value of PlanPilot AI.
 
 ### Data Sources
 
-- **Before** (without TaskFlow): Uses mockRiskAssessment (unhandled raw risks) + mockPlanResult (raw hours)
-- **After** (with TaskFlow): Uses mockRescuePlan (post-rescue results) + calculated saved hours
+- **Before** (without PlanPilot): Uses mockRiskAssessment (unhandled raw risks) + mockPlanResult (raw hours)
+- **After** (with PlanPilot): Uses mockRescuePlan (post-rescue results) + calculated saved hours
 
 ### Comparison Metrics
 
@@ -922,7 +922,7 @@ This section explains how to verify the correctness of each part of the system, 
 
 ```bash
 # Ensure dev server is running
-cd taskflow-ai
+cd planpilot-ai
 npm run dev    # http://localhost:3000
 
 # All curl commands run in the project root directory
@@ -1725,4 +1725,4 @@ Round 3: Final attempt → Validate → Compare
 
 ---
 
-*Document version: 2026-10-11 v2 | Project: TaskFlow AI | Track 2: WorkBuddy Agentic Solution*
+*Document version: 2026-10-11 v2 | Project: PlanPilot AI | Track 2: WorkBuddy Agentic Solution*

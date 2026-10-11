@@ -1,4 +1,4 @@
-# TaskFlow AI — Existing Features, Remaining Work & Business Logic
+# PlanPilot AI — Existing Features, Remaining Work & Business Logic
 
 This document is divided into three parts:
 1. What currently exists in the app (what actually works, what is just visual)
@@ -293,4 +293,4 @@ Start with step 1: switch screen data from mock to real API results. Scheduling 
 - All task counts (badges, open task counts, progress bars, Defender stats) are now dynamic, computed at runtime from `getProjectTK()`, no longer using hardcoded values
 - `getProjectTK(projectId)` returns the TK array for SRS, and derives TK-format tasks from PGP member data for other projects
 - `getProjectGT(projectId)` returns the GT array for SRS, and derives GT-format Gantt data from PGP member data for other projects
-- Mockup 1 (`TaskFlowMockup.tsx`) is still retained in the codebase as reference, but `page.tsx` has switched to Mockup 2 (`TaskFlowMockup2.tsx`)
+- Mockup 1 (`PlanPilotMockup.tsx`) is still retained in the codebase as reference, but `page.tsx` has switched to Mockup 2 (`PlanPilotMockup2.tsx`)

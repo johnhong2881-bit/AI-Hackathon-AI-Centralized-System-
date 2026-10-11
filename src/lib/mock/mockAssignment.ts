@@ -2,7 +2,7 @@ import type { Assignment } from '../../types/types';
 
 /**
  * Mock Assignment data.
- * This represents the root input to the TaskFlow AI pipeline.
+ * This represents the root input to the PlanPilot AI pipeline.
  * FR-001 (Rubric Intelligence) consumes `rubricText`.
  */
 export const mockAssignment: Assignment = {
