@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMockupStore2 } from '@/store/useMockupStore2';
 import { useTaskStore } from '@/store/useTaskStore';
 import { WorkspaceHeader, av } from './Mockup2Screens';
@@ -158,7 +158,6 @@ function RunPhase() {
   const [activeStage, setActiveStage] = useState(0);
   const [logs, setLogs] = useState<{ icon: string; msg: string; tool: string; detail: string; flag?: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const apiStartedRef = useRef(false);
 
   const reasonText = () => {
     if (defenderReason === null) return '';
@@ -186,10 +185,9 @@ function RunPhase() {
   };
 
   useEffect(() => {
-    if (apiStartedRef.current) return;
-    apiStartedRef.current = true;
-
     let cancelled = false;
+    let stageTimer: ReturnType<typeof setInterval> | null = null;
+    const abortController = new AbortController();
     const store = useTaskStore.getState();
 
     const runRescue = async () => {
@@ -204,13 +202,16 @@ function RunPhase() {
       // Simulate stage progression with real API call
       const stages = DST;
       let stageIdx = 0;
-      const stageTimer = setInterval(() => {
-        if (cancelled) { clearInterval(stageTimer); return; }
+      stageTimer = setInterval(() => {
+        if (cancelled) { if (stageTimer) clearInterval(stageTimer); return; }
         if (stageIdx < stages.length - 1) {
           stageIdx++;
           setActiveStage(stageIdx);
         }
       }, 600);
+
+      // Timeout safety: 15 seconds max
+      const timeoutId = setTimeout(() => abortController.abort(), 15000);
 
       try {
         // Call the real rescue API
@@ -224,7 +225,10 @@ function RunPhase() {
             deadline,
             leaderReason: leaderReasonObj(),
           }),
+          signal: abortController.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -235,7 +239,7 @@ function RunPhase() {
         if (cancelled) return;
 
         store.setRescuePlan(rescuePlan);
-        clearInterval(stageTimer);
+        if (stageTimer) clearInterval(stageTimer);
         setActiveStage(stages.length);
 
         // Build logs from the rescue workflow step history
@@ -275,7 +279,8 @@ function RunPhase() {
           }
         }, 1200);
       } catch (err) {
-        clearInterval(stageTimer);
+        clearTimeout(timeoutId);
+        if (stageTimer) clearInterval(stageTimer);
         if (cancelled) return;
         setActiveStage(-1);
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -286,7 +291,11 @@ function RunPhase() {
 
     runRescue();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      abortController.abort();
+      if (stageTimer) clearInterval(stageTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
